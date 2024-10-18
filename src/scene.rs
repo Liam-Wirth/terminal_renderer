@@ -13,20 +13,9 @@ impl Default for Scene {
 
 impl Scene {
     pub fn new() -> Self {
-        let cube = Entity::new(vec![
-            Vector3::new(-1.0, -1.0, -1.0),
-            Vector3::new( 1.0, -1.0, -1.0),
-            Vector3::new( 1.0,  1.0, -1.0),
-            Vector3::new(-1.0,  1.0, -1.0),
-            Vector3::new(-1.0, -1.0,  1.0),
-            Vector3::new( 1.0, -1.0,  1.0),
-            Vector3::new( 1.0,  1.0,  1.0),
-            Vector3::new(-1.0,  1.0,  1.0),
-        ]);
-
+        let cube = Entity::create_cube();
         Scene {
             entities: vec![cube],
         }
     }
 }
-

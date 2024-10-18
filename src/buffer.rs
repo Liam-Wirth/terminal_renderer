@@ -4,7 +4,9 @@ use std::io::{stdout, Write};
 pub struct Buffer {
     pub width: usize,
     pub height: usize,
-    pub data: Vec<char>,
+    pub data: Vec<char>, // TODO:  Make this be a bespoke struct of sort that holds color data and
+                         // stuff like that instead of just being a char, like a vec of Point or something that holds
+                         // the char it draws, and then the color of it
 }
 
 impl Buffer {
@@ -28,7 +30,7 @@ impl Buffer {
 
     pub fn render_to_terminal(&self) -> std::io::Result<()> {
         let mut stdout = stdout();
-        
+
         for y in 0..self.height {
             for x in 0..self.width {
                 let idx = x + y * self.width;
