@@ -1,0 +1,11 @@
+[package]
+name = "terminal_renderer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crossterm = "0.28.1"
+nalgebra = "0.33.1"
+
+[lib]
+
