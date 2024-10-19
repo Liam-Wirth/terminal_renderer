@@ -1,5 +1,4 @@
-use crate::entity::Entity;
-use nalgebra::Vector3;
+use crate::core::entity::Entity;
 
 pub struct Scene {
     pub entities: Vec<Entity>,

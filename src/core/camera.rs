@@ -6,6 +6,12 @@ pub struct Camera {
     pub fov: f64,
 }
 
+impl Default for Camera {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Camera {
     pub fn new() -> Self {
         Camera {
@@ -21,6 +27,17 @@ impl Camera {
 
     pub fn move_backward(&mut self, dist: f64) {
         self.position -= self.direction * dist;
+    }
+
+    pub fn strafe_left(&mut self, amount: f64) {
+        let left = self.direction.cross(&crate::GLOBAL_UP).normalize();
+        self.position -= left * amount;
+    }
+
+    pub fn strafe_right(&mut self, amount: f64) {
+        let right = self.direction.cross(&crate::GLOBAL_UP).normalize();
+
+        self.position += right * amount;
     }
 
     pub fn turn_left(&mut self, angle: f64) {
@@ -39,10 +56,9 @@ impl Camera {
         //target: The position the camera is looking at.
         //up: The direction that is considered up.
         Matrix4::look_at_rh(
-            &Point3::from(self.position),              // Camera (eye) position
+            &Point3::from(self.position),                  // Camera (eye) position
             &Point3::from(self.position + self.direction), // Target to look at
-            &Vector3::y(),                             // Up direction
+            &Vector3::y(),                                 // Up direction
         )
     }
 }
-
