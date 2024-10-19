@@ -37,6 +37,33 @@ impl Transform {
     pub fn apply_to_vertex(&self, vertex: Vector4<f64>) -> Vector4<f64> {
         return self.get_matrix() * vertex;
     }
+    pub fn rotateX(&mut self, angle: f64) {
+        self.rotation.x += angle;
+    }
+    pub fn rotateY(&mut self, angle: f64) {
+        self.rotation.y += angle;
+    }
+    pub fn rotateZ(&mut self, angle: f64) {
+        self.rotation.z += angle;
+    }
+    pub fn translate(&mut self, x: f64, y: f64, z: f64) {
+        self.position.x += x;
+        self.position.y += y;
+        self.position.z += z;
+    }
+    pub fn scale(&mut self, x: f64, y: f64, z: f64) {
+        self.scale_factor.x *= x;
+        self.scale_factor.y *= y;
+        self.scale_factor.z *= z;
+    }
+    pub fn scale_uniform(&mut self, factor: f64) {
+        self.scale(factor, factor, factor);
+    }
+    pub fn reset(&mut self) {
+        self.position = Vector3::zeros();
+        self.rotation = Vector3::zeros();
+        self.scale_factor = Vector3::new(1., 1., 1.);
+    }
 }
 
 impl Default for Transform {
