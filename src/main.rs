@@ -1,7 +1,5 @@
 use crossterm::{
-    cursor,
-    event::{self, Event, KeyCode},
-    execute, terminal,
+    cursor, event::{self, Event, KeyCode}, execute, style::SetBackgroundColor, terminal
 };
 use std::io::{stdout, Write};
 use std::time::Duration;
@@ -12,11 +10,14 @@ use terminal_renderer::renderers::cpu_termrenderer::render_scene;
 
 fn main() -> std::io::Result<()> {
     let mut stdout = stdout();
-    execute!(stdout, terminal::EnterAlternateScreen, cursor::Hide)?;
+    execute!(stdout, terminal::EnterAlternateScreen, cursor::Hide, SetBackgroundColor(crossterm::style::Color::Rgb{r: 0,b: 0,g: 0}))?;
     terminal::enable_raw_mode()?;
 
     let mut scene = Scene::new();
     let mut camera = Camera::new();
+
+
+
 
     loop {
         // Handle input
@@ -36,12 +37,15 @@ fn main() -> std::io::Result<()> {
                     KeyCode::Char('a') => camera.strafe_left(1.0),
                     KeyCode::Char('d') => camera.strafe_right(1.0),
 
+                    //KeyCode.Char('8') => 
+
                     _ => {}
                 }
             }
         }
 
         // Render the scene
+        // TODO: move the boolean value for wireframe to an enum member, make it be entity specific
         render_scene(&mut stdout, &scene, &camera, true)?;
 
         stdout.flush()?;

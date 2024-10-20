@@ -1,4 +1,4 @@
-use nalgebra::{Matrix4, Point3, Vector3};
+use nalgebra::{Matrix4, Point3, Vector3, Vector2};
 
 pub struct Camera {
     pub position: Vector3<f64>,
@@ -29,12 +29,12 @@ impl Camera {
         self.position -= self.direction * dist;
     }
 
-    pub fn strafe_left(&mut self, amount: f64) {
+    pub fn strafe_right(&mut self, amount: f64) {
         let left = self.direction.cross(&crate::GLOBAL_UP).normalize();
         self.position -= left * amount;
     }
 
-    pub fn strafe_right(&mut self, amount: f64) {
+    pub fn strafe_left(&mut self, amount: f64) {
         let right = self.direction.cross(&crate::GLOBAL_UP).normalize();
 
         self.position += right * amount;
@@ -60,5 +60,17 @@ impl Camera {
             &Point3::from(self.position + self.direction), // Target to look at
             &Vector3::y(),                                 // Up direction
         )
+    }
+    pub fn project_vertex(&self, v: Vector3<f64>, screen_width: &usize, screen_height: &usize) -> Vector2<usize>{
+        let fov_adj = (self.fov / 2.0).to_radians().tan();
+        // z-division, basically adjusts perspective so farther away objects look smaller, closer
+        // ones look bigger
+        let zdiv_x = v.x / (v.z * fov_adj);
+        let zdiv_y = v.y / (v.z * fov_adj);
+
+        let screen_x = ((zdiv_x + 1.)/2. * *screen_width as f64) as usize;
+        let screen_y = ((1.0 - (zdiv_y + 1.0)/2.0) * *screen_height as f64) as usize;
+
+        Vector2::new(screen_x, screen_y)
     }
 }
