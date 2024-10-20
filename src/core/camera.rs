@@ -50,6 +50,28 @@ impl Camera {
         self.direction = rotation.transform_vector(&self.direction);
     }
 
+    pub fn move_up(&mut self, amount: f64) {
+        self.position += crate::GLOBAL_UP * amount;
+    }
+
+    pub fn move_down(&mut self, amount: f64) {
+        self.position -= crate::GLOBAL_UP * amount;
+    }
+
+    // FIX: make movement like minecraft, IE camera moves in global direction for up and down, but
+    // like still relative for forward and backward and strafe, i.e if i strafe forward while
+    // looking up, I don't also move upwards
+    // there's a better term for this that's not "turn down" like pitch?
+    pub fn turn_down(&mut self, angle: f64) {
+        let rotation = Matrix4::new_rotation(self.direction.cross(&crate::GLOBAL_UP).normalize() * angle);
+        self.direction = rotation.transform_vector(&self.direction);
+    }
+
+    pub fn turn_up(&mut self, angle: f64) {
+        let rotation = Matrix4::new_rotation(self.direction.cross(&crate::GLOBAL_UP).normalize() * -angle);
+        self.direction = rotation.transform_vector(&self.direction);
+    }
+
     pub fn get_view_matrix(&self) -> Matrix4<f64> {
         //Matrix4::look_at_rh(eye, target, up)
         //eye: The position of the camera.
