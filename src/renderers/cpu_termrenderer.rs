@@ -8,6 +8,8 @@ use std::io::{stdout, Write};
 
 use crate::core::{camera::Camera, entity, scene::Scene};
 
+use super::renderer::{get_render_mode, RenderMode};
+
 struct Tri {
     v1: Vector2<usize>,
     v2: Vector2<usize>,
@@ -125,12 +127,10 @@ fn is_backface(
 
     dot > 0.0
 }
-
 pub fn render_scene<W: Write>(
     stdout: &mut W,
     scene: &Scene,
     camera: &Camera,
-    fill_faces: bool,
 ) -> std::io::Result<()> {
     // Get terminal size dynamically
     let (width, height) = terminal::size().unwrap();
@@ -142,45 +142,53 @@ pub fn render_scene<W: Write>(
 
     buffer.clear();
 
+    // Get the current render mode (Wireframe or Solid) from the global state
+    let render_mode = get_render_mode();
+
     let view_matrix = camera.get_view_matrix();
 
     for entity in &scene.entities {
-        //let mut projected_vertices: Vec<Vector2<usize>> = vec![];
-        // TODO: Possibly multithread this to do vertexes concurrently
         let transformed: Vec<Vector3<f64>> = entity
             .mesh
             .vertices
             .iter()
             .map(|vert| {
-                let mut v = Vector4::new(vert.x, vert.y, vert.z, 1.0); // why am I hardcoding w?
+                let mut v = Vector4::new(vert.x, vert.y, vert.z, 1.0); // 4D for transformations
                 v = entity.transform.apply_to_vertex(v);
                 v = view_matrix * v;
-                Vector3::new(v.x, v.y, v.z)
+                Vector3::new(v.x, v.y, v.z) // Convert to 3D after transformation
             })
             .collect();
+
         for face in &entity.mesh.faces {
             let v1 = transformed[face.vertices.0];
             let v2 = transformed[face.vertices.1];
             let v3 = transformed[face.vertices.2];
 
-            if is_backface(&v1, &v2, &v3, &camera_direction) && fill_faces {
-                continue;
+            // Only skip backfaces in solid mode (Wireframe mode renders all faces)
+            if is_backface(&v1, &v2, &v3, &camera_direction) && render_mode == RenderMode::Solid {
+                //continue; TODO: Fix the code
             }
 
-            //this might be able to be done concurrently as well?
-            //three little worker processes?
+            // Project vertices to screen space
             let proj_v1 = camera.project_vertex(v1, &width, &height);
             let proj_v2 = camera.project_vertex(v2, &width, &height);
             let proj_v3 = camera.project_vertex(v3, &width, &height);
 
-            if fill_faces {
-                let tria = Tri::new(proj_v1, proj_v2, proj_v3, Pixel::new_full(face.color));
-                draw_filled_triangle(&mut buffer, tria);
-            } else {
-                let pix = Pixel::new('#', face.color);
-                draw_line(&mut buffer,&proj_v1.xy(),&proj_v2.xy(), &pix);
-                draw_line(&mut buffer,&proj_v2.xy(),&proj_v3.xy(), &pix);
-                draw_line(&mut buffer,&proj_v3.xy(),&proj_v1.xy(), &pix);
+            // Switch behavior based on the render mode
+            match render_mode {
+                RenderMode::Wireframe => {
+                    // Wireframe mode: draw the triangle's edges
+                    let pix = Pixel::new('#', face.color);
+                    draw_line(&mut buffer, &proj_v1.xy(), &proj_v2.xy(), &pix);
+                    draw_line(&mut buffer, &proj_v2.xy(), &proj_v3.xy(), &pix);
+                    draw_line(&mut buffer, &proj_v3.xy(), &proj_v1.xy(), &pix);
+                }
+                RenderMode::Solid => {
+                    // Solid mode: fill the triangle
+                    let tria = Tri::new(proj_v1, proj_v2, proj_v3, Pixel::new_full(face.color));
+                    draw_filled_triangle(&mut buffer, tria);
+                }
             }
         }
     }
@@ -189,6 +197,7 @@ pub fn render_scene<W: Write>(
     buffer.render_to_terminal()?;
     Ok(())
 }
+
 // Basic Bresenham's Line Drawing Algorithm for drawing wireframe edges
 fn draw_line(buffer: &mut Buffer, v0: &Vector2<usize>, v1: &Vector2<usize>, pix: &Pixel) {
     let mut v0: Vector2<isize> = v0.cast();

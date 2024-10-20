@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 crossterm = "0.28.1"
+lazy_static = "1.5.0"
 nalgebra = "0.33.1"
 
 [lib]

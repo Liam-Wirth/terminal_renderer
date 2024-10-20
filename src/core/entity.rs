@@ -16,5 +16,10 @@ impl Entity {
         let transform = Transform::new();
         Entity::new(mesh, transform)
     }
+    pub fn create_dodecahedron() -> Self {
+        let mesh = Mesh::create_dodecahedron();
+        let transform = Transform::new();
+        Entity::new(mesh, transform)
+    }
 
 }
