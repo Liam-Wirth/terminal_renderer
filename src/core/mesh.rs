@@ -33,13 +33,11 @@ impl Mesh {
             Vector3::new(-1.0, 1.0, 1.0),
         ];
 
+        #[rustfmt::skip]
         let edges = vec![
             (0, 1), (1, 2), (2, 3), (3, 0), // Back face
             (4, 5), (5, 6), (6, 7), (7, 4), // Front face
-            (0, 4),
-            (1, 5),
-            (2, 6),
-            (3, 7), // Connecting edges
+            (0, 4), (1, 5), (2, 6), (3, 7), // Connecting edges
         ];
 
         let faces = vec![
@@ -96,4 +94,3 @@ impl Mesh {
         Mesh::new(vertices, edges, faces)
     }
 }
-

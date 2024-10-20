@@ -16,4 +16,5 @@ impl Entity {
         let transform = Transform::new();
         Entity::new(mesh, transform)
     }
+
 }
