@@ -166,8 +166,8 @@ pub fn render_scene<W: Write>(
             let v3 = transformed[face.vertices.2];
 
             // Only skip backfaces in solid mode (Wireframe mode renders all faces)
-            if is_backface(&v1, &v2, &v3, &camera_direction) && render_mode == RenderMode::Solid {
-                //continue; TODO: Fix the code
+            if !is_backface(&v1, &v2, &v3, &camera_direction) && render_mode == RenderMode::Solid {
+                continue;
             }
 
             // Project vertices to screen space
@@ -186,8 +186,11 @@ pub fn render_scene<W: Write>(
                 }
                 RenderMode::Solid => {
                     // Solid mode: fill the triangle
+                    let camera_pos = camera.direction;
                     let tria = Tri::new(proj_v1, proj_v2, proj_v3, Pixel::new_full(face.color));
+                    //if is_facing_camera(v1, v2, v3, camera_pos) {
                     draw_filled_triangle(&mut buffer, tria);
+                    //}
                 }
             }
         }
@@ -224,13 +227,14 @@ fn draw_line(buffer: &mut Buffer, v0: &Vector2<usize>, v1: &Vector2<usize>, pix:
 }
 
 // TODO: implement face filling
+
 fn draw_filled_triangle(buffer: &mut Buffer, triangle: Tri) {
     let Tri { v1, v2, v3, pixel } = triangle;
 
     let mut xs = [v1.x as f64, v2.x as f64, v3.x as f64];
     let mut ys = [v1.y as f64, v2.y as f64, v3.y as f64];
 
-    // Sort vertices by y-coordinate (ascending)
+    // Sort vertices by y-coordinate
     if ys[1] < ys[0] {
         xs.swap(0, 1);
         ys.swap(0, 1);
@@ -244,45 +248,48 @@ fn draw_filled_triangle(buffer: &mut Buffer, triangle: Tri) {
         ys.swap(1, 2);
     }
 
-    // Draw flat-bottom triangle
-    if (ys[1] - ys[2]).abs() < f64::EPSILON {
-        let flat_bottom_triangle = Tri {
-            v1: Vector2::new(xs[0] as usize, ys[0] as usize),
-            v2: Vector2::new(xs[1] as usize, ys[1] as usize),
-            v3: Vector2::new(xs[2] as usize, ys[2] as usize),
-            pixel,
-        };
-        fill_flat_bottom_triangle(buffer, flat_bottom_triangle);
+    // Split into flat-bottom and flat-top triangles
+    if (ys[1] - ys[0]).abs() < f64::EPSILON {
+        fill_flat_top_triangle(buffer, Tri { v1, v2, v3, pixel });
+    } else if (ys[2] - ys[1]).abs() < f64::EPSILON {
+        fill_flat_bottom_triangle(buffer, Tri { v1, v2, v3, pixel });
+    } else {
+        let new_v = Vector2::new(
+            (xs[0] + (ys[1] - ys[0]) / (ys[2] - ys[0]) * (xs[2] - xs[0])).round() as usize,
+            ys[1].round() as usize,
+        );
+        fill_flat_bottom_triangle(
+            buffer,
+            Tri {
+                v1,
+                v2: new_v,
+                v3,
+                pixel,
+            },
+        );
+        fill_flat_top_triangle(
+            buffer,
+            Tri {
+                v1: new_v,
+                v2,
+                v3,
+                pixel,
+            },
+        );
     }
-    // Draw flat-top triangle
-    else if (ys[0] - ys[1]).abs() < f64::EPSILON {
-        let flat_top_triangle = Tri {
-            v1: Vector2::new(xs[0] as usize, ys[0] as usize),
-            v2: Vector2::new(xs[1] as usize, ys[1] as usize),
-            v3: Vector2::new(xs[2] as usize, ys[2] as usize),
-            pixel,
-        };
-        fill_flat_top_triangle(buffer, flat_top_triangle);
-    }
-    // General triangle, split into a flat-bottom and flat-top triangle
-    else {
-        let x3 = xs[0] + ((ys[1] - ys[0]) * (xs[2] - xs[0])) / (ys[2] - ys[0]); // Interpolated X coordinate
-        let flat_bottom_triangle = Tri {
-            v1: Vector2::new(xs[0] as usize, ys[0] as usize),
-            v2: Vector2::new(xs[1] as usize, ys[1] as usize),
-            v3: Vector2::new(x3 as usize, ys[1] as usize),
-            pixel,
-        };
-        fill_flat_bottom_triangle(buffer, flat_bottom_triangle);
+}
+fn is_facing_camera(
+    v0: Vector3<f64>,
+    v1: Vector3<f64>,
+    v2: Vector3<f64>,
+    camera_pos: Vector3<f64>,
+) -> bool {
+    let edge1 = v1 - v0;
+    let edge2 = v2 - v0;
+    let normal = edge1.cross(&edge2);
+    let view_direction = v0 - camera_pos;
 
-        let flat_top_triangle = Tri {
-            v1: Vector2::new(xs[1] as usize, ys[1] as usize),
-            v2: Vector2::new(x3 as usize, ys[1] as usize),
-            v3: Vector2::new(xs[2] as usize, ys[2] as usize),
-            pixel,
-        };
-        fill_flat_top_triangle(buffer, flat_top_triangle);
-    }
+    normal.dot(&view_direction) < 0.0
 }
 
 fn fill_flat_bottom_triangle(buffer: &mut Buffer, triangle: Tri) {
