@@ -27,3 +27,12 @@ https://github.com/ryanweideman/3d-terminal-renderer/tree/main/src
 - [ ] github ci/cd with clippy and rustfmt
 
 
+
+# Credit/Helped along the way
+I had a feeling I wasn't the only person to ever try to build a 3d renderer in the terminal, and so whenever I used an online resource In the code comments I put a link above the function or something to the relevant page I used
+
+Of course, I wasn't the only person to try and build this project in rust, and someone much smarter than me did something that ended up being pretty simmilar. About 16 hours in I stumbled across this:
+https://github.com/ryanweideman/3d-terminal-renderer/tree/main
+
+and it was helpful/cool to peruse the code and see how someone smarter/more experienced than me implemented some stuff. Made some decisions that I didn't make, etc.
+Was a nice resource to look at, and helped at times cause I've never taken a linear algebra class and all of this stuff is very new to me
