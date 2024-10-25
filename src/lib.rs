@@ -1,3 +1,5 @@
+use std::default;
+
 use nalgebra::Vector3;
 
 pub mod core {
@@ -14,3 +16,15 @@ pub mod renderers {
 }
 
 const GLOBAL_UP: Vector3<f64> = Vector3::new(0.0, 1.0, 0.0);
+
+// TODO: Decouple or smth from the global render mode
+#[derive(Debug, Default)]
+pub enum RENDERMODE {
+    #[default]
+    Wireframe,
+
+    Solid,
+    WireframeTris, // TODO: logic for this
+}
+
+
