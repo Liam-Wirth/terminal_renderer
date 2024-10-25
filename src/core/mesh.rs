@@ -27,6 +27,8 @@ pub struct Face {
 }
 
 impl Face {
+    // NOTE: Might break if called before surface normals of individual tris are properly
+    // calculated?
     pub fn new(tris: Vec<Tri>) -> Self {
         let mut edges = Vec::new();
 
@@ -63,11 +65,18 @@ impl Face {
 pub struct Mesh {
     pub vertices: Vec<Vector3<f64>>, // 3D coordinates of vertices
     pub faces: Vec<Face>,            // Faces of the mesh
+    pub normals_dirty: bool,         // Will be used later hopefully to implement lazy rendering of
+                                     // normals
 }
 
 impl Mesh {
     pub fn new(vertices: Vec<Vector3<f64>>, faces: Vec<Face>) -> Self {
-        Mesh { vertices, faces }
+        Mesh {
+            vertices,
+            faces,
+            normals_dirty: false,
+        } //on new construction of a mesh, normals
+          //will always be dirty
     }
 
     pub fn create_cube() -> Self {
@@ -122,18 +131,40 @@ impl Mesh {
         ];
 
         let mut out = Mesh::new(vertices, faces);
-        out.calculate_normals();
+        out.mark_normals_dirty(); // I be paranoid
+        out.update_normals();
         out
     }
-    fn calculate_normals(&mut self) {
+    pub fn update_normals(&mut self) {
+        if !self.normals_dirty {
+            return; // Skip if normals are not marked as dirty
+        }
+
+        // Loop through each face in the mesh
         for face in &mut self.faces {
             for tri in &mut face.tris {
                 let v1 = self.vertices[tri.vertices.0];
                 let v2 = self.vertices[tri.vertices.1];
                 let v3 = self.vertices[tri.vertices.2];
+
+                // Calculate the normal for each triangle
                 tri.calculate_normal(&v1, &v2, &v3);
             }
+
+            // Recalculate the face normal (average of all triangle normals)
+            face.normal = face
+                .tris
+                .iter()
+                .fold(Vector3::zeros(), |acc, tri| acc + tri.normal)
+                .normalize();
         }
+
+        self.normals_dirty = false; // Reset the flag once normals are updated
+    }
+
+    // Mark normals as dirty when transformations or changes occur
+    pub fn mark_normals_dirty(&mut self) {
+        self.normals_dirty = true;
     }
 
     // FIX: this jawn broken
