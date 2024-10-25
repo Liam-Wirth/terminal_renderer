@@ -17,13 +17,13 @@ impl Default for Scene {
 impl Scene {
     pub fn new() -> Self {
         //let mut cube = Entity::create_cube();
-        //let mut cube2 = Entity::create_cube();
+        let mut cube2 = Entity::create_cube();
         let mut dodec = Entity::create_dodecahedron();
 
         //cube2.transform = transform::Transform::new();
-        //cube2.transform.translate(4.0, 0., 3.);
+        cube2.transform.translate(4.0, 0., 3.);
         Scene {
-            entities: vec![dodec],
+            entities: vec![dodec, cube2],
         }
     }
 
