@@ -1,76 +1,17 @@
-use crossterm::style::Color;
-use nalgebra::Matrix4;
+use super::{face::Face, tri::Tri};
+use crate::core::color::Color;
+use nalgebra::Point3;
 use nalgebra::Vector3;
 
-pub struct Tri {
-    pub vertices: (usize, usize, usize), // Indices into the vertex array
-    pub color: Color,                    // Optional, or each face has a single color
-    pub normal: Vector3<f64>,            // The surface normal for the triangle
-}
-
-impl Tri {
-    pub fn calculate_normal(&mut self, v1: &Vector3<f64>, v2: &Vector3<f64>, v3: &Vector3<f64>) {
-        self.normal = (v2 - v1).cross(&(v3 - v1)).normalize();
-    }
-
-    pub fn transform_normal(&mut self, transform: &Matrix4<f64>) {
-        let rotation_scale_matrix = transform.fixed_view::<3, 3>(0, 0);
-        self.normal = (rotation_scale_matrix * self.normal).normalize();
-    }
-}
-
-pub struct Face {
-    pub tris: Vec<Tri>,             // Triangles that make up the face
-    pub edges: Vec<(usize, usize)>, // Edges of the face
-    pub color: Color,               // Optional face color
-    pub normal: Vector3<f64>,       // Surface normal for the face
-}
-
-impl Face {
-    // NOTE: Might break if called before surface normals of individual tris are properly
-    // calculated?
-    pub fn new(tris: Vec<Tri>) -> Self {
-        let mut edges = Vec::new();
-
-        // Collect edges from all triangles and avoid duplicates
-        for tri in &tris {
-            let tri_edges = vec![
-                (tri.vertices.0, tri.vertices.1),
-                (tri.vertices.1, tri.vertices.2),
-                (tri.vertices.2, tri.vertices.0),
-            ];
-
-            for edge in tri_edges {
-                if !edges.contains(&edge) && !edges.contains(&(edge.1, edge.0)) {
-                    edges.push(edge);
-                }
-            }
-        }
-
-        // Calculate the face normal as an average of triangle normals
-        let normal = tris
-            .iter()
-            .fold(Vector3::zeros(), |acc, tri| acc + tri.normal)
-            .normalize();
-
-        Self {
-            tris,
-            edges,
-            color: Color::White,
-            normal,
-        }
-    }
-}
-
 pub struct Mesh {
-    pub vertices: Vec<Vector3<f64>>, // 3D coordinates of vertices
-    pub faces: Vec<Face>,            // Faces of the mesh
-    pub normals_dirty: bool,         // Will be used later hopefully to implement lazy rendering of
-                                     // normals
+    pub vertices: Vec<Point3<f64>>, // 3D coordinates of vertices
+    pub faces: Vec<Face>,           // Faces of the mesh
+    pub normals_dirty: bool,        // Will be used later hopefully to implement lazy rendering of
+                                    // normals
 }
 
 impl Mesh {
-    pub fn new(vertices: Vec<Vector3<f64>>, faces: Vec<Face>) -> Self {
+    pub fn new(vertices: Vec<Point3<f64>>, faces: Vec<Face>) -> Self {
         Mesh {
             vertices,
             faces,
@@ -81,60 +22,97 @@ impl Mesh {
 
     pub fn create_cube() -> Self {
         let vertices = vec![
-            Vector3::new(-1.0, -1.0, -1.0),
-            Vector3::new(1.0, -1.0, -1.0),
-            Vector3::new(1.0, 1.0, -1.0),
-            Vector3::new(-1.0, 1.0, -1.0),
-            Vector3::new(-1.0, -1.0, 1.0),
-            Vector3::new(1.0, -1.0, 1.0),
-            Vector3::new(1.0, 1.0, 1.0),
-            Vector3::new(-1.0, 1.0, 1.0),
+            Point3::new(-1.0, -1.0, -1.0),
+            Point3::new(1.0, -1.0, -1.0),
+            Point3::new(1.0, 1.0, -1.0),
+            Point3::new(-1.0, 1.0, -1.0),
+            Point3::new(-1.0, -1.0, 1.0),
+            Point3::new(1.0, -1.0, 1.0),
+            Point3::new(1.0, 1.0, 1.0),
+            Point3::new(-1.0, 1.0, 1.0),
         ];
 
         let faces = vec![
             Face::new(vec![
                 Tri {
                     vertices: (0, 1, 2),
-                    color: Color::Blue,
+                    color: Color::BLUE,
                     normal: Vector3::zeros(),
                 },
                 Tri {
                     vertices: (2, 3, 0),
-                    color: Color::DarkBlue,
+                    color: Color::DARK_BLUE,
                     normal: Vector3::zeros(),
                 },
             ]),
             Face::new(vec![
                 Tri {
                     vertices: (4, 5, 6),
-                    color: Color::Green,
+                    color: Color::GREEN,
                     normal: Vector3::zeros(),
                 },
                 Tri {
                     vertices: (6, 7, 4),
-                    color: Color::DarkGreen,
+                    color: Color::PASTEL_GREEN,
                     normal: Vector3::zeros(),
                 },
             ]),
             Face::new(vec![
                 Tri {
                     vertices: (0, 1, 5),
-                    color: Color::Red,
+                    color: Color::RED,
                     normal: Vector3::zeros(),
                 },
                 Tri {
                     vertices: (5, 4, 0),
-                    color: Color::DarkRed,
+                    color: Color::PASTEL_PINK,
+                    normal: Vector3::zeros(),
+                },
+            ]),
+            Face::new(vec![
+                Tri {
+                    vertices: (2, 3, 7),
+                    color: Color::YELLOW,
+                    normal: Vector3::zeros(),
+                },
+                Tri {
+                    vertices: (7, 6, 2),
+                    color: Color::CORAL,
+                    normal: Vector3::zeros(),
+                },
+            ]),
+            Face::new(vec![
+                Tri {
+                    vertices: (0, 3, 7),
+                    color: Color::MAGENTA,
+                    normal: Vector3::zeros(),
+                },
+                Tri {
+                    vertices: (7, 4, 0),
+                    color: Color::CRIMSON,
+                    normal: Vector3::zeros(),
+                },
+            ]),
+            Face::new(vec![
+                Tri {
+                    vertices: (1, 2, 6),
+                    color: Color::CYAN,
+                    normal: Vector3::zeros(),
+                },
+                Tri {
+                    vertices: (6, 5, 1),
+                    color: Color::DARK_CYAN,
                     normal: Vector3::zeros(),
                 },
             ]),
         ];
 
         let mut out = Mesh::new(vertices, faces);
-        out.mark_normals_dirty(); // I be paranoid
+        out.mark_normals_dirty(); // Mark normals as dirty initially
         out.update_normals();
         out
     }
+
     pub fn update_normals(&mut self) {
         if !self.normals_dirty {
             return; // Skip if normals are not marked as dirty

@@ -1,10 +1,10 @@
-use nalgebra::{Matrix4, Point3, Vector3, Vector2};
+use nalgebra::{Isometry3, Matrix4, Point3, Rotation3, Unit, Vector2, Vector3};
 
 pub struct Camera {
     pub position: Vector3<f64>,
     pub direction: Vector3<f64>,
-    pub right: Vector3<f64>,   // Right vector for strafing
-    pub up: Vector3<f64>,      // Up vector for the camera’s "up" direction
+    pub right: Vector3<f64>, // Right vector for strafing
+    pub up: Vector3<f64>,    // Up vector for the camera’s "up" direction
     pub fov: f64,
 }
 
@@ -16,11 +16,23 @@ impl Default for Camera {
 
 impl Camera {
     pub fn new() -> Self {
+        let direction = Vector3::new(0.0, 0.0, 1.0);
+        let up = Vector3::y(); // Assuming positive Y is up in your world space
+        let right = direction.cross(&up).normalize();
+
         Camera {
             position: Vector3::new(0.0, 0.0, -5.0),
-            direction: Vector3::new(0.0, 0.0, 1.0),
+            direction,
+            right,
+            up,
             fov: 90.0,
         }
+    }
+
+    pub fn update_orientation_vectors(&mut self) {
+        // Ensure the right and up vectors stay consistent with the direction vector
+        self.right = self.direction.cross(&Vector3::y()).normalize();
+        self.up = self.right.cross(&self.direction).normalize();
     }
 
     pub fn move_forward(&mut self, dist: f64) {
@@ -32,68 +44,65 @@ impl Camera {
     }
 
     pub fn strafe_right(&mut self, amount: f64) {
-        let left = self.direction.cross(&crate::GLOBAL_UP).normalize();
-        self.position -= left * amount;
+        self.position += self.right * amount;
     }
 
     pub fn strafe_left(&mut self, amount: f64) {
-        let right = self.direction.cross(&crate::GLOBAL_UP).normalize();
-
-        self.position += right * amount;
-    }
-
-    pub fn turn_left(&mut self, angle: f64) {
-        let rotation = Matrix4::new_rotation(Vector3::y() * angle);
-        self.direction = rotation.transform_vector(&self.direction);
-    }
-
-    pub fn turn_right(&mut self, angle: f64) {
-        let rotation = Matrix4::new_rotation(Vector3::y() * -angle);
-        self.direction = rotation.transform_vector(&self.direction);
+        self.position -= self.right * amount;
     }
 
     pub fn move_up(&mut self, amount: f64) {
-        self.position += crate::GLOBAL_UP * amount;
+        self.position += Vector3::y() * amount;
     }
 
     pub fn move_down(&mut self, amount: f64) {
-        self.position -= crate::GLOBAL_UP * amount;
+        self.position -= Vector3::y() * amount;
     }
 
-    // FIX: make movement like minecraft, IE camera moves in global direction for up and down, but
-    // like still relative for forward and backward and strafe, i.e if i strafe forward while
-    // looking up, I don't also move upwards
-    // there's a better term for this that's not "turn down" like pitch?
-    pub fn turn_down(&mut self, angle: f64) {
-        let rotation = Matrix4::new_rotation(self.direction.cross(&crate::GLOBAL_UP).normalize() * angle);
-        self.direction = rotation.transform_vector(&self.direction);
+    pub fn turn_left(&mut self, angle: f64) {
+        let rotation = Rotation3::from_axis_angle(&Vector3::y_axis(), angle);
+        self.direction = rotation * self.direction;
+        self.update_orientation_vectors();
+    }
+
+    pub fn turn_right(&mut self, angle: f64) {
+        let rotation = Rotation3::from_axis_angle(&Vector3::y_axis(), -angle);
+        self.direction = rotation * self.direction;
+        self.update_orientation_vectors();
     }
 
     pub fn turn_up(&mut self, angle: f64) {
-        let rotation = Matrix4::new_rotation(self.direction.cross(&crate::GLOBAL_UP).normalize() * -angle);
-        self.direction = rotation.transform_vector(&self.direction);
+        let rotation = Rotation3::from_axis_angle(&Unit::new_normalize(self.right), -angle);
+        self.direction = rotation * self.direction;
+        self.update_orientation_vectors();
+    }
+
+    pub fn turn_down(&mut self, angle: f64) {
+        let rotation = Rotation3::from_axis_angle(&Unit::new_normalize(self.right), angle);
+        self.direction = rotation * self.direction;
+        self.update_orientation_vectors();
     }
 
     pub fn get_view_matrix(&self) -> Matrix4<f64> {
-        //Matrix4::look_at_rh(eye, target, up)
-        //eye: The position of the camera.
-        //target: The position the camera is looking at.
-        //up: The direction that is considered up.
         Matrix4::look_at_rh(
             &Point3::from(self.position),                  // Camera (eye) position
             &Point3::from(self.position + self.direction), // Target to look at
-            &Vector3::y(),                                 // Up direction
+            &self.up,                                      // Up direction
         )
     }
-    pub fn project_vertex(&self, v: Vector3<f64>, screen_width: &usize, screen_height: &usize) -> Vector2<usize>{
+
+    pub fn project_vertex(
+        &self,
+        v: Vector3<f64>,
+        screen_width: &usize,
+        screen_height: &usize,
+    ) -> Vector2<usize> {
         let fov_adj = (self.fov / 2.0).to_radians().tan();
-        // z-division, basically adjusts perspective so farther away objects look smaller, closer
-        // ones look bigger
         let zdiv_x = v.x / (v.z * fov_adj);
         let zdiv_y = v.y / (v.z * fov_adj);
 
-        let screen_x = ((zdiv_x + 1.)/2. * *screen_width as f64) as usize;
-        let screen_y = ((1.0 - (zdiv_y + 1.0)/2.0) * *screen_height as f64) as usize;
+        let screen_x = ((zdiv_x + 1.) / 2. * *screen_width as f64) as usize;
+        let screen_y = ((1.0 - (zdiv_y + 1.0) / 2.0) * *screen_height as f64) as usize;
 
         Vector2::new(screen_x, screen_y)
     }

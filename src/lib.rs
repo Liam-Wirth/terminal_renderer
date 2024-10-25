@@ -8,6 +8,9 @@ pub mod core {
     pub mod mesh;
     pub mod scene;
     pub mod transform;
+    pub mod face;
+    pub mod tri;
+    pub mod color;
 }
 
 pub mod renderers {
@@ -26,5 +29,6 @@ pub enum RENDERMODE {
     Solid,
     WireframeTris, // TODO: logic for this
 }
+
 
 
