@@ -10,16 +10,37 @@ use crate::core::{camera::Camera, entity, scene::Scene};
 
 use super::renderer::{get_render_mode, RenderMode};
 
+// TODO: re-implement such that all meshes are built of faces, which are just collections of tris
 struct Tri {
     v1: Vector2<usize>,
     v2: Vector2<usize>,
     v3: Vector2<usize>,
     pixel: Pixel,
+    // NOTE: might be better to not use Option
+    surface_normal: Vector3<f64>,
 }
 
 impl Tri {
+    #[rustfmt::skip]
     pub fn new(v1: Vector2<usize>, v2: Vector2<usize>, v3: Vector2<usize>, pixel: Pixel) -> Self {
-        Tri { v1, v2, v3, pixel }
+        // NOTE: Not happy that it starts zeroed out, maybe the fix is move the calc surface normal
+        // outside of Tri? and just pass it u and v and then it returns a normal?
+        Tri { v1, v2, v3, pixel, surface_normal: Vector3::new(0.0, 0.0, 0.0) } 
+    }
+    // Calculate the surface normal of the specific tri
+    // https://www.khronos.org/opengl/wiki/Calculating_a_Surface_Normal
+    //
+    // Nx = UyVz - UzVy
+    //Ny = UzVx - UxVz
+    //Nz = UxVy - UyVx
+    pub fn calculate_surface_normal(&mut self) -> Vector3<f64> {
+        // not sure if I'm properly representing the lines/edges as 3d vectors?
+        let u = Vector3::new(self.v2.x as f64 - self.v1.x as f64, self.v2.y as f64 - self.v1.y as f64, 0.0);
+        let v = Vector3::new(self.v3.x as f64 - self.v1.x as f64, self.v3.y as f64 - self.v1.y as f64, 0.0);
+
+        let normal = u.cross(&v).normalize();
+        self.surface_normal = normal;
+        normal
     }
 }
 
@@ -113,6 +134,11 @@ fn is_backface_2d(v1: &Vector2<f64>, v2: &Vector2<f64>, v3: &Vector2<f64>) -> bo
     cross_product < 0.0
 }
 
+// TODO: Maybe instead implement an "is_visible" that shoots a ray out of the camera to each tri to
+// try and see if that tri is visible to the camera (does that ray intersect the tri?)
+//
+//
+//
 fn is_backface(
     v1: &Vector3<f64>,
     v2: &Vector3<f64>,
@@ -125,8 +151,10 @@ fn is_backface(
     let norm = edge1.cross(&edge2);
     let dot = norm.dot(camera_direction);
 
-    dot > 0.0
+    //dot > 0.0
+    true
 }
+
 pub fn render_scene<W: Write>(
     stdout: &mut W,
     scene: &Scene,
@@ -188,9 +216,9 @@ pub fn render_scene<W: Write>(
                     // Solid mode: fill the triangle
                     let camera_pos = camera.direction;
                     let tria = Tri::new(proj_v1, proj_v2, proj_v3, Pixel::new_full(face.color));
-                    //if is_facing_camera(v1, v2, v3, camera_pos) {
-                    draw_filled_triangle(&mut buffer, tria);
-                    //}
+                    if is_facing_camera(v1, v2, v3, camera_pos) {
+                        draw_filled_triangle(&mut buffer, tria);
+                    }
                 }
             }
         }
@@ -289,7 +317,7 @@ fn is_facing_camera(
     let normal = edge1.cross(&edge2);
     let view_direction = v0 - camera_pos;
 
-    normal.dot(&view_direction) < 0.0
+    normal.dot(&view_direction) > 0.0
 }
 
 fn fill_flat_bottom_triangle(buffer: &mut Buffer, triangle: Tri) {
