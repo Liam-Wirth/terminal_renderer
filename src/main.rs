@@ -6,7 +6,6 @@ use std::time::Duration;
 
 use terminal_renderer::{core::{camera::Camera, scene::Scene}, renderers::renderer::{cycle_render_mode, set_render_mode, RenderMode}};
 
-use terminal_renderer::renderers::cpu_termrenderer::render_scene;
 use terminal_renderer::renderers::renderer::get_render_mode;
 fn main() -> std::io::Result<()> {
     let mut stdout = stdout();
@@ -53,7 +52,7 @@ fn main() -> std::io::Result<()> {
 
         // Render the scene
         // TODO: move the boolean value for wireframe to an enum member, make it be entity specific
-        render_scene(&mut stdout, &scene, &camera)?;
+        //render_scene(&mut stdout, &scene, &camera)?;
 
         stdout.flush()?;
     }

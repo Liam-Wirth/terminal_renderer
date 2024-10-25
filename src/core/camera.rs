@@ -3,6 +3,8 @@ use nalgebra::{Matrix4, Point3, Vector3, Vector2};
 pub struct Camera {
     pub position: Vector3<f64>,
     pub direction: Vector3<f64>,
+    pub right: Vector3<f64>,   // Right vector for strafing
+    pub up: Vector3<f64>,      // Up vector for the camera’s "up" direction
     pub fov: f64,
 }
 
