@@ -10,40 +10,6 @@ use crate::core::{camera::Camera, entity, scene::Scene};
 
 use super::renderer::{get_render_mode, RenderMode};
 
-// TODO: re-implement such that all meshes are built of faces, which are just collections of tris
-struct Tri {
-    v1: Vector2<usize>,
-    v2: Vector2<usize>,
-    v3: Vector2<usize>,
-    pixel: Pixel,
-    // NOTE: might be better to not use Option
-    surface_normal: Vector3<f64>,
-}
-
-impl Tri {
-    #[rustfmt::skip]
-    pub fn new(v1: Vector2<usize>, v2: Vector2<usize>, v3: Vector2<usize>, pixel: Pixel) -> Self {
-        // NOTE: Not happy that it starts zeroed out, maybe the fix is move the calc surface normal
-        // outside of Tri? and just pass it u and v and then it returns a normal?
-        Tri { v1, v2, v3, pixel, surface_normal: Vector3::new(0.0, 0.0, 0.0) } 
-    }
-    // Calculate the surface normal of the specific tri
-    // https://www.khronos.org/opengl/wiki/Calculating_a_Surface_Normal
-    //
-    // Nx = UyVz - UzVy
-    //Ny = UzVx - UxVz
-    //Nz = UxVy - UyVx
-    pub fn calculate_surface_normal(&mut self) -> Vector3<f64> {
-        // not sure if I'm properly representing the lines/edges as 3d vectors?
-        let u = Vector3::new(self.v2.x as f64 - self.v1.x as f64, self.v2.y as f64 - self.v1.y as f64, 0.0);
-        let v = Vector3::new(self.v3.x as f64 - self.v1.x as f64, self.v3.y as f64 - self.v1.y as f64, 0.0);
-
-        let normal = u.cross(&v).normalize();
-        self.surface_normal = normal;
-        normal
-    }
-}
-
 #[derive(Clone, Copy)]
 pub struct Pixel {
     pub ch: char,
@@ -139,21 +105,21 @@ fn is_backface_2d(v1: &Vector2<f64>, v2: &Vector2<f64>, v3: &Vector2<f64>) -> bo
 //
 //
 //
-fn is_backface(
-    v1: &Vector3<f64>,
-    v2: &Vector3<f64>,
-    v3: &Vector3<f64>,
-    camera_direction: &Vector3<f64>,
-) -> bool {
-    let edge1 = v2 - v1;
-    let edge2 = v3 - v1;
-
-    let norm = edge1.cross(&edge2);
-    let dot = norm.dot(camera_direction);
-
-    //dot > 0.0
-    true
-}
+//fn is_backface(
+//    v1: &Vector3<f64>,
+//    v2: &Vector3<f64>,
+//    v3: &Vector3<f64>,
+//    camera_direction: &Vector3<f64>,
+//) -> bool {
+//    let edge1 = v2 - v1;
+//    let edge2 = v3 - v1;
+//
+//    let norm = edge1.cross(&edge2);
+//    let dot = norm.dot(camera_direction);
+//
+//    //dot > 0.0
+//    true
+//}
 
 pub fn render_scene<W: Write>(
     stdout: &mut W,
