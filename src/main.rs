@@ -1,70 +1,75 @@
 use crossterm::{
-    cursor,
-    event::{self, Event, KeyCode, ModifierKeyCode},
+    cursor::{Hide, MoveTo, Show},
+    event::{self, Event, KeyCode},
     execute,
-    style::SetBackgroundColor,
+    style::{Color, SetBackgroundColor, SetForegroundColor},
     terminal,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen},
+    QueueableCommand,
 };
-use std::io::{stdout, Write};
-use std::time::Duration;
-
-use terminal_renderer::{
-    core::{camera::Camera, scene::Scene},
-    renderers::renderer::{cycle_render_mode, set_render_mode, RenderMode},
+use std::{
+    io::{stdout, Write},
+    time::Duration,
 };
 
-use terminal_renderer::renderers::renderer::get_render_mode;
+//use nalgebra::{Point3, Vector3, Vector2};
+use terminal_renderer::{core::{camera::Camera, entity::Entity, scene::Scene}, renderers::{cpu_termrenderer::render_scene, renderer::{get_render_mode, set_render_mode, RenderMode}}};
+//use terminal_renderer::renderers::{get_render_mode, RenderMode, set_render_mode, render_scene};
+
 fn main() -> std::io::Result<()> {
     let mut stdout = stdout();
     execute!(
         stdout,
-        terminal::EnterAlternateScreen,
-        cursor::Hide,
-        SetBackgroundColor(crossterm::style::Color::Rgb { r: 0, b: 0, g: 0 })
+        EnterAlternateScreen,
+        Hide,
+        SetBackgroundColor(Color::Black)
     )?;
     terminal::enable_raw_mode()?;
 
     let mut scene = Scene::new();
     let mut camera = Camera::new();
+    
+    // Add an entity to the scene for testing, e.g., a cube
+    let cube = Entity::create_cube();
+    scene.entities.push(cube);
+
+    // Set the initial render mode
     set_render_mode(RenderMode::Solid);
 
+    // Game Loop
     loop {
-        // Handle input
-        let render_mode = get_render_mode();
+        // Handle input for controlling the camera
         if event::poll(Duration::from_millis(1))? {
             if let Event::Key(key) = event::read()? {
                 match key.code {
                     KeyCode::Char('q') => break, // Quit the loop
-                    // TODO: fps like input, extract into separate file, manage keystate via
-                    // hashset
                     KeyCode::Up => camera.turn_up(0.1),
                     KeyCode::Down => camera.turn_down(0.1),
                     KeyCode::Left => camera.turn_left(0.1),
                     KeyCode::Right => camera.turn_right(0.1),
-
                     KeyCode::Char('w') => camera.move_forward(1.0),
                     KeyCode::Char('s') => camera.move_backward(1.0),
                     KeyCode::Char('a') => camera.strafe_left(1.0),
                     KeyCode::Char('d') => camera.strafe_right(1.0),
-
                     KeyCode::Char(' ') => camera.move_up(1.0),
-                    KeyCode::Modifier(ModifierKeyCode::LeftControl) => camera.move_down(1.0),
-
-                    KeyCode::Char('p') => cycle_render_mode(),
-
+                    KeyCode::Char('c') => camera.move_down(1.0),
+                    KeyCode::Char('p') => set_render_mode(match get_render_mode() {
+                        RenderMode::Solid => RenderMode::Wireframe,
+                        RenderMode::Wireframe => RenderMode::Solid,
+                    }),
                     _ => {}
                 }
             }
         }
 
-        // Render the scene
-        // TODO: move the boolean value for wireframe to an enum member, make it be entity specific
-        //render_scene(&mut stdout, &scene, &camera)?;
-
+        // Clear the screen and render the scene
+        terminal::Clear(terminal::ClearType::All);
+        render_scene(&mut stdout, &mut scene, &camera)?;
+        
         stdout.flush()?;
     }
 
-    execute!(stdout, cursor::Show, terminal::LeaveAlternateScreen)?;
+    execute!(stdout, Show, LeaveAlternateScreen)?;
     terminal::disable_raw_mode()?;
 
     Ok(())

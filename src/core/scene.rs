@@ -21,7 +21,7 @@ impl Scene {
         //let mut dodec = Entity::create_dodecahedron();
 
         //cube2.transform = transform::Transform::new();
-        cube2.transform.translate(4.0, 0., 3.);
+        cube2.transform.translate(0.0, 0., 0.);
         Scene {
             entities: vec![cube2],
         }
