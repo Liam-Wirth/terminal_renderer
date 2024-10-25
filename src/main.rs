@@ -1,23 +1,32 @@
 use crossterm::{
-    cursor, event::{self, Event, KeyCode, ModifierKeyCode}, execute, style::SetBackgroundColor, terminal
+    cursor,
+    event::{self, Event, KeyCode, ModifierKeyCode},
+    execute,
+    style::SetBackgroundColor,
+    terminal,
 };
 use std::io::{stdout, Write};
 use std::time::Duration;
 
-use terminal_renderer::{core::{camera::Camera, scene::Scene}, renderers::renderer::{cycle_render_mode, set_render_mode, RenderMode}};
+use terminal_renderer::{
+    core::{camera::Camera, scene::Scene},
+    renderers::renderer::{cycle_render_mode, set_render_mode, RenderMode},
+};
 
 use terminal_renderer::renderers::renderer::get_render_mode;
 fn main() -> std::io::Result<()> {
     let mut stdout = stdout();
-    execute!(stdout, terminal::EnterAlternateScreen, cursor::Hide, SetBackgroundColor(crossterm::style::Color::Rgb{r: 0,b: 0,g: 0}))?;
+    execute!(
+        stdout,
+        terminal::EnterAlternateScreen,
+        cursor::Hide,
+        SetBackgroundColor(crossterm::style::Color::Rgb { r: 0, b: 0, g: 0 })
+    )?;
     terminal::enable_raw_mode()?;
 
     let mut scene = Scene::new();
     let mut camera = Camera::new();
     set_render_mode(RenderMode::Solid);
-
-
-
 
     loop {
         // Handle input
@@ -41,9 +50,7 @@ fn main() -> std::io::Result<()> {
                     KeyCode::Char(' ') => camera.move_up(1.0),
                     KeyCode::Modifier(ModifierKeyCode::LeftControl) => camera.move_down(1.0),
 
-
                     KeyCode::Char('p') => cycle_render_mode(),
-
 
                     _ => {}
                 }
