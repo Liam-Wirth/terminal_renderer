@@ -177,26 +177,7 @@ fn draw_line(buffer: &mut Buffer, v0: &Vector2<usize>, v1: &Vector2<usize>, pix:
 
 //https://groups.csail.mit.edu/graphics/classes/6.837/F98/Lecture7/triangles.html
 fn draw_filled_triangle_scanline(buffer: &mut Buffer, v0: &Vector2<usize>, v1: &Vector2<usize>, v2: &Vector2<usize>, pix: &Pixel) {
-    // Sort the vertices by y-coordinate
-    let mut vertices = [v0, v1, v2];
-    vertices.sort_by(|a, b| a.y.cmp(&b.y));
-    let (v0, v1, v2) = (*vertices[0], *vertices[1], *vertices[2]);
-
-    // Edge slopes
-    let slope_left = (v1.x as f64 - v0.x as f64) / (v1.y as f64 - v0.y as f64);
-    let slope_right = (v2.x as f64 - v0.x as f64) / (v2.y as f64 - v0.y as f64);
-
-    // Iterate over scanlines between y0 and y2
-    for y in v0.y..=v2.y {
-        // Interpolate x-coordinates along the left and right edges
-        let xl = v0.x as f64 + (y as f64 - v0.y as f64) * slope_left;
-        let xr = v0.x as f64 + (y as f64 - v0.y as f64) * slope_right;
-
-        // Draw horizontal line
-        for x in xl as usize..=xr as usize {
-            buffer.set_pixel(x, y, pix.ch, pix.color);
-        }
-    }
+    todo!();
 }
 
 
