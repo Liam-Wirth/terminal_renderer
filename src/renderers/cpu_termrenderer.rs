@@ -12,6 +12,10 @@ use crate::core::{camera::Camera, entity, scene::Scene};
 
 use super::renderer::{get_render_mode, RenderMode};
 
+
+// TODO: would be cool to make this more abstract/ abstract a lot of the logic such that
+// I can just have alot of these structs exist as the "backend" for whatever type of output
+// rendering I end up trying to do (ppm file -> png, ppm gif or smth, I dunno)
 #[derive(Clone, Copy)]
 pub struct Pixel {
     pub ch: char,
@@ -134,6 +138,9 @@ pub fn render_scene<W: Write>(
                     draw_line(&mut buffer, &v0, &v1, &Pixel::new('#', tri.color));
                     draw_line(&mut buffer, &v1, &v2, &Pixel::new('#', tri.color));
                     draw_line(&mut buffer, &v2, &v0, &Pixel::new('#', tri.color));
+                } else if render_mode == RenderMode::Solid {
+                    draw_filled_triangle_scanline(&mut buffer, &v0, &v1, &v2, &Pixel::new('#', tri.color));
+                    
                 }
             }
         }
