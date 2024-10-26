@@ -2,6 +2,8 @@ use lazy_static::lazy_static;
 use nalgebra::Vector2;
 use std::sync::Mutex;
 
+// TODO: Add a toggle to switch between tri coloring and face coloring
+//
 // Enum for rendering modes
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RenderMode {

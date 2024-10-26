@@ -20,10 +20,9 @@ impl Entity {
     }
     //TODO:
     pub fn create_dodecahedron() -> Self {
-        //let mesh = Mesh::create_dodecahedron();
-        //let transform = Transform::new();
-        //Entity::new(mesh, transform)
-        Entity::new(Mesh::create_cube(), Transform::new())
+        let mesh = Mesh::create_dodecahedron();
+        let transform = Transform::new();
+        Entity::new(mesh, transform)
     }
 
     pub fn cycle_render_mode(&mut self) {

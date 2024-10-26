@@ -18,6 +18,7 @@ https://github.com/ryanweideman/3d-terminal-renderer/tree/main/src
 - [ ] Unify useage of Nalgebra functionality accross all files
     - Basically, I think I'm not using nalgebra to it's fullest potential and there's probably a lot of functionality I'm leaving "on the table"
 - [ ] Better document code, Rust is very much self-documenting, but it's good to explain things as I go as well
+- [ ] Beautify the links as markdown links for the "Links I looked at section"
 
 
 
@@ -36,3 +37,12 @@ https://github.com/ryanweideman/3d-terminal-renderer/tree/main
 
 and it was helpful/cool to peruse the code and see how someone smarter/more experienced than me implemented some stuff. Made some decisions that I didn't make, etc.
 Was a nice resource to look at, and helped at times cause I've never taken a linear algebra class and all of this stuff is very new to me
+
+
+
+
+
+## Links I Looked at:
+https:en.wikipedia.org/wiki/Curve_orientation#Orientation_of_a_simple_polygon <- Backface Culling?
+https:groups.csail.mit.edu/graphics/classes/6.837/F98/Lecture7/triangles.html <- Triangle Filling
+
