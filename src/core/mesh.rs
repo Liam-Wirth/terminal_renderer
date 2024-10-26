@@ -3,6 +3,7 @@ use crate::core::color::Color;
 use nalgebra::Point3;
 use nalgebra::Vector3;
 
+#[derive(Debug, Clone)]
 pub struct Mesh {
     pub vertices: Vec<Point3<f64>>, // 3D coordinates of vertices
     pub faces: Vec<Face>,           // Faces of the mesh
@@ -12,12 +13,9 @@ pub struct Mesh {
 
 impl Mesh {
     pub fn new(vertices: Vec<Point3<f64>>, faces: Vec<Face>) -> Self {
-        Mesh {
-            vertices,
-            faces,
-            normals_dirty: true, // on construction just consider normals dirty by default
-        } //on new construction of a mesh, normals
-          //will always be dirty
+        let mut out = Mesh { vertices, faces, normals_dirty: true};
+        out.check_and_fix_winding_order();
+        out
     }
 
     // NOTE: Might be better to move these "primitive"/hardcoded shapes/models elsewhere in the
@@ -239,8 +237,63 @@ impl Mesh {
         let mut out = Mesh::new(vertices, faces);
         out.mark_normals_dirty();
         out.update_normals(); // TODO: Make sure this works/ exists
-
+        out.check_and_fix_winding_order();
         out
+    }
+        // THANK YOU CHATGPT O1 FOR HELPING ME LEARN ABOUT THIS!!! I WOULD NEVER!!! HAVE FIGURED
+        // OUT WHY CULLING WASN'T WORKING ON MY OWN
+        // (after learning I did a bunch of reading and stack overflow looking and eventually
+        // learned how to implement it on my own sans-gpt ofc :) 
+        pub fn check_and_fix_winding_order(&mut self) {
+        let centroid = self.calculate_centroid();
+
+        for face in &mut self.faces {
+            for tri in &mut face.tris {
+                let v0 = self.vertices[tri.vertices.0];
+                let v1 = self.vertices[tri.vertices.1];
+                let v2 = self.vertices[tri.vertices.2];
+
+                let edge1 = v1 - v0;
+                let edge2 = v2 - v0;
+                let normal = edge1.cross(&edge2).normalize();
+
+                let face_center = (v0.coords + v1.coords + v2.coords) / 3.0;
+
+                let to_center = face_center - centroid;
+
+                if normal.dot(&to_center) < 0.0 {
+                    // The normal is pointing inward; fix the winding order by swapping v2 and 3
+                    tri.vertices = (tri.vertices.0, tri.vertices.2, tri.vertices.1);
+
+                    // Recalculate the normal after fixing the winding order
+                    let edge1 = self.vertices[tri.vertices.1] - self.vertices[tri.vertices.0];
+                    let edge2 = self.vertices[tri.vertices.2] - self.vertices[tri.vertices.0];
+                    tri.normal = edge1.cross(&edge2).normalize();
+                } else {
+                    // The normal is correct
+                    tri.normal = normal;
+                }
+            }
+
+            // Recalculate face normal as the average of its triangles' normals
+            face.normal = face
+                .tris
+                .iter()
+                .fold(Vector3::zeros(), |acc, tri| acc + tri.normal)
+                / (face.tris.len() as f64);
+            face.normal = face.normal.normalize();
+        }
+    }
+        // Function to calculate the centroid of the mesh
+    fn calculate_centroid(&self) -> Vector3<f64> {
+        let mut centroid = Vector3::zeros();
+        let num_vertices = self.vertices.len() as f64;
+
+        for vertex in &self.vertices {
+            centroid += vertex.coords;
+        }
+
+        centroid / num_vertices
     }
 }
 

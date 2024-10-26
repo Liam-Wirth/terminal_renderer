@@ -38,12 +38,14 @@ fn main() -> std::io::Result<()> {
     // Add an entity to the scene for testing, e.g., a cube
     let cube = Entity::create_cube();
     let dodec = Entity::create_dodecahedron();
-    scene.entities.push(dodec);
+    let mut swap = dodec;
+    scene.entities.push(swap);
 
     // Set the initial render mode
     set_render_mode(RenderMode::Solid);
 
     // Game Loop
+    let mut pause_spin = false;
     loop {
         // Handle input for controlling the camera
         if event::poll(Duration::from_millis(1))? {
@@ -65,14 +67,20 @@ fn main() -> std::io::Result<()> {
                         RenderMode::Wireframe => RenderMode::Solid,
                     }),
                     KeyCode::Char('7') => {
-                        scene.entities[0].transform.rotate(0.1, 0.03, 0.5);
-                        _ = scene.entities[0].transform.get_matrix();
+                        pause_spin = !pause_spin;
                     }
+                    KeyCode::Char('5') => {
+                    }
+
                     _ => {}
                 }
             }
         }
 
+        if !pause_spin {
+            scene.entities[0].transform.rotate(0.01, 0.03, 0.05);
+            _ = scene.entities[0].transform.get_matrix();
+        }
         // Clear the screen and render the scene
         terminal::Clear(terminal::ClearType::All);
         render_scene(&mut stdout, &mut scene, &camera)?;

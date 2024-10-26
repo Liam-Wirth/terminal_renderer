@@ -1,5 +1,7 @@
 use nalgebra::{Isometry3, Matrix4, Point3, Rotation3, SimdValue, Similarity3, Vector3};
 
+/// A struct to represent a transformation in 3D space
+#[derive(Debug, Clone)]
 pub struct Transform {
     pub position: Point3<f64>,
     pub rotation: Vector3<f64>,

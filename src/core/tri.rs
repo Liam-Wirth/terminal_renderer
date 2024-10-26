@@ -1,6 +1,7 @@
 use crate::core::color::Color;
 use nalgebra::{Matrix4, Point3, Vector3};
 
+#[derive(Debug, Clone)]
 pub struct Tri {
     pub vertices: (usize, usize, usize), // Indices into the vertex array
     pub color: Color,                    // Optional, or each face has a single color
