@@ -1,4 +1,4 @@
-use nalgebra::{Isometry3, Matrix4, Point3, Rotation3, Unit, Vector2, Vector3};
+use nalgebra::{Isometry3, Matrix4, Point2, Point3, Rotation3, Unit, Vector2, Vector3};
 
 pub struct Camera {
     pub position: Vector3<f64>,
@@ -96,17 +96,13 @@ impl Camera {
         v: Vector3<f64>,
         screen_width: &usize,
         screen_height: &usize,
-    ) -> Vector2<usize> {
+    ) -> Point2<usize> {
         let fov_adj = (self.fov / 2.0).to_radians().tan();
         let aspect = *screen_width as f64 / *screen_height as f64;
 
-        // NOTE: Applying aspect ratio to this
-        let zdiv_x = v.x / (v.z * fov_adj) / aspect;
-        let zdiv_y = v.y / (v.z * fov_adj);
+        let x = (v.x / (v.z * fov_adj * aspect) + 1.0) * 0.5 * *screen_width as f64;
+        let y = (1.0 - v.y / (v.z * fov_adj)) * 0.5 * *screen_height as f64;
 
-        let screen_x = ((zdiv_x + 1.) / 2. * *screen_width as f64) as usize;
-        let screen_y = ((1.0 - (zdiv_y + 1.0) / 2.0) * *screen_height as f64) as usize;
-
-        Vector2::new(screen_x, screen_y)
+        Point2::new(x as usize, y as usize)
     }
 }

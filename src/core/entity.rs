@@ -2,6 +2,7 @@ use crate::core::mesh::Mesh;
 use crate::core::transform::Transform;
 use crate::RENDERMODE;
 
+#[derive(Debug, Clone)]
 pub struct Entity {
     pub mesh: Mesh,
     pub transform: Transform,

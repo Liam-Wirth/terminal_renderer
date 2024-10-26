@@ -2,6 +2,7 @@ use super::tri::Tri;
 use crate::core::color::Color;
 use nalgebra::{Point3, Vector3};
 
+#[derive(Debug, Clone)]
 pub struct Face {
     pub tris: Vec<Tri>,             // Triangles that make up the face
     pub edges: Vec<(usize, usize)>, // Edges of the face
