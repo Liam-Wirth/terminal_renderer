@@ -1,3 +1,5 @@
+// TODO: implement like a "Colors" enum to be able to more quickly access the predefined colors or
+// something
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Color {
     pub r: u8, // Red component (0-255)
@@ -173,6 +175,7 @@ impl Color {
     };
 
     // Bright Colors
+    /// #ff453a
     pub const BRIGHT_RED: Color = Color {
         r: 255,
         g: 69,
@@ -297,7 +300,6 @@ impl Color {
         b: 50,
     };
 
-    // Extra Colors
     pub const MAROON: Color = Color { r: 128, g: 0, b: 0 };
     pub const NAVY: Color = Color { r: 0, g: 0, b: 128 };
     pub const BEIGE: Color = Color {
