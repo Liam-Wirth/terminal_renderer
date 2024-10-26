@@ -98,6 +98,9 @@ pub fn render_scene<W: Write>(
     let width = width as usize;
     let height = height as usize;
 
+
+
+
     // Initialize the buffer
     let mut buffer = Buffer::new(width, height);
     buffer.clear();
@@ -139,7 +142,7 @@ pub fn render_scene<W: Write>(
                     draw_line(&mut buffer, &v1, &v2, &Pixel::new('#', tri.color));
                     draw_line(&mut buffer, &v2, &v0, &Pixel::new('#', tri.color));
                 } else if render_mode == RenderMode::Solid {
-                    draw_filled_triangle_scanline(&mut buffer, &v0, &v1, &v2, &Pixel::new('#', tri.color));
+                    //draw_filled_triangle_scanline(&mut buffer, &v0, &v1, &v2, &Pixel::new('#', tri.color));
                     
                 }
             }
@@ -179,5 +182,20 @@ fn draw_line(buffer: &mut Buffer, v0: &Vector2<usize>, v1: &Vector2<usize>, pix:
 fn draw_filled_triangle_scanline(buffer: &mut Buffer, v0: &Vector2<usize>, v1: &Vector2<usize>, v2: &Vector2<usize>, pix: &Pixel) {
     todo!();
 }
+// https://en.wikipedia.org/wiki/Curve_orientation#Orientation_of_a_simple_polygon
+// NOTE: Apparently it is generally more efficient to backface cull AFTER screen projection via a
+// counterclockwise check (if counterclockwise, cull I think)
+// The other method involves surface normals, but might be more costly?
+fn is_clockwise() -> bool {
+    false
+}
+
+// implementing both cause fuck it
+// https://en.wikipedia.org/wiki/Back-face_culling
+fn is_backface_normals() -> bool {
+   
+    false
+}
+
 
 

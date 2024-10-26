@@ -98,7 +98,10 @@ impl Camera {
         screen_height: &usize,
     ) -> Vector2<usize> {
         let fov_adj = (self.fov / 2.0).to_radians().tan();
-        let zdiv_x = v.x / (v.z * fov_adj);
+        let aspect = *screen_width as f64 / *screen_height as f64;
+
+        // NOTE: Applying aspect ratio to this
+        let zdiv_x = v.x / (v.z * fov_adj) / aspect;
         let zdiv_y = v.y / (v.z * fov_adj);
 
         let screen_x = ((zdiv_x + 1.) / 2. * *screen_width as f64) as usize;

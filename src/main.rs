@@ -13,7 +13,13 @@ use std::{
 };
 
 //use nalgebra::{Point3, Vector3, Vector2};
-use terminal_renderer::{core::{camera::Camera, entity::Entity, scene::Scene}, renderers::{cpu_termrenderer::render_scene, renderer::{get_render_mode, set_render_mode, RenderMode}}};
+use terminal_renderer::{
+    core::{camera::Camera, entity::Entity, scene::Scene},
+    renderers::{
+        cpu_termrenderer::render_scene,
+        renderer::{get_render_mode, set_render_mode, RenderMode},
+    },
+};
 //use terminal_renderer::renderers::{get_render_mode, RenderMode, set_render_mode, render_scene};
 
 fn main() -> std::io::Result<()> {
@@ -28,10 +34,11 @@ fn main() -> std::io::Result<()> {
 
     let mut scene = Scene::new();
     let mut camera = Camera::new();
-    
+
     // Add an entity to the scene for testing, e.g., a cube
     let cube = Entity::create_cube();
-    scene.entities.push(cube);
+    let dodec = Entity::create_dodecahedron();
+    scene.entities.push(dodec);
 
     // Set the initial render mode
     set_render_mode(RenderMode::Solid);
@@ -57,6 +64,10 @@ fn main() -> std::io::Result<()> {
                         RenderMode::Solid => RenderMode::Wireframe,
                         RenderMode::Wireframe => RenderMode::Solid,
                     }),
+                    KeyCode::Char('7') => {
+                        scene.entities[0].transform.rotate(0.1, 0.03, 0.5);
+                        _ = scene.entities[0].transform.get_matrix();
+                    }
                     _ => {}
                 }
             }
@@ -65,7 +76,7 @@ fn main() -> std::io::Result<()> {
         // Clear the screen and render the scene
         terminal::Clear(terminal::ClearType::All);
         render_scene(&mut stdout, &mut scene, &camera)?;
-        
+
         stdout.flush()?;
     }
 
