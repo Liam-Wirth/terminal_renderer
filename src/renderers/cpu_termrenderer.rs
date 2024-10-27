@@ -1,12 +1,7 @@
 use crate::core::color::Color;
 use crate::core::face::Face;
 use core::f64;
-use crossterm::style::{Color as crossColor, SetBackgroundColor};
-use crossterm::{
-    cursor::MoveTo,
-    style::{Print, SetForegroundColor},
-    terminal, QueueableCommand,
-};
+use crossterm::terminal;
 use nalgebra::{Point2, Point3, Vector3};
 use std::io::{stdout, Write};
 use std::sync::{Arc, Mutex};

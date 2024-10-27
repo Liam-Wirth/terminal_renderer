@@ -1,3 +1,4 @@
+
 use crate::core::mesh::Mesh;
 use crate::core::transform::Transform;
 use crate::RENDERMODE;
@@ -33,5 +34,8 @@ impl Entity {
             _ => RENDERMODE::Wireframe,
         }
     }
-
+    pub fn from_mesh(mesh: Mesh) -> Self {
+        let transform = Transform::new();
+        Entity::new(mesh, transform)
+    }
 }

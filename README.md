@@ -47,12 +47,14 @@ https://learnopengl.com/Guest-Articles/2021/Scene/Frustum-Culling <- Frustum Cul
     - https://groups.csail.mit.edu/graphics/classes/6.837/F98/Lecture7/triangles.html <- Triangle Filling
 
     - [https://www.desmos.com/3d/8t6uvxkyh6][Desmos Graph for Dodecahedron]
+    - https://www.youtube.com/watch?v=Hqi8QREXwrE
 
 ## Other cool projects! (that ended up helping me out :)
 | Link | Comments/Notes      |
 | ------------- | ------------- |
 | https://github.com/ryanweideman/3d-terminal-renderer/tree/main |  Of course, I wasn't the only person to try and build this project in rust, and someone much smarter than me did something that ended up being pretty simmilar. About 16 hours in I stumbled across that first project, and it was really interesting and insightful to see what someone else did. Kudos to them!|
 | https://github.com/TermTrack/TermTrack | Super cool project to see, and is awesome to see a much more performant/realtime representation of rendering using crossterm|
+| https://github.com/JasondeWolff/rusterizer| |
 
 
 
