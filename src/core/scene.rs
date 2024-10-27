@@ -1,8 +1,6 @@
-use nalgebra::Transform;
 
 use crate::core::entity::Entity;
 
-use super::transform;
 
 pub struct Scene {
     pub entities: Vec<Entity>,

@@ -1,5 +1,4 @@
 use lazy_static::lazy_static;
-use nalgebra::Vector2;
 use std::sync::Mutex;
 
 // TODO: Add a toggle to switch between tri coloring and face coloring

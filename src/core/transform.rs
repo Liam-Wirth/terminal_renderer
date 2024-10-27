@@ -1,4 +1,4 @@
-use nalgebra::{Isometry3, Matrix4, Point3, Rotation3, SimdValue, Similarity3, Vector3};
+use nalgebra::{Isometry3, Matrix4, Point3, Vector3};
 
 /// A struct to represent a transformation in 3D space
 #[derive(Debug, Clone)]
