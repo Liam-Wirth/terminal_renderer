@@ -1,11 +1,10 @@
 use crossterm::{
-    cursor::{Hide, MoveTo, Show},
+    cursor::{Hide, Show},
     event::{self, Event, KeyCode},
     execute,
-    style::{Color, SetBackgroundColor, SetForegroundColor},
+    style::{Color, SetBackgroundColor},
     terminal,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
-    QueueableCommand,
 };
 use std::{
     io::{stdout, Write},
@@ -36,10 +35,14 @@ fn main() -> std::io::Result<()> {
     let mut camera = Camera::new();
 
     // Add an entity to the scene for testing, e.g., a cube
-    let cube = Entity::create_cube();
-    let dodec = Entity::create_dodecahedron();
-    let mut swap = dodec;
+    let mut cube = Entity::create_cube();
+    let mut dodec = Entity::create_dodecahedron();
+    dodec.transform.translate(0., 0., -3.);
+    cube.transform.translate(0., 0., 3.);
+    //cube.transform.scale_uniform(1.5);
+    let swap = dodec;
     scene.entities.push(swap);
+    //scene.entities.push(cube);
 
     // Set the initial render mode
     set_render_mode(RenderMode::Solid);

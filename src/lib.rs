@@ -1,4 +1,3 @@
-use std::default;
 
 use nalgebra::Vector3;
 

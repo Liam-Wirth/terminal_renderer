@@ -1,6 +1,6 @@
 use super::tri::Tri;
 use crate::core::color::Color;
-use nalgebra::{Point3, Vector3};
+use nalgebra::Vector3;
 
 #[derive(Debug, Clone)]
 pub struct Face {

@@ -1,4 +1,4 @@
-use nalgebra::{Isometry3, Matrix4, Point2, Point3, Rotation3, Unit, Vector2, Vector3};
+use nalgebra::{Matrix4, Point2, Point3, Rotation3, Unit, Vector3};
 
 pub struct Camera {
     pub position: Vector3<f64>,

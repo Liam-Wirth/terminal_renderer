@@ -1,5 +1,6 @@
 use crate::core::color::Color;
 use crate::core::face::Face;
+use core::f64;
 use crossterm::style::{Color as crossColor, SetBackgroundColor};
 use crossterm::{
     cursor::MoveTo,
@@ -10,7 +11,7 @@ use nalgebra::{Point2, Point3, Vector3};
 use std::io::{stdout, Write};
 use std::sync::{Arc, Mutex};
 
-use crate::core::{camera::Camera, entity, scene::Scene};
+use crate::core::{camera::Camera, scene::Scene};
 
 use super::renderer::{get_render_mode, RenderMode};
 use rayon::prelude::*;
@@ -53,6 +54,7 @@ pub struct Buffer {
     pub width: usize,
     pub height: usize,
     pub data: Vec<Pixel>,
+    pub depth: Vec<f64>,
 }
 
 impl Buffer {
@@ -61,12 +63,16 @@ impl Buffer {
             width,
             height,
             data: vec![Pixel::default(); width * height], // Fill buffer with spaces initially
+            depth: vec![f64::INFINITY; width * height],   // Fill buffer with spaces initially
         }
     }
 
     pub fn clear(&mut self) {
         for pixel in &mut self.data {
             pixel.reset();
+        }
+        for depth in &mut self.depth {
+            *depth = f64::INFINITY;
         }
     }
 
@@ -77,21 +83,27 @@ impl Buffer {
     }
     pub fn render_to_terminal(&self) -> std::io::Result<()> {
         let mut stdout = stdout();
-        stdout.queue(SetBackgroundColor(crossColor::Black))?;
+
+        let mut output = String::new();
 
         // Keep track of the last color to minimize color changes
         let mut last_color = None;
+
+        // Hide the cursor and clear the screen once
+        output.push_str("\x1B[?25l"); // Hide cursor
+        output.push_str("\x1B[2J"); // Clear screen
+        output.push_str("\x1B[H"); // Move cursor to home position
 
         // For each line
         for y in 0..self.height {
             let mut x = 0;
             // Move cursor to the beginning of the line once
-            stdout.queue(MoveTo(0, y as u16))?;
+            output.push_str(&format!("\x1B[{};{}H", y + 1, 1));
 
             while x < self.width {
                 let index = x + y * self.width;
                 let pixel = &self.data[index];
-                let current_color = pixel.color.to_crossterm_color();
+                let current_color = pixel.color.to_ansii_escape(); // returns the ANSI escape code string
 
                 // Accumulate characters with the same color
                 let mut pixel_chars = String::new();
@@ -101,16 +113,20 @@ impl Buffer {
                 }
 
                 // Change color if necessary
-                if last_color != Some(current_color) {
-                    stdout.queue(SetForegroundColor(current_color))?;
-                    last_color = Some(current_color);
+                if last_color != Some(current_color.clone()) {
+                    output.push_str(&current_color);
+                    last_color = Some(current_color.clone());
                 }
 
-                // Print the accumulated characters
-                stdout.queue(Print(&pixel_chars))?;
+                // Append the accumulated characters
+                output.push_str(&pixel_chars);
             }
         }
 
+        // Show the cursor again
+        output.push_str("\x1B[?25h");
+
+        stdout.write_all(output.as_bytes())?;
         stdout.flush()
     }
 }
@@ -180,7 +196,7 @@ pub fn render_scene<W: Write>(
                             &v2,
                             &Pixel::new_full(face.color),
                         );
-                    } 
+                    }
                 }
 
                 local_buffer
@@ -212,7 +228,7 @@ fn merge_buffers(shared_buffer: &mut Buffer, local_buffer: &Buffer) {
 // Basic Bresenham's Line Drawing Algorithm for drawing wireframe edges
 fn draw_line(buffer: &mut Buffer, v0: &Point2<usize>, v1: &Point2<usize>, pix: &Pixel) {
     let mut v0: Point2<isize> = v0.cast();
-    let mut v1: Point2<isize> = v1.cast();
+    let v1: Point2<isize> = v1.cast();
 
     let dx = (v1.x - v0.x).abs();
     let dy = -(v1.y - v0.y).abs();
