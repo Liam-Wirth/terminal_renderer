@@ -7,8 +7,7 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{
-    io::{stdout, Write},
-    time::Duration,
+    io::{stdout, Write}, path::Path, time::Duration
 };
 
 //use nalgebra::{Point3, Vector3, Vector2};
@@ -37,6 +36,9 @@ fn main() -> std::io::Result<()> {
     // Add an entity to the scene for testing, e.g., a cube
     let mut cube = Entity::create_cube();
     let mut dodec = Entity::create_dodecahedron();
+    let obj_path = Path::new("assets/models/teapot.obj");
+    //let tea = Mesh::from_obj_file_alt(obj_path).unwrap();
+    //let mut tea = Entity::from_mesh(tea);
     dodec.transform.translate(0., 0., -3.);
     cube.transform.translate(0., 0., 3.);
     //cube.transform.scale_uniform(1.5);

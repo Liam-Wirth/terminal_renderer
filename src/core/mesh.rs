@@ -18,6 +18,7 @@ impl Mesh {
         out
     }
 
+
     // NOTE: Might be better to move these "primitive"/hardcoded shapes/models elsewhere in the
     // code?
     pub fn create_cube() -> Self {
