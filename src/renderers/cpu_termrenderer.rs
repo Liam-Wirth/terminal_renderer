@@ -6,7 +6,7 @@ use crossterm::{
     style::{Print, SetForegroundColor},
     terminal, QueueableCommand,
 };
-use nalgebra::{Point2, Point3, Vector2, Vector3, Vector4};
+use nalgebra::{Point2, Point3, Vector3};
 use std::io::{stdout, Write};
 use std::sync::{Arc, Mutex};
 
@@ -150,12 +150,13 @@ pub fn render_scene<W: Write>(
             .map(|vertex| camera.project_vertex(vertex.coords, &width, &height))
             .collect();
 
-        // Process faces in parallel
+        // Process faces in parallel  NOTE: Might not be best way of doing it
         let local_buffers: Vec<Buffer> = entity
             .mesh
             .faces
             .par_iter()
             .map(|face| {
+                // FIX: This is bad, should not be allocating a new buffer for each face
                 let mut local_buffer = Buffer::new(width, height);
 
                 for tri in &face.tris {

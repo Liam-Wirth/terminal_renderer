@@ -49,6 +49,12 @@ impl Color {
             b: self.b,
         }
     }
+
+    pub fn to_ansii_escape(&self) -> String {
+        format!("\x1b[38;2;{};{};{}m", self.r, self.g, self.b)
+    }
+
+    // TODO: Move these to a separate module or something
     ///chat-gpt generated colors
     // Primary Colors
     pub const RED: Color = Color { r: 255, g: 0, b: 0 };
