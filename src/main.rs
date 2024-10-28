@@ -7,7 +7,9 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{
-    io::{stdout, Write}, path::Path, time::Duration
+    io::{stdout, Write},
+    path::Path,
+    time::Duration,
 };
 
 //use nalgebra::{Point3, Vector3, Vector2};
@@ -18,7 +20,6 @@ use terminal_renderer::{
         renderer::{get_render_mode, set_render_mode, RenderMode},
     },
 };
-//use terminal_renderer::renderers::{get_render_mode, RenderMode, set_render_mode, render_scene};
 
 fn main() -> std::io::Result<()> {
     let mut stdout = stdout();
@@ -74,8 +75,7 @@ fn main() -> std::io::Result<()> {
                     KeyCode::Char('7') => {
                         pause_spin = !pause_spin;
                     }
-                    KeyCode::Char('5') => {
-                    }
+                    KeyCode::Char('5') => {}
 
                     _ => {}
                 }

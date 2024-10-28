@@ -1,17 +1,12 @@
 use super::tri::Tri;
 use crate::core::color::Color;
-use nalgebra::Vector3;
-
+use glam::Vec3;
 #[derive(Debug, Clone)]
 pub struct Face {
     pub tris: Vec<Tri>,             // Triangles that make up the face
     pub edges: Vec<(usize, usize)>, // Edges of the face
     pub color: Color,               // Optional face color
-
-    pub normal: Vector3<f64>,       // Surface normal for the face cannot be calculated here
-                                    // because the face is constructed from triangles whose
-                                    // vertices are just indices into an array in a parent struct
-                                    // (I was told this was better for some reason?)
+    pub normal: Vec3,               // Surface normal for the face
 }
 
 impl Face {
@@ -33,19 +28,15 @@ impl Face {
             }
         }
 
-        // Calculate the face normal as an average of triangle normals
-        //let normal = tris
-        //    .iter()
-        //    .fold(Vector3::zeros(), |acc, tri| acc + tri.normal)
-        //    .normalize();
-
+        // Initialize with zero vector for normal as placeholder
         Self {
             tris,
             edges,
             color: Color::WHITE,
-            normal: Vector3::zeros(),
+            normal: Vec3::ZERO,
         }
     }
+
     pub fn new_with_color(tris: Vec<Tri>, color: Color) -> Self {
         let mut edges = Vec::new();
 
@@ -63,18 +54,13 @@ impl Face {
                 }
             }
         }
-        // Calculate the face normal as an average of triangle normals
-        //let normal = tris // not fully sure why I'm doing this when on construction the normals
-        //will be wrong/dirty anyways?
-        //    .iter()
-        //    .fold(Vector3::zeros(), |acc, tri| acc + tri.normal)
-        //    .normalize();
 
         Self {
             tris,
             edges,
             color,
-            normal: Vector3::zeros(),
+            normal: Vec3::ZERO,
         }
     }
 }
+

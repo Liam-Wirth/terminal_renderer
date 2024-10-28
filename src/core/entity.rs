@@ -1,4 +1,3 @@
-
 use crate::core::mesh::Mesh;
 use crate::core::transform::Transform;
 use crate::RENDERMODE;
@@ -12,7 +11,11 @@ pub struct Entity {
 
 impl Entity {
     pub fn new(mesh: Mesh, transform: Transform) -> Self {
-        Entity {mesh, transform, render_mode: RENDERMODE::default()}
+        Entity {
+            mesh,
+            transform,
+            render_mode: RENDERMODE::default(),
+        }
     }
 
     pub fn create_cube() -> Self {
