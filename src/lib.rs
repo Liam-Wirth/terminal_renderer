@@ -15,6 +15,7 @@ pub mod core {
 pub mod renderers {
     pub mod cpu_termrenderer;
     pub mod renderer;
+    pub mod buffer;
 }
 
 const GLOBAL_UP: Vector3<f64> = Vector3::new(0.0, 1.0, 0.0);
