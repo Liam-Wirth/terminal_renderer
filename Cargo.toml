@@ -8,8 +8,9 @@ crossterm = "0.28.1"
 glam = "0.29.0"
 lazy_static = "1.5.0"
 nalgebra = "0.33.1"
-obj-rs = "0.7.4"
+rand = "0.8.5"
 rayon = "1.10.0"
+tobj = "4.0.2"
 
 [lib]
 

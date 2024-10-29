@@ -1,6 +1,9 @@
+use std::{default, path::Path};
+
 use super::{face::Face, tri::Tri};
 use crate::core::color::Color;
 use glam::{Vec3};
+use tobj::{load_obj, LoadOptions};
 
 #[derive(Debug, Clone)]
 pub struct Mesh {
@@ -294,6 +297,68 @@ impl Mesh {
         }
 
         centroid / num_vertices
+    }
+
+    pub fn from_obj(path: &Path) -> Vec<Mesh> {
+        // Load the OBJ with triangulation enabled
+        let temp = load_obj(
+            path,
+            &LoadOptions {
+                triangulate: true,
+                ..Default::default()
+            }
+        ).expect("FAIL!!! BRUH!!!");
+
+        let (models, _mats) = temp;
+        let mut meshes = Vec::new();
+
+        // Iterate over each model to create a Mesh for each
+        for model in models {
+            let mesh_data = model.mesh;
+
+            // Populate vertices by converting OBJ positions to Vec3
+            let vertices = mesh_data
+                .positions
+                .chunks(3) // Positions are a flat list of floats, so chunk into groups of 3
+                .map(|pos| Vec3::new(pos[0], pos[1], pos[2]))
+                .collect::<Vec<Vec3>>();
+
+            // Use normals directly if they exist
+            let normals = mesh_data
+                .normals
+                .chunks(3)
+                .map(|n| Vec3::new(n[0], n[1], n[2]))
+                .collect::<Vec<Vec3>>();
+
+            // Populate faces from indices
+            let faces = mesh_data
+            .indices
+            .chunks(3)
+            .map(|idx| {
+                // Use normal indices if available, otherwise default to zero vector
+                let normal = if !mesh_data.normal_indices.is_empty() {
+                let normal_idx = mesh_data.normal_indices[idx[0] as usize] as usize;
+                normals.get(normal_idx).cloned().unwrap_or(Vec3::ZERO)
+            } else {
+                Vec3::ZERO // Fallback if normals aren't provided
+            };
+
+            Face::new(vec![
+                Tri {
+                vertices: (idx[0] as usize, idx[1] as usize, idx[2] as usize),
+                color: Color::WHITE,
+                normal,
+            },
+        ])
+    }).collect::<Vec<Face>>();
+
+
+            // Create a Mesh and add to the list of meshes
+            let mesh = Mesh::new(vertices, faces);
+            meshes.push(mesh);
+        }
+
+        meshes
     }
 }
 

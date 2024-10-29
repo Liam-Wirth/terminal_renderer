@@ -10,6 +10,7 @@ pub mod core {
     pub mod face;
     pub mod tri;
     pub mod color;
+    pub mod frustum;
 }
 
 pub mod renderers {

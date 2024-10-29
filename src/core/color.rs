@@ -330,3 +330,4 @@ impl Default for Color {
         Color::WHITE // Default to white color
     }
 }
+

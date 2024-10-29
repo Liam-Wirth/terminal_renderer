@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::core::mesh::Mesh;
 use crate::core::transform::Transform;
 use crate::RENDERMODE;
@@ -38,6 +40,11 @@ impl Entity {
         }
     }
     pub fn from_mesh(mesh: Mesh) -> Self {
+        let transform = Transform::new();
+        Entity::new(mesh, transform)
+    }
+    pub fn from_obj(path: &Path) -> Self {
+        let mesh = Mesh::from_obj(path)[0].clone();
         let transform = Transform::new();
         Entity::new(mesh, transform)
     }
