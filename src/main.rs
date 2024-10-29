@@ -12,9 +12,11 @@ use std::{
     time::Duration,
 };
 
+use rand::thread_rng;
+
 //use nalgebra::{Point3, Vector3, Vector2};
 use terminal_renderer::{
-    core::{camera::Camera, entity::Entity, scene::Scene},
+    core::{camera::Camera, entity::Entity, scene::Scene, color::Color as mycol},
     renderers::{
         cpu_termrenderer::render_scene,
         renderer::{get_render_mode, set_render_mode, RenderMode},
@@ -40,10 +42,25 @@ fn main() -> std::io::Result<()> {
     let obj_path = Path::new("assets/models/teapot.obj");
     //let tea = Mesh::from_obj_file_alt(obj_path).unwrap();
     //let mut tea = Entity::from_mesh(tea);
+    let mut blender_cube = Entity::from_obj(Path::new("assets/models/example_cube.obj"));
+    let mut icosphere = Entity::from_obj(Path::new("assets/models/icosphere.obj"));
+
     dodec.transform.translate(0., 0., -3.);
     cube.transform.translate(0., 0., 3.);
     //cube.transform.scale_uniform(1.5);
-    let swap = dodec;
+    //let swap = dodec;
+    let randunsigned = rand::RngCore::next_u32(&mut rand::thread_rng());
+    let chunk1 = ((randunsigned >> 24) & 0xFF) as u8; // Highest 8 bits
+    let chunk2 = (( randunsigned>> 16) & 0xFF) as u8; // Next 8 bits
+    let chunk3 = (( randunsigned>> 8) & 0xFF) as u8;  // Next 8 bits
+
+    for face in &mut icosphere.mesh.faces {
+        face.color = mycol::from_rgba(chunk1, chunk2, chunk3, 255);
+    }
+    
+    let swap = icosphere;
+
+
     scene.entities.push(swap);
     //scene.entities.push(cube);
 

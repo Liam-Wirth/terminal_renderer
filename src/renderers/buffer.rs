@@ -1,4 +1,4 @@
-use crate::core::color::Color;
+use crate::core::{camera::ProjectedVertex, color::Color};
 use std::io::{stdout, Write};
 
 use super::cpu_termrenderer::Pixel;
@@ -29,11 +29,16 @@ impl Buffer {
         }
     }
 
-    pub fn set_pixel(&mut self, x: usize, y: usize, ch: char, color: Color) {
+        pub fn set_pixel(&mut self, x: usize, y: usize, projected: &ProjectedVertex, ch: char, color: Color) {
         if x < self.width && y < self.height {
-            self.data[x + y * self.width] = Pixel::new(ch, color);
+            let index = x + y * self.width;
+            if projected.depth < self.depth[index] {
+                self.data[index] = Pixel::new(ch, color);
+                self.depth[index] = projected.depth;
+            }
         }
     }
+
     pub fn render_to_terminal(&self) -> std::io::Result<()> {
         let mut stdout = stdout();
 
