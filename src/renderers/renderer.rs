@@ -39,3 +39,12 @@ pub fn cycle_render_mode() {
         RenderMode::Solid => RenderMode::Wireframe,
     };
 }
+pub trait Renderer {
+    type PixelType;
+
+    fn init(&mut self, width: u32, height: u32);
+
+    fn clear(&mut self);
+
+    //fn render_scene(&mut self, scene: &crate::scene::Scene, camera: &crate::camera::Camera), chunked_buffers: &Vec<crate::renderers::buffer )
+}

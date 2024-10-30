@@ -58,7 +58,7 @@ fn main() -> std::io::Result<()> {
         face.color = mycol::from_rgba(chunk1, chunk2, chunk3, 255);
     }
     
-    let swap = icosphere;
+    let swap = dodec;
 
 
     scene.entities.push(swap);
