@@ -70,3 +70,9 @@ Depth Testing and Shading (Determine visible surfaces and color them)
 Frame Buffering and Output (Store and render the final image)
 
 This pipeline can be optimized by focusing on the most computationally expensive stages, such as rasterization and shading.
+
+
+
+# New "Pipeline" as it exists in my sick and twisted mind:
+Modeling -> Transformations -> Viewing Projection -> Chunking buffers for rasterization -> Rasterization -> Depth Checks -> Frame Buffer -> Overlay Hud -> Output
+
