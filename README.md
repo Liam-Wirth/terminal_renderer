@@ -10,21 +10,21 @@ https://github.com/ryanweideman/3d-terminal-renderer/tree/main/src
 
 
 # TODO
-    - [ ] Decouple Rendering logic from the terminal output
-    - [x] ~~Implement parallelism with rayon~~
-    - [x] Implement more fleshed out "Tri" struct, possibly in own file -
-        - [ ] After that, redefine the "Faces" of a mesh to actually just be a collection of Tris
-    - [ ] Unify useage of Nalgebra functionality accross all files
-        - Basically, I think I'm not using nalgebra to it's fullest potential and there's probably a lot of functionality I'm leaving "on the table"
-    - [ ] Better document code, Rust is very much self-documenting, but it's good to explain things as I go as well
-    - [ ] Beautify the links as markdown links for the "Links I looked at section"
+- [ ] Decouple Rendering logic from the terminal output
+- [x] ~~Implement parallelism with rayon~~
+- [x] Implement more fleshed out "Tri" struct, possibly in own file -
+- [ ] After that, redefine the "Faces" of a mesh to actually just be a collection of Tris
+- [ ] Unify useage of Nalgebra functionality accross all files
+    - Basically, I think I'm not using nalgebra to it's fullest potential and there's probably a lot of functionality I'm leaving "on the table"
+- [ ] Better document code, Rust is very much self-documenting, but it's good to explain things as I go as well
+- [ ] Beautify the links as markdown links for the "Links I looked at section"
 
 
 
 ## TODO (much less pressing/important)
 
-    - [x] fix wakatime badge to update lmao
-    - [ ] github ci/cd with clippy and rustfmt
+- [x] fix wakatime badge to update lmao
+- [ ] github ci/cd with clippy and rustfmt
 
 ## Things I should look into:
 https://learnopengl.com/Guest-Articles/2021/Scene/Frustum-Culling <- Frustum Culling
@@ -32,20 +32,23 @@ https://learnopengl.com/Guest-Articles/2021/Scene/Frustum-Culling <- Frustum Cul
 
 # Credit/Helped along the way
 
-    I had a feeling I wasn't the only person to ever try to build a 3d renderer in the terminal, 
-    and so whenever I used an online resource In the code comments I put a link above the function or something to the relevant page I used
-    I've done my best to agregate that all here, and try and organize it!
+I had a feeling I wasn't the only person to ever try to build a 3d renderer in the terminal, 
+and so whenever I used an online resource In the code comments I put a link above the function or something to the relevant page I used
+I've done my best to agregate that all here, and try and organize it!
 
 
-    and it was helpful/cool to peruse the code and see how someone smarter/more experienced than me implemented some stuff. Made some decisions that I didn't make, etc.
-    Was a nice resource to look at, and helped at times cause I've never taken a linear algebra class and all of this stuff is very new to me
+and it was helpful/cool to peruse the code and see how someone smarter/more experienced than me implemented some stuff. Made some decisions that I didn't make, etc.
+Was a nice resource to look at, and helped at times cause I've never taken a linear algebra class and all of this stuff is very new to me
 
 
 ## Links I Looked at:
-    Articles, Extremely old lecture material, Wikipedia Pages, etc, all of these played a hand in the project!
+Articles, Extremely old lecture material, Wikipedia Pages, etc, all of these played a hand in the project!
 - https://en.wikipedia.org/wiki/Curve_orientation#Orientation_of_a_simple_polygon <- Backface Culling?
 - https://groups.csail.mit.edu/graphics/classes/6.837/F98/Lecture7/triangles.html <- Triangle Filling
 - https://en.wikipedia.org/wiki/Viewing_frustum
+- https://en.wikipedia.org/wiki/Back-face_culling
+- https://en.wikipedia.org/wiki/3D_projection
+- https://en.wikipedia.org/wiki/Clip_coordinates
 - [https://www.desmos.com/3d/8t6uvxkyh6][Desmos Graph for Dodecahedron]
 - https://www.youtube.com/watch?v=Hqi8QREXwrE
 

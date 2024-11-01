@@ -1,10 +1,11 @@
-
+use lazy_static::lazy_static;
 use std::sync::Mutex;
 
-use glam::Vec2;
-// Enum for rendering modes
-use lazy_static::lazy_static;
+use crate::core::{camera::Camera, scene::Scene};
 
+// TODO: Add a toggle to switch between tri coloring and face coloring
+//
+// Enum for rendering modes
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RenderMode {
     Wireframe,
@@ -40,23 +41,10 @@ pub fn cycle_render_mode() {
         RenderMode::Solid => RenderMode::Wireframe,
     };
 }
-
 pub trait Renderer {
     type PixelType;
-    fn initialize(&mut self, width: usize, height: usize);
-    fn render_frame(&mut self) -> Vec<Self::PixelType>;
-    fn set_resolution(&mut self, width: usize, height: usize);
-}
 
-
-#[derive(Debug, Clone, Copy)]
-pub struct ProjectedVertex {
-    pub position: Vec2,
-    pub depth: f32,
-}
-
-impl ProjectedVertex {
-    pub fn new(position: Vec2, depth: f32) -> Self {
-        ProjectedVertex { position, depth }
-    }
+    fn init(&mut self, width: usize, height: usize);
+    fn render_frame(&mut self, cam: &Camera, scene: &Scene);
+    fn update_res(&mut self, width: usize, height: usize);
 }
