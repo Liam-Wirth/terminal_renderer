@@ -128,14 +128,6 @@ pub fn render_scene<W: Write>(
     Ok(())
 }
 
-pub fn render_scene_par<W: Write>(
-    stdout: &mut W,
-    scene: &mut Scene,
-    cam: &mut Camera,
-    bufs: &mut Vec<Buffer>,
-) -> std::io::Result<()> {
-    todo!();
-}
 fn merge_buffers(shared_buffer: &mut Buffer, local_buffer: &Buffer) {
     for (shared_pixel, local_pixel) in shared_buffer.data.iter_mut().zip(&local_buffer.data) {
         if local_pixel.ch != ' ' {

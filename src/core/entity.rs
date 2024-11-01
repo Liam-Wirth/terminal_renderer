@@ -1,8 +1,7 @@
-use std::path::Path;
-
-use crate::core::mesh::Mesh;
-use crate::core::transform::Transform;
 use crate::RENDERMODE;
+
+use super::{geometry::Mesh, transform::Transform};
+
 
 #[derive(Debug, Clone)]
 pub struct Entity {
@@ -22,29 +21,6 @@ impl Entity {
 
     pub fn create_cube() -> Self {
         let mesh = Mesh::create_cube();
-        let transform = Transform::new();
-        Entity::new(mesh, transform)
-    }
-    //TODO:
-    pub fn create_dodecahedron() -> Self {
-        let mesh = Mesh::create_dodecahedron();
-        let transform = Transform::new();
-        Entity::new(mesh, transform)
-    }
-
-    pub fn cycle_render_mode(&mut self) {
-        self.render_mode = match self.render_mode {
-            RENDERMODE::Wireframe => RENDERMODE::Solid,
-            RENDERMODE::Solid => RENDERMODE::Wireframe,
-            _ => RENDERMODE::Wireframe,
-        }
-    }
-    pub fn from_mesh(mesh: Mesh) -> Self {
-        let transform = Transform::new();
-        Entity::new(mesh, transform)
-    }
-    pub fn from_obj(path: &Path) -> Self {
-        let mesh = Mesh::from_obj(path)[0].clone();
         let transform = Transform::new();
         Entity::new(mesh, transform)
     }

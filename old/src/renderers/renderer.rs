@@ -1,10 +1,11 @@
-
+use lazy_static::lazy_static;
 use std::sync::Mutex;
 
-use glam::Vec2;
-// Enum for rendering modes
-use lazy_static::lazy_static;
+use super::buffer::Buffer;
 
+// TODO: Add a toggle to switch between tri coloring and face coloring
+//
+// Enum for rendering modes
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RenderMode {
     Wireframe,
@@ -48,15 +49,7 @@ pub trait Renderer {
     fn set_resolution(&mut self, width: usize, height: usize);
 }
 
+pub struct TerminalRenderer {
+    pub buffer: Buffer,
 
-#[derive(Debug, Clone, Copy)]
-pub struct ProjectedVertex {
-    pub position: Vec2,
-    pub depth: f32,
-}
-
-impl ProjectedVertex {
-    pub fn new(position: Vec2, depth: f32) -> Self {
-        ProjectedVertex { position, depth }
-    }
 }
