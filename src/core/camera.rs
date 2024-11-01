@@ -1,140 +1,190 @@
+use std::cell::RefCell;
+
 use super::MAX_PITCH;
-use glam::{Mat4, Vec2, Vec3, Vec4Swizzles};
+use glam::{Mat4, UVec2, Vec2, Vec3, Vec4Swizzles};
 
 pub struct Camera {
-    /// The Global position of the camera
-    pub pos: Vec3,
+    /// The Global.pos of the camera
+    pub pos: RefCell<Vec3>,
     /// The direction the camera is facing
-    pub facing: Vec3,
+    pub facing: RefCell<Vec3>,
     /// The right vector of the camera (independant from world up)
-    pub right: Vec3,
+    pub right: RefCell<Vec3>,
     /// The Up Vector of the camera
-    pub up: Vec3,
+    pub up: RefCell<Vec3>,
     ///Camera's FOV
     pub fov: f32,
     /// The aspect ratio of the camera
-    pub aspect_ratio: f32,
+    pub aspect_ratio: RefCell<f32>,
 
     /// The near plane of the camera, anything closer than this will not be rendered
     pub near: f32,
     /// The far plane of the camera, anything beyond this will not be rendered
     pub far: f32,
 
-    view_matrix: Mat4,
-    projection_matrix: Mat4,
-
-    view_dirty: bool,
-    proj_dirty: bool,
+    view_dirty: RefCell<bool>,
+    proj_dirty: RefCell<bool>,
+    view_matrix: RefCell<Mat4>,
+    projection_matrix: RefCell<Mat4>,
+    view_proj_dirty: RefCell<bool>,
 }
 
 impl Camera {
     pub fn new(pos: Vec3, facing: Vec3, aspect: f32) -> Self {
         let mut cam = Self {
-            pos,
-            facing: facing.normalize(),
-            up: Vec3::Y,
-            right: facing.cross(Vec3::Y).normalize(),
+            pos: RefCell::new(pos),
+            facing: RefCell::new(facing.normalize()),
+            up: RefCell::new(Vec3::Y),
+            right: RefCell::new(facing.cross(Vec3::Y).normalize()),
             fov: 90.0_f32.to_radians(),
-            aspect_ratio: aspect,
+            aspect_ratio: RefCell::new(aspect),
             near: 0.1,
             far: 100.0,
 
-            view_matrix: Mat4::IDENTITY,
-            projection_matrix: Mat4::IDENTITY,
+            view_matrix: RefCell::new(Mat4::IDENTITY),
+            projection_matrix: RefCell::new(Mat4::IDENTITY),
 
-            view_dirty: true,
-            proj_dirty: true,
+            view_dirty: RefCell::new(true),
+            proj_dirty: RefCell::new(true),
+            view_proj_dirty: RefCell::new(true),
         };
-        cam.update_view_matrix();
-        cam.update_projection_matrix();
+        cam.update_matrices();
         cam
     }
+    fn update_matrices(&self) {
+        let view = Mat4::look_at_rh(
+            *self.pos.borrow(),
+            *self.pos.borrow() + *self.facing.borrow(),
+            *self.up.borrow(),
+        );
 
-    fn update_view_matrix(&mut self) {
-        self.view_matrix = Mat4::look_at_rh(self.pos, self.pos + self.facing, self.up);
-        self.view_dirty = false;
+        let projection = Mat4::perspective_rh(
+            self.fov.to_radians(),
+            *self.aspect_ratio.borrow(),
+            self.near,
+            self.far,
+        );
+
+        *self.view_matrix.borrow_mut() = view;
+        *self.projection_matrix.borrow_mut() = projection;
+        *self.view_proj_dirty.borrow_mut() = false;
     }
 
-    fn update_projection_matrix(&mut self) {
-        self.projection_matrix =
-            Mat4::perspective_rh(self.fov, self.aspect_ratio, self.near, self.far);
-        self.proj_dirty = false;
-    }
-    pub fn view_matrix(&mut self) -> Mat4 {
-        if self.view_dirty {
-            self.update_view_matrix();
+    pub fn get_view_projection_matrix(&self) -> Mat4 {
+        if *self.view_proj_dirty.borrow() {
+            self.update_matrices();
         }
-        self.view_matrix
+        *self.projection_matrix.borrow() * *self.view_matrix.borrow()
     }
 
-    pub fn projection_matrix(&mut self) -> Mat4 {
-        if self.proj_dirty {
-            self.update_projection_matrix();
+    /// Projects a vertex at some position in the world to screen space, and returns it's depth for the z-buffer
+    ///**Screen Dim** is the dimensions of the screen in pixels, supply with the given crossterm context
+    pub fn project_vertex_into(
+        &self,
+        world_pos: Vec3,
+        screen_dim: &UVec2,
+        out: &mut ProjectedVertex,
+    ) {
+        let view_proj = self.get_view_projection_matrix();
+        let clip_pos = view_proj * world_pos.extend(1.0);
+
+        if clip_pos.w <= 0.0 {
+            out.pos = Vec2::new(-1.0, -1.0);
+            out.depth = f32::INFINITY;
+            return;
         }
-        self.projection_matrix
-    }
-    /// Move the camera in the direction it is facing
-    pub fn move_forward(&mut self, distance: f32) {
-        self.pos += self.facing * distance;
-        self.view_dirty = true;
+
+        let w_recip = 1.0 / clip_pos.w;
+        out.pos.x = ((clip_pos.x * w_recip + 1.0) * 0.5) * screen_dim.x as f32;
+        out.pos.y = ((1.0 - clip_pos.y * w_recip) * 0.5) * screen_dim.y as f32;
+        out.depth = clip_pos.z * w_recip;
     }
 
-    /// Move the camera in the opposite direction it is facing
-    pub fn move_backward(&mut self, distance: f32) {
-        self.pos -= self.facing * distance;
-        self.view_dirty = true;
+    /// Move the camera forward
+    pub fn move_forward(&self, dist: f32) {
+        *self.pos.borrow_mut() += *self.facing.borrow() * dist;
+        *self.view_proj_dirty.borrow_mut() = true;
+    }
+
+    /// Move the camera backwards
+    pub fn move_backward(&self, dist: f32) {
+        *self.pos.borrow_mut() -= *self.facing.borrow() * dist;
+        *self.view_proj_dirty.borrow_mut() = true;
     }
 
     /// Strafe the camera to the right
-    pub fn move_right(&mut self, distance: f32) {
-        self.pos += self.right * distance;
-        self.view_dirty = true;
+    pub fn move_right(&self, amount: f32) {
+        *self.pos.borrow_mut() += *self.right.borrow() * amount;
+        *self.view_proj_dirty.borrow_mut() = true;
     }
 
     /// Strafe the camera to the left
-    pub fn move_left(&mut self, distance: f32) {
-        self.pos -= self.right * distance;
-        self.view_dirty = true;
+    pub fn move_left(&self, amount: f32) {
+        *self.pos.borrow_mut() -= *self.right.borrow() * amount;
+        *self.view_proj_dirty.borrow_mut() = true;
     }
 
-    /// Move the camera up
-    pub fn move_up(&mut self, distance: f32) {
-        self.pos += self.up * distance;
-        self.view_dirty = true;
+    /// move the camera upwards on global y axis, irrelevant of local y axis
+    pub fn move_up(&self, amount: f32) {
+        *self.pos.borrow_mut() += Vec3::Y * amount;
+        *self.view_proj_dirty.borrow_mut() = true;
     }
 
-    /// Move the camera down
-    pub fn move_down(&mut self, distance: f32) {
-        self.pos -= self.up * distance;
-        self.view_dirty = true;
+    /// move the camera downwards on global y axis, irrelevant of local y axis
+    pub fn move_down(&self, amount: f32) {
+        *self.pos.borrow_mut() -= Vec3::Y * amount;
+        *self.view_proj_dirty.borrow_mut() = true;
     }
 
     /// Turn that jawn left and right (yaw)
     /// **theta** It is importatnt that this is in ***RADIANS***
-    pub fn rotate_yaw(&mut self, theta: f32) {
-        let rotation = Mat4::from_rotation_y(theta);
-        self.facing = (rotation * self.facing.extend(1.0)).xyz().normalize();
-        self.view_dirty = true;
+    pub fn rotate_yaw(&self, angle: f32) {
+        let rotation = Mat4::from_rotation_y(angle);
+        *self.facing.borrow_mut() = (rotation * self.facing.borrow().extend(0.0)).truncate();
+        *self.right.borrow_mut() = self.facing.borrow().cross(Vec3::Y).normalize();
+        *self.view_proj_dirty.borrow_mut() = true;
     }
 
     /// Turn that jawn Up and Down (Pitch)
     /// **theta** It is importatnt that this is in ***RADIANS***
-    pub fn rotate_pitch(&mut self, theta: f32) {
-        let rot = Mat4::from_axis_angle(self.right, theta);
-        let new_facing = (rot * self.facing.extend(1.0)).xyz().normalize();
-
+    pub fn rotate_pitch(&self, angle: f32) {
+        let pitch = self.facing.borrow().cross(Vec3::Y).normalize();
+        let yaw = Vec3::Y;
+        let rot = Mat4::from_rotation_y(angle);
+        let new_facing = (rot * self.facing.borrow().extend(0.0)).truncate();
         let cur = new_facing.dot(Vec3::Y).asin();
 
         if cur.abs() < MAX_PITCH {
-            self.facing = new_facing;
-            self.view_dirty = true;
+            *self.facing.borrow_mut() = new_facing;
+            *self.right.borrow_mut() = self.facing.borrow().cross(Vec3::Y).normalize();
+            *self.view_proj_dirty.borrow_mut() = true;
         }
     }
 
-    /// Set the aspect ratio of the camera
-    /// this will allow for taking changes in screen size into account
-    pub fn set_aspect_ratio(&mut self, aspect: f32) {
-        self.aspect_ratio = aspect;
-        self.proj_dirty = true;
+    pub fn update_orientation_vectors(&self) {
+        *self.right.borrow_mut() = self.facing.borrow().cross(Vec3::Y).normalize();
+        *self.up.borrow_mut() = self.right.borrow().cross(*self.facing.borrow()).normalize();
+        *self.view_proj_dirty.borrow_mut() = true;
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ProjectedVertex {
+    pub pos: Vec2,
+    pub depth: f32,
+}
+
+impl ProjectedVertex {
+    pub fn new(pos: Vec2, depth: f32) -> Self {
+        ProjectedVertex { pos, depth }
+    }
+}
+
+impl Default for ProjectedVertex {
+    fn default() -> Self {
+        ProjectedVertex {
+            pos: Vec2::ZERO,
+            depth: f32::INFINITY,
+        }
     }
 }

@@ -1,10 +1,12 @@
-use std::io::Write;
 use std::io::stdout;
+use std::io::Write;
 
+use glam::UVec2;
 use glam::Vec2;
 
-use crate::core::Color;
-use crate::renderers::renderer::ProjectedVertex;
+use crate::core::{Camera, Color, ProjectedVertex, Scene};
+
+pub const MAX_DIMS: UVec2 = UVec2::new(1920, 1080);
 
 #[derive(Clone, Copy, Debug)]
 pub struct Pixel {
@@ -46,11 +48,13 @@ pub struct TermBuffer {
 
 impl TermBuffer {
     pub fn new(width: usize, height: usize) -> Self {
+        let max = MAX_DIMS.x as usize * MAX_DIMS.y as usize;
         TermBuffer {
             width,
             height,
-            data: vec![Pixel::default(); width * height], // Fill buffer with spaces initially
-            depth: vec![f32::INFINITY; width * height],   // Fill buffer with spaces initially
+            data: vec![Pixel::default(); max], // Fill buffer with spaces initially, up to max
+            // predicted dimensions, done at startup once to minimize chances of re-allocation
+            depth: vec![f32::INFINITY; max], // Fill buffer with spaces initially same with z-buf
         }
     }
 
@@ -63,13 +67,7 @@ impl TermBuffer {
         }
     }
 
-    pub fn set_pixel(
-        &mut self,
-        x: usize,
-        y: usize,
-        projected: &ProjectedVertex,
-        pix: Pixel,
-    ) {
+    pub fn set_pixel(&mut self, x: usize, y: usize, projected: &ProjectedVertex, pix: Pixel) {
         if x < self.width && y < self.height {
             let index = x + y * self.width;
             if projected.depth < self.depth[index] {
@@ -152,13 +150,17 @@ impl BufferChunk {
         x: usize,
         y: usize,
         projected: &ProjectedVertex,
-        pix: Pixel,// take ownership of it
+        pix: Pixel, // take ownership of it
     ) {
-        self.buffer.set_pixel( x- self.offset.x as usize, y - self.offset.y as usize, projected, pix);
+        self.buffer.set_pixel(
+            x - self.offset.x as usize,
+            y - self.offset.y as usize,
+            projected,
+            pix,
+        );
     }
 
     pub fn render_to_terminal(&self) -> std::io::Result<()> {
         self.buffer.render_to_terminal()
     }
 }
-

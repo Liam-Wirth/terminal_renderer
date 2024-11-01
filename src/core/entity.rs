@@ -2,7 +2,6 @@ use crate::RENDERMODE;
 
 use super::{geometry::Mesh, transform::Transform};
 
-
 #[derive(Debug, Clone)]
 pub struct Entity {
     pub mesh: Mesh,
@@ -21,6 +20,12 @@ impl Entity {
 
     pub fn create_cube() -> Self {
         let mesh = Mesh::create_cube();
+        let transform = Transform::new();
+        Entity::new(mesh, transform)
+    }
+
+    pub fn create_tri() -> Self {
+        let mesh = Mesh::create_tri();
         let transform = Transform::new();
         Entity::new(mesh, transform)
     }
