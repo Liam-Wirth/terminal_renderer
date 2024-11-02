@@ -69,10 +69,10 @@ impl Engine {
                     KeyCode::Char('D') => self.camera.move_right(0.1),
                     KeyCode::Char(' ') => self.camera.move_up(0.1),
                     KeyCode::Char('c') => self.camera.move_down(0.1),
-                    KeyCode::Left => self.camera.rotate_yaw(-0.1),
-                    KeyCode::Right => self.camera.rotate_yaw(0.1),
-                    KeyCode::Up => self.camera.rotate_pitch(0.1),
-                    KeyCode::Down => self.camera.rotate_pitch(-0.1),
+                    KeyCode::Left => self.camera.rotate_yaw(-0.01),
+                    KeyCode::Right => self.camera.rotate_yaw(0.01),
+                    KeyCode::Up => self.camera.rotate_pitch(0.01),
+                    KeyCode::Down => self.camera.rotate_pitch(-0.01),
                     _ => {}
                 }
             }

@@ -4,7 +4,7 @@ use std::io::Write;
 use glam::UVec2;
 use glam::Vec2;
 
-use crate::core::{Camera, Color, ProjectedVertex, Scene};
+use crate::core::{Color, ProjectedVertex};
 
 pub const MAX_DIMS: UVec2 = UVec2::new(1920, 1080);
 

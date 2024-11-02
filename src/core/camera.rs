@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use super::MAX_PITCH;
-use glam::{Mat4, UVec2, Vec2, Vec3, Vec4Swizzles};
+use glam::{Mat4, UVec2, Vec2, Vec3};
 
 pub struct Camera {
     /// The Global.pos of the camera
@@ -31,7 +31,7 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(pos: Vec3, facing: Vec3, aspect: f32) -> Self {
-        let mut cam = Self {
+        let cam = Self {
             pos: RefCell::new(pos),
             facing: RefCell::new(facing.normalize()),
             up: RefCell::new(Vec3::Y),
@@ -138,25 +138,26 @@ impl Camera {
 
     /// Turn that jawn left and right (yaw)
     /// **theta** It is importatnt that this is in ***RADIANS***
+
     pub fn rotate_yaw(&self, angle: f32) {
         let rotation = Mat4::from_rotation_y(angle);
-        *self.facing.borrow_mut() = (rotation * self.facing.borrow().extend(0.0)).truncate();
-        *self.right.borrow_mut() = self.facing.borrow().cross(Vec3::Y).normalize();
+        let current_facing = *self.facing.borrow();
+        let new_facing = (rotation * current_facing.extend(0.0)).truncate();
+        *self.facing.borrow_mut() = new_facing;
+        *self.right.borrow_mut() = new_facing.cross(Vec3::Y).normalize();
         *self.view_proj_dirty.borrow_mut() = true;
     }
 
     /// Turn that jawn Up and Down (Pitch)
     /// **theta** It is importatnt that this is in ***RADIANS***
     pub fn rotate_pitch(&self, angle: f32) {
-        let pitch = self.facing.borrow().cross(Vec3::Y).normalize();
-        let yaw = Vec3::Y;
-        let rot = Mat4::from_rotation_y(angle);
-        let new_facing = (rot * self.facing.borrow().extend(0.0)).truncate();
+        let current_facing = *self.facing.borrow();
+        let new_facing = (Mat4::from_rotation_y(angle) * current_facing.extend(0.0)).truncate();
         let cur = new_facing.dot(Vec3::Y).asin();
 
         if cur.abs() < MAX_PITCH {
             *self.facing.borrow_mut() = new_facing;
-            *self.right.borrow_mut() = self.facing.borrow().cross(Vec3::Y).normalize();
+            *self.right.borrow_mut() = new_facing.cross(Vec3::Y).normalize();
             *self.view_proj_dirty.borrow_mut() = true;
         }
     }
