@@ -32,7 +32,7 @@ impl Transform {
     ///
     /// The model matrix is initially marked as dirty and will be computed on first access.
     pub fn new() -> Self {
-        let mut out = Transform {
+        let out = Transform {
             pos: RefCell::new(Vec3::ZERO),
             rot: RefCell::new(Quat::IDENTITY),
             scale: RefCell::new(Vec3::ONE),
@@ -96,10 +96,13 @@ impl Transform {
     /// # Arguments
     /// * `rotation` - The quaternion representing the rotation to apply
     pub fn rotate_quat(&self, rotation: Quat) {
-        *self.rot.borrow_mut() = rotation * *self.rot.borrow();
-        self.mark_dirty();
+        let new_rot = {
+            let current_rot = self.rot.borrow();
+            rotation * *current_rot
+        };
+        *self.rot.borrow_mut() = new_rot;
+        *self.model_mat_dirty.borrow_mut() = true;
     }
-
     /// Rotates the transform using Euler angles.
     ///
     /// # Arguments

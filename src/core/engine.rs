@@ -13,7 +13,7 @@ pub struct Engine<R: Renderer> {
 }
 
 impl<R: Renderer> Engine<R> {
-    fn new(renderer: R, scene: Scene, camera: Camera) -> Self {
+    pub fn new(renderer: R, scene: Scene, camera: Camera) -> Self {
         Engine {
             renderer,
             scene,

@@ -1,12 +1,10 @@
 use std::cell::RefCell;
-use std::fmt::Write;
 
 use crate::core::ProjectedVertex;
 use crate::core::{camera::Camera, scene::Scene};
 use crate::renderers::renderer::{get_render_mode, Renderer};
 use crate::renderers::terminal::termbuffer::{Pixel, TermBuffer};
 use crossterm::terminal;
-use glam::Vec4Swizzles;
 use glam::{UVec2, Vec2};
 
 pub struct TermPipeline {
