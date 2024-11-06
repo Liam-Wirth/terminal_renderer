@@ -51,6 +51,7 @@ Articles, Extremely old lecture material, Wikipedia Pages, etc, all of these pla
 - https://en.wikipedia.org/wiki/Clip_coordinates
 - [https://www.desmos.com/3d/8t6uvxkyh6][Desmos Graph for Dodecahedron]
 - https://www.youtube.com/watch?v=Hqi8QREXwrE
+- https://en.wikipedia.org/wiki/Scanline_rendering
 
 ## Other cool projects! (that ended up helping me out :)
 | Link | Comments/Notes      |

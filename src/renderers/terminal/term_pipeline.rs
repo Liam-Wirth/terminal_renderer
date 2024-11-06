@@ -34,7 +34,7 @@ impl Renderer for TermPipeline {
             let model_mat = entity.transform.model_mat();
             entity
                 .mesh
-                .update_projected_vertices(&model_mat, &screen_dims, &cam);
+                .update_projected_vertices(&model_mat, &screen_dims, cam);
 
             let proj_verts = entity.mesh.projected_verts.borrow();
             for tri in entity.mesh.indices.chunks(3) {
@@ -43,9 +43,9 @@ impl Renderer for TermPipeline {
                     let v2 = &proj_verts[i2 as usize];
                     let v3 = &proj_verts[i3 as usize];
                     // HACK: need to have projected vertices store color
-                    self.draw_line(v1, v2, crate::core::Color::RED);
-                    self.draw_line(v2, v3, crate::core::Color::GREEN);
-                    self.draw_line(v3, v1, crate::core::Color::BLUE);
+                    self.draw_line(v1, v2, v1.pix.clone());
+                    self.draw_line(v2, v3, v2.pix);
+                    self.draw_line(v3, v1, v3.pix);
                 }
             }
         }
@@ -61,7 +61,7 @@ impl TermPipeline {
         &mut self,
         start: &ProjectedVertex,
         end: &ProjectedVertex,
-        color: crate::core::Color,
+        pix: Pixel,
     ) {
         let dx = end.pos.x - start.pos.x;
         let dy = end.pos.y - start.pos.y;
@@ -82,16 +82,11 @@ impl TermPipeline {
         let mut depth = start.depth;
 
         for _ in 0..=steps {
-            let current_vertex = ProjectedVertex {
-                pos: Vec2::new(x, y),
-                depth,
-            };
-
             self.frontbuffer.borrow_mut().set_pixel(
                 x as usize,
                 y as usize,
-                &current_vertex,
-                Pixel::new_full(color),
+                &depth,
+                pix,
             );
 
             x += x_inc;
@@ -99,6 +94,74 @@ impl TermPipeline {
             depth += depth_inc;
         }
     }
+    fn draw_filled_triangle_scan(
+        &mut self,
+        v0: &ProjectedVertex,
+        v1: &ProjectedVertex,
+        v2: &ProjectedVertex,
+        pix: &Pixel,
+    ) {
+        // TODO: Eventually add functionality for coloring based on the vertex colors (ie the
+        // hello world rgb triangle)
+
+        // Find some way for the profiler to know whether or not this part of the function is
+        // bottle-necking
+        let (v0, v1, v2) = if v0.pos.y <= v1.pos.y && v0.pos.y <= v2.pos.y {
+            if v1.pos.y <= v2.pos.y {
+                (v0, v1, v2)
+            } else {
+                (v1, v2, v0)
+            }
+        } else if v1.pos.y <= v0.pos.y && v1.pos.y <= v2.pos.y {
+            if v0.pos.y <= v2.pos.y {
+                (v1, v0, v2)
+            } else {
+                (v1, v2, v0)
+            }
+        } else if v0.pos.y <= v1.pos.y {
+            (v2, v0, v1)
+        } else {
+            (v2, v1, v0)
+        };
+        if v1.pos.y == v2.pos.y {
+            self.fill_flat_bot_tri(v0, v1, v2, pix);
+        } else if v0.pos.y == v1.pos.y {
+            self.fill_flat_top_tri(v0, v1, v2, pix);
+        } else {
+            let dy_v2_v0 = v2.pos.y - v0.pos.y;
+            let dy_v1_v0 = v1.pos.y - v0.pos.y;
+            let dx_v2_v0 = v2.pos.x - v0.pos.x;
+            let v_split_x = v0.pos.x + dx_v2_v0 * (dy_v1_v0 / dy_v2_v0);
+            let v_split_depth = v0.depth + (v2.depth - v0.depth) * (dy_v1_v0 / dy_v2_v0);
+
+            let v_split = ProjectedVertex {
+                pos: Vec2::new(v_split_x, v1.pos.y),
+                depth: v_split_depth,
+                pix: *pix
+            };
+            self.fill_flat_bot_tri(v0, v1, &v_split, pix);
+            self.fill_flat_top_tri(v0, v1, &v_split, pix);
+        }
+    }
+    fn fill_flat_bot_tri(
+        &mut self,
+        v0: &ProjectedVertex,
+        v1: &ProjectedVertex,
+        v2: &ProjectedVertex,
+        pix: &Pixel,
+    ) {
+        todo!();
+    }
+    fn fill_flat_top_tri(
+        &mut self,
+        v0: &ProjectedVertex,
+        v1: &ProjectedVertex,
+        v2: &ProjectedVertex,
+        pix: &Pixel,
+    ) {
+        todo!();
+    }
+
     pub fn render_frame(&mut self, scene: &Scene, camera: &Camera) -> std::io::Result<()> {
         <Self as Renderer>::render_frame(self, camera, scene);
         Ok(())
