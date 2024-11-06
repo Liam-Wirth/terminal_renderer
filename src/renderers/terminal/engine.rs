@@ -62,20 +62,35 @@ impl Engine {
     fn handle_input(&mut self) -> std::io::Result<bool> {
         use crossterm::event::{self, Event, KeyCode};
 
+        // Get delta time for smooth movement
+        let delta = self.last_frame.elapsed().as_secs_f32();
+
+        // Base speeds
+        let move_speed = 2.0; // Units per second
+        let rotate_speed = 1.0; // Radians per second
+
+        // Calculate frame-adjusted movements
+        let move_amount = move_speed * delta;
+        let rotate_amount = rotate_speed * delta;
+
         if event::poll(Duration::from_millis(0))? {
             if let Event::Key(key) = event::read()? {
                 match key.code {
-                    KeyCode::Esc => return Ok(true),
-                    KeyCode::Char('W') => self.camera.move_forward(0.1),
-                    KeyCode::Char('S') => self.camera.move_backward(0.1),
-                    KeyCode::Char('A') => self.camera.move_left(0.1),
-                    KeyCode::Char('D') => self.camera.move_right(0.1),
-                    KeyCode::Char(' ') => self.camera.move_up(0.1),
-                    KeyCode::Char('c') => self.camera.move_down(0.1),
-                    KeyCode::Left => self.camera.rotate_yaw(-0.01),
-                    KeyCode::Right => self.camera.rotate_yaw(0.01),
-                    KeyCode::Up => self.camera.rotate_pitch(0.01),
-                    KeyCode::Down => self.camera.rotate_pitch(-0.01),
+                    KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => return Ok(true),
+                    KeyCode::Char('w') | KeyCode::Char('W') => {
+                        self.camera.move_forward(move_amount)
+                    }
+                    KeyCode::Char('s') | KeyCode::Char('S') => {
+                        self.camera.move_backward(move_amount)
+                    }
+                    KeyCode::Char('a') | KeyCode::Char('A') => self.camera.move_left(move_amount),
+                    KeyCode::Char('d') | KeyCode::Char('D') => self.camera.move_right(move_amount),
+                    KeyCode::Char(' ') => self.camera.move_up(move_amount),
+                    KeyCode::Char('c') => self.camera.move_down(move_amount),
+                    KeyCode::Left => self.camera.rotate_yaw(-rotate_amount * 0.5),
+                    KeyCode::Right => self.camera.rotate_yaw(rotate_amount * 0.5),
+                    KeyCode::Up => self.camera.rotate_pitch(rotate_amount * 0.5),
+                    KeyCode::Down => self.camera.rotate_pitch(-rotate_amount * 0.5),
                     _ => {}
                 }
             }

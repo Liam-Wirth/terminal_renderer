@@ -151,14 +151,15 @@ impl Camera {
     /// Turn that jawn Up and Down (Pitch)
     /// **theta** It is importatnt that this is in ***RADIANS***
     pub fn rotate_pitch(&self, angle: f32) {
+        let right = *self.right.borrow();
         let current_facing = *self.facing.borrow();
-        let new_facing = (Mat4::from_rotation_y(angle) * current_facing.extend(0.0)).truncate();
+        let rotation = Mat4::from_axis_angle(right, angle);
+        let new_facing = (rotation * current_facing.extend(0.0)).truncate();
         let cur = new_facing.dot(Vec3::Y).asin();
 
         if cur.abs() < MAX_PITCH {
             *self.facing.borrow_mut() = new_facing;
-            *self.right.borrow_mut() = new_facing.cross(Vec3::Y).normalize();
-            *self.view_proj_dirty.borrow_mut() = true;
+            self.update_orientation_vectors();
         }
     }
 
