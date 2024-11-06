@@ -16,7 +16,7 @@ use rand::thread_rng;
 
 //use nalgebra::{Point3, Vector3, Vector2};
 use terminal_renderer::{
-    core::{camera::Camera, entity::Entity, scene::Scene, color::Color as mycol},
+    core::{camera::Camera, color::Color as mycol, entity::Entity, scene::Scene},
     renderers::{
         cpu_termrenderer::render_scene,
         renderer::{get_render_mode, set_render_mode, RenderMode},
@@ -44,22 +44,21 @@ fn main() -> std::io::Result<()> {
     //let mut tea = Entity::from_mesh(tea);
     let mut blender_cube = Entity::from_obj(Path::new("assets/models/example_cube.obj"));
     let mut icosphere = Entity::from_obj(Path::new("assets/models/icosphere.obj"));
+    let mut suzanne = Entity::from_obj(Path::new("assets/models/suzanne.obj"));
 
     dodec.transform.translate(0., 0., -3.);
     cube.transform.translate(0., 0., 3.);
     //cube.transform.scale_uniform(1.5);
     //let swap = dodec;
-    let randunsigned = rand::RngCore::next_u32(&mut rand::thread_rng());
-    let chunk1 = ((randunsigned >> 24) & 0xFF) as u8; // Highest 8 bits
-    let chunk2 = (( randunsigned>> 16) & 0xFF) as u8; // Next 8 bits
-    let chunk3 = (( randunsigned>> 8) & 0xFF) as u8;  // Next 8 bits
-
-    for face in &mut icosphere.mesh.faces {
-        face.color = mycol::from_rgba(chunk1, chunk2, chunk3, 255);
+    for face in suzanne.mesh.faces.chunks_mut(3) {
+        if face.len() == 3 {
+            // Safety check
+            face[0].color = mycol::RED;
+            face[1].color = mycol::GREEN;
+            face[2].color = mycol::BLUE;
+        }
     }
-    
-    let swap = dodec;
-
+    let swap = suzanne;
 
     scene.entities.push(swap);
     //scene.entities.push(cube);
@@ -99,7 +98,7 @@ fn main() -> std::io::Result<()> {
             }
         }
 
-        if !pause_spin {
+        if !false {
             scene.entities[0].transform.rotate(0.01, 0.03, 0.05);
             _ = scene.entities[0].transform.get_matrix();
         }

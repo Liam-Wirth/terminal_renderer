@@ -1,5 +1,3 @@
-use glam::{Vec2, Vec3};
-
 use crate::core::{camera::ProjectedVertex, color::Color};
 use std::io::{stdout, Write};
 
@@ -31,17 +29,11 @@ impl Buffer {
         }
     }
 
-    pub fn set_pixel(
-        &mut self,
-        x: usize,
-        y: usize,
-        projected: &ProjectedVertex,
-        pix: Pixel,
-    ) {
+        pub fn set_pixel(&mut self, x: usize, y: usize, projected: &ProjectedVertex, ch: char, color: Color) {
         if x < self.width && y < self.height {
             let index = x + y * self.width;
             if projected.depth < self.depth[index] {
-                self.data[index] = pix;
+                self.data[index] = Pixel::new(ch, color);
                 self.depth[index] = projected.depth;
             }
         }
@@ -94,38 +86,5 @@ impl Buffer {
 
         stdout.write_all(output.as_bytes())?;
         stdout.flush()
-    }
-}
-
-pub struct BufferChunk {
-    pub buffer: Buffer,
-    pub offset: Vec2, // Primarily just do x offsets, maybe we chunk with y offsets in the future
-                      // but unlikely I think
-}
-
-impl BufferChunk {
-    pub fn new(width: usize, height: usize, offset: Vec2) -> Self {
-        BufferChunk {
-            buffer: Buffer::new(width, height),
-            offset,
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.buffer.clear();
-    }
-
-    pub fn set_pixel(
-        &mut self,
-        x: usize,
-        y: usize,
-        projected: &ProjectedVertex,
-        pix: Pixel,// take ownership of it
-    ) {
-        self.buffer.set_pixel( x- self.offset.x as usize, y - self.offset.y as usize, projected, pix);
-    }
-
-    pub fn render_to_terminal(&self) -> std::io::Result<()> {
-        self.buffer.render_to_terminal()
     }
 }

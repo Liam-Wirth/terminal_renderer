@@ -126,4 +126,3 @@ impl Camera {
         self.far = far;
     }
 }
-

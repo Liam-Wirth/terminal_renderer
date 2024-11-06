@@ -56,7 +56,6 @@ https://learnopengl.com/Guest-Articles/2021/Scene/Frustum-Culling <- Frustum Cul
 | https://github.com/TermTrack/TermTrack | Super cool project to see, and is awesome to see a much more performant/realtime representation of rendering using crossterm|
 | https://github.com/JasondeWolff/rusterizer| |
 |https://github.com/ecumene/rust-sloth |
-|http://www.blitzcode.net/3d_1.shtml#Software_Rasterizer| ex-nvidia employee had some fun with rust|
 
 
 
@@ -71,24 +70,3 @@ Depth Testing and Shading (Determine visible surfaces and color them)
 Frame Buffering and Output (Store and render the final image)
 
 This pipeline can be optimized by focusing on the most computationally expensive stages, such as rasterization and shading.
-
-
-
-# New "Pipeline" as it exists in my sick and twisted mind:
-Modeling -> Transformations -> Viewing Projection -> Chunking buffers for rasterization -> Rasterization -> Depth Checks -> Frame Buffer -> Overlay Hud -> Output
-
-
-
-
-
-
-code needs to have global state in which it's values are initialized once, and are simply mutated/updated on each frame
-
-
-TermRenderer:
-    pub buffer: Buffer <- Possibly with some sorta mutex lock thingy mabob on it, or just atomics
-    pub camera: Camera
-    pub scene: Scene <- Entities, Lights (eventually), etc
-    pub hud: Hud (TODO!)
-    pub chunks: Vec<Buffer> <- 
-
