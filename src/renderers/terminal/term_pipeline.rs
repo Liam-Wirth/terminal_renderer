@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
-use crate::core::ProjectedVertex;
 use crate::core::{camera::Camera, scene::Scene};
+use crate::core::{Color, ProjectedVertex};
 use crate::renderers::renderer::{get_render_mode, Renderer};
 use crate::renderers::terminal::termbuffer::{Pixel, TermBuffer};
 use crossterm::terminal;
@@ -43,9 +43,9 @@ impl Renderer for TermPipeline {
                     let v2 = &proj_verts[i2 as usize];
                     let v3 = &proj_verts[i3 as usize];
                     // HACK: need to have projected vertices store color
-                    self.draw_line(v1, v2, v1.pix.clone());
-                    self.draw_line(v2, v3, v2.pix);
-                    self.draw_line(v3, v1, v3.pix);
+                    self.draw_line(v1, v2, Color::RED); // TODO: Finish getting this to use
+                    self.draw_line(v2, v3, Color::GREEN);
+                    self.draw_line(v3, v1, Color::BLUE);
                 }
             }
         }
@@ -57,12 +57,7 @@ impl Renderer for TermPipeline {
 }
 
 impl TermPipeline {
-    fn draw_line(
-        &mut self,
-        start: &ProjectedVertex,
-        end: &ProjectedVertex,
-        pix: Pixel,
-    ) {
+    fn draw_line(&mut self, start: &ProjectedVertex, end: &ProjectedVertex, color: Color) {
         let dx = end.pos.x - start.pos.x;
         let dy = end.pos.y - start.pos.y;
         let steps = dx.abs().max(dy.abs()) as i32;
@@ -82,12 +77,9 @@ impl TermPipeline {
         let mut depth = start.depth;
 
         for _ in 0..=steps {
-            self.frontbuffer.borrow_mut().set_pixel(
-                x as usize,
-                y as usize,
-                &depth,
-                pix,
-            );
+            self.frontbuffer
+                .borrow_mut()
+                .set_pixel(x as usize, y as usize, &depth, color, '#');
 
             x += x_inc;
             y += y_inc;
@@ -137,7 +129,7 @@ impl TermPipeline {
             let v_split = ProjectedVertex {
                 pos: Vec2::new(v_split_x, v1.pos.y),
                 depth: v_split_depth,
-                pix: *pix
+                color: pix.color,
             };
             self.fill_flat_bot_tri(v0, v1, &v_split, pix);
             self.fill_flat_top_tri(v0, v1, &v_split, pix);
@@ -150,6 +142,22 @@ impl TermPipeline {
         v2: &ProjectedVertex,
         pix: &Pixel,
     ) {
+        let dy_v1_v0 = (v1.pos.y - v0.pos.y).max(1.0);
+        let dy_v2_v0 = (v2.pos.y - v0.pos.y).max(1.0);
+
+        let inv_slope1 = (v1.pos.x - v0.pos.x) / dy_v1_v0;
+        let inv_slope2 = (v2.pos.x - v0.pos.x) / dy_v2_v0;
+
+        let depth_slope1 = (v1.depth - v0.depth) / dy_v1_v0;
+        let depth_slope2 = (v2.depth - v0.depth) / dy_v2_v0;
+
+        let mut cur_x1 = v0.pos.x;
+        let mut cur_x2 = v0.pos.x;
+        let mut cur_depth1 = v0.depth;
+        let mut cur_depth2 = v0.depth;
+
+        for y in v0.pos.y as usize..=v1.pos.y as usize {
+        }
         todo!();
     }
     fn fill_flat_top_tri(
