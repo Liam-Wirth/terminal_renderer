@@ -29,4 +29,10 @@ impl Entity {
         let transform = Transform::new();
         Entity::new(mesh, transform)
     }
+
+    pub fn create_octahedron() -> Self {
+        let mesh = Mesh::create_octahedron();
+        let transform = Transform::new();
+        Entity::new(mesh, transform)
+    }
 }

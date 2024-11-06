@@ -46,14 +46,15 @@ fn main() -> io::Result<()> {
     }));
 
     let mut stdout = stdout();
+    enable_raw_mode()?;
     execute!(
         stdout,
         EnterAlternateScreen,
         Hide,
         SetBackgroundColor(Color::BLACK.to_crossterm_color()),
+        Hide,
     )?;
 
-    enable_raw_mode()?;
 
     let (width, height) = terminal::size()?;
 
@@ -64,7 +65,8 @@ fn main() -> io::Result<()> {
     // Add a triangle to the scene
     let tri = Entity::create_tri();
     let cube = Entity::create_cube();
-    engine.scene.entities.push(cube);
+    let  octa = Entity::create_octahedron();
+    engine.scene.entities.push(octa);
 
     // Run the engine
     engine.run()?;
