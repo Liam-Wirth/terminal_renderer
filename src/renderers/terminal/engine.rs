@@ -21,7 +21,7 @@ impl Engine {
                 width as f32 / height as f32,      // aspect ratio
             ),
             last_frame: Instant::now(),
-            frame_time: Duration::from_secs_f32(1.0 / 60.0), // 60 FPS target
+            frame_time: Duration::from_secs_f32(1.0 / 144.0), // 60 FPS target
         }
     }
 
@@ -30,6 +30,9 @@ impl Engine {
             entity
                 .transform
                 .rotate_quat(glam::Quat::from_rotation_x(0.01));
+            entity
+                .transform
+                .rotate_quat(glam::Quat::from_rotation_y(0.01));
         }
     }
 

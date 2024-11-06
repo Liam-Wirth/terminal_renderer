@@ -239,6 +239,59 @@ impl Mesh {
         mesh.calculate_vertex_normals();
         mesh
     }
+    pub fn create_tetrahedron() -> Self {
+        todo!();
+
+    }
+
+    pub fn create_octahedron() -> Self {
+        let verts = vec![
+            Vert {
+                pos: Vec3::new(0.0, 0.0, -1.0),
+                color: Color::RED,
+                ..Default::default()
+            },
+            Vert {
+                pos: Vec3::new(1.0, 0.0, 0.0),
+                color: Color::GREEN,
+                ..Default::default()
+            },
+            Vert {
+                pos: Vec3::new(0.0, 1.0, 0.0),
+                color: Color::BLUE,
+                ..Default::default()
+            },
+            Vert {
+                pos: Vec3::new(-1.0, 0.0, 0.0),
+                color: Color::YELLOW,
+                ..Default::default()
+            },
+            Vert {
+                pos: Vec3::new(0.0, -1.0, 0.0),
+                color: Color::CYAN,
+                ..Default::default()
+            },
+            Vert {
+                pos: Vec3::new(0.0, 0.0, 1.0),
+                color: Color::MAGENTA,
+                ..Default::default()
+            },
+        ];
+
+        let indices = vec![
+            0, 1, 2, 2, 3, 0, // Front (-Z)
+            0, 3, 4, 4, 1, 0, // Left (-X)
+            1, 4, 5, 5, 2, 1, // Back (+Z)
+            2, 5, 3, 3, 0, 2, // Right (+X)
+            3, 4, 5, 5, 0, 3, // Bottom (-Y)
+        ];
+
+        let mut mesh = Self::new(verts, indices);
+        mesh.calculate_face_normals();
+        mesh.calculate_vertex_normals();
+        mesh
+    }
+
 
     pub fn update_projected_vertices(
         &self,
