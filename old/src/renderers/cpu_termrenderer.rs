@@ -13,7 +13,7 @@ use rayon::prelude::*;
 // TODO: would be cool to make this more abstract/ abstract a lot of the logic such that
 // I can just have alot of these structs exist as the "backend" for whatever type of output
 // rendering I end up trying to do (ppm file -> png, ppm gif or smth, I dunno)
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub struct Pixel {
     pub ch: char,
     pub color: Color, // foreground color
@@ -54,6 +54,7 @@ pub fn render_scene<W: Write>(
     let height = height as usize;
 
     let buffer = Arc::new(Mutex::new(Buffer::new(width, height)));
+    buffer.lock().unwrap().clear();
 
     let view_matrix = camera.get_view_matrix();
     let render_mode = get_render_mode();
@@ -157,7 +158,8 @@ fn draw_line(buffer: &mut Buffer, v0: &ProjectedVertex, v1: &ProjectedVertex, pi
                 v0_screen.x as usize,
                 v0_screen.y as usize,
                 v0,
-                *pix,
+                pix.ch,
+                pix.color,
             );
         }
 
@@ -252,9 +254,9 @@ fn draw_filled_triangle_scanline(
 
 fn fill_flat_bottom_triangle(
     buffer: &mut Buffer,
-    v0: &ProjectedVertex,
-    v1: &ProjectedVertex,
-    v2: &ProjectedVertex,
+    v0:&ProjectedVertex,
+    v1:&ProjectedVertex,
+    v2:&ProjectedVertex,
     pix: &Pixel,
 ) {
     let dy_v1_v0 = (v1.position.y - v0.position.y).max(1.0);
@@ -282,9 +284,9 @@ fn fill_flat_bottom_triangle(
 
 fn fill_flat_top_triangle(
     buffer: &mut Buffer,
-    v0: &ProjectedVertex,
-    v1: &ProjectedVertex,
-    v2: &ProjectedVertex,
+    v0:&ProjectedVertex,
+    v1:&ProjectedVertex,
+    v2:&ProjectedVertex,
     pix: &Pixel,
 ) {
     let dy_v2_v0 = (v2.position.y - v0.position.y).max(1.0);
@@ -342,9 +344,11 @@ fn draw_horizontal_line(
                     position: Vec2::new(x as f32, y as f32),
                     depth: cur_depth,
                 },
-                *pix
+                pix.ch,
+                pix.color,
             );
             cur_depth += depth_slope;
         }
     }
 }
+

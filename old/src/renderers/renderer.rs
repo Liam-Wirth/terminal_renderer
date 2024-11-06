@@ -1,8 +1,6 @@
 use lazy_static::lazy_static;
 use std::sync::Mutex;
 
-use super::buffer::Buffer;
-
 // TODO: Add a toggle to switch between tri coloring and face coloring
 //
 // Enum for rendering modes
@@ -40,16 +38,4 @@ pub fn cycle_render_mode() {
         RenderMode::Wireframe => RenderMode::Solid,
         RenderMode::Solid => RenderMode::Wireframe,
     };
-}
-
-pub trait Renderer {
-    type PixelType;
-    fn initialize(&mut self, width: usize, height: usize);
-    fn render_frame(&mut self) -> Vec<Self::PixelType>;
-    fn set_resolution(&mut self, width: usize, height: usize);
-}
-
-pub struct TerminalRenderer {
-    pub buffer: Buffer,
-
 }
