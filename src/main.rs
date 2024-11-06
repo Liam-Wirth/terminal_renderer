@@ -13,7 +13,7 @@ use std::fs::OpenOptions;
 use std::io::{self, stdout, Write};
 use std::panic;
 use terminal_renderer::core::Entity;
-use terminal_renderer::core::{engine::Engine, Color};
+use terminal_renderer::core::Color;
 
 fn cleanup() -> io::Result<()> {
     let mut stdout = stdout();

@@ -67,12 +67,12 @@ impl TermBuffer {
         }
     }
 
-    pub fn set_pixel(&mut self, x: usize, y: usize, projected: &ProjectedVertex, pix: Pixel) {
+    pub fn set_pixel(&mut self, x: usize, y: usize, depth: &f32 , pix: Pixel) {
         if x < self.width && y < self.height {
             let index = x + y * self.width;
-            if projected.depth < self.depth[index] {
+            if *depth < self.depth[index] {
                 self.data[index] = pix;
-                self.depth[index] = projected.depth;
+                self.depth[index] = *depth;
             }
         }
     }
@@ -149,13 +149,13 @@ impl BufferChunk {
         &mut self,
         x: usize,
         y: usize,
-        projected: &ProjectedVertex,
+        depth: &f32,
         pix: Pixel, // take ownership of it
     ) {
         self.buffer.set_pixel(
             x - self.offset.x as usize,
             y - self.offset.y as usize,
-            projected,
+            depth,
             pix,
         );
     }
