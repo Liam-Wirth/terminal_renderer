@@ -2,7 +2,7 @@ use std::cell::RefCell;
 
 use crate::renderers::terminal::termbuffer::Pixel;
 
-use super::MAX_PITCH;
+use super::{color, Color, MAX_PITCH};
 use glam::{Mat4, UVec2, Vec2, Vec3};
 
 pub struct Camera {
@@ -176,12 +176,12 @@ impl Camera {
 pub struct ProjectedVertex {
     pub pos: Vec2,
     pub depth: f32,
-    pub pix: Pixel,
+    pub color: crate::core::color::Color,
 }
 
 impl ProjectedVertex {
-    pub fn new(pos: Vec2, depth: f32, pix: Pixel) -> Self {
-        ProjectedVertex { pos, depth, pix }
+    pub fn new(pos: Vec2, depth: f32, color: Color) -> Self {
+        ProjectedVertex { pos, depth, color}
     }
 }
 
@@ -190,7 +190,7 @@ impl Default for ProjectedVertex {
         ProjectedVertex {
             pos: Vec2::ZERO,
             depth: f32::INFINITY,
-            pix: Pixel::default(),  // man I love default implementations
+            color: super::Color::default(),
         }
     }
 }

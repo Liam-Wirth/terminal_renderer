@@ -67,11 +67,12 @@ impl TermBuffer {
         }
     }
 
-    pub fn set_pixel(&mut self, x: usize, y: usize, depth: &f32 , pix: Pixel) {
+    pub fn set_pixel(&mut self, x: usize, y: usize, depth: &f32 , col: Color, ch: char) {
         if x < self.width && y < self.height {
             let index = x + y * self.width;
             if *depth < self.depth[index] {
-                self.data[index] = pix;
+                self.data[index].color = col;
+                self.data[index].ch = ch;
                 self.depth[index] = *depth;
             }
         }
@@ -150,13 +151,15 @@ impl BufferChunk {
         x: usize,
         y: usize,
         depth: &f32,
-        pix: Pixel, // take ownership of it
+        col: Color,
+        ch: char
     ) {
         self.buffer.set_pixel(
             x - self.offset.x as usize,
             y - self.offset.y as usize,
             depth,
-            pix,
+            col,
+            ch
         );
     }
 
