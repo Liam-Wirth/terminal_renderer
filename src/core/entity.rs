@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use crate::RENDERMODE;
 
 use super::{geometry::Mesh, transform::Transform};
@@ -32,6 +34,12 @@ impl Entity {
 
     pub fn create_octahedron() -> Self {
         let mesh = Mesh::create_octahedron();
+        let transform = Transform::new();
+        Entity::new(mesh, transform)
+    }
+
+    pub fn from_obj(path: &Path) -> Self {
+        let mesh = Mesh::from_obj(path)[0].clone();
         let transform = Transform::new();
         Entity::new(mesh, transform)
     }
