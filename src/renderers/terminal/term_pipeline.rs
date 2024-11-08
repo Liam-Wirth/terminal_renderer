@@ -10,6 +10,7 @@ use glam::{UVec2, Vec2};
 pub struct TermPipeline {
     // TODO: Add a backbuffer/double renderering
     pub frontbuffer: RefCell<TermBuffer>,
+    pub backbuffer: RefCell<TermBuffer>,
 }
 
 impl Renderer for TermPipeline {
@@ -23,14 +24,18 @@ impl Renderer for TermPipeline {
     fn render_frame(&mut self, cam: &Camera, scene: &Scene, metrics: &String) {
         let (width, height) = terminal::size().unwrap();
         {
-            let mut fbuf = self.frontbuffer.borrow_mut();
-            fbuf.clear();
-            fbuf.height = height as usize;
-            fbuf.width = width as usize;
+            // Clear the back buffer for drawing
+            let mut back = self.backbuffer.borrow_mut();
+            back.clear();
+            back.height = height as usize;
+            back.width = width as usize;
         }
+
         let screen_dims = UVec2::new(width as u32, height as u32);
         let _r_mode = get_render_mode();
         let _view_proj = cam.get_view_projection_matrix();
+
+        // Render to back buffer
         for entity in &scene.entities {
             let model_mat = entity.transform.model_mat();
             entity
@@ -43,25 +48,40 @@ impl Renderer for TermPipeline {
                     let v1 = &proj_verts[i1 as usize];
                     let v2 = &proj_verts[i2 as usize];
                     let v3 = &proj_verts[i3 as usize];
-                    // HACK: need to have projected vertices store color
-                    self.draw_line(v1, v2, Color::RED); // TODO: Finish getting this to use
-                    self.draw_line(v2, v3, Color::GREEN);
-                    self.draw_line(v3, v1, Color::BLUE);
+                    self.draw_line_to_back(v1, v2, Color::RED);
+                    self.draw_line_to_back(v2, v3, Color::GREEN);
+                    self.draw_line_to_back(v3, v1, Color::BLUE);
                 }
             }
         }
-        // Render the final buffer
-        self.frontbuffer
-            .borrow_mut()
+
+        // Display back buffer and swap
+        self.backbuffer
+            .borrow()
             .render_to_terminal(metrics)
             .unwrap();
+        self.swap_buffers();
     }
 
-    fn update_res(&mut self, width: usize, height: usize) {}
+    fn update_res(&mut self, width: usize, height: usize) {
+        self.frontbuffer.borrow_mut().width = width;
+        self.frontbuffer.borrow_mut().height = height;
+        self.backbuffer.borrow_mut().width = width;
+        self.backbuffer.borrow_mut().height = height;
+    }
 }
 
 impl TermPipeline {
-    fn draw_line(&mut self, start: &ProjectedVertex, end: &ProjectedVertex, color: Color) {
+    // New method to swap buffers
+    fn swap_buffers(&mut self) {
+        std::mem::swap(
+            &mut *self.frontbuffer.borrow_mut(),
+            &mut *self.backbuffer.borrow_mut(),
+        );
+    }
+
+    // Modified to draw to back buffer
+    fn draw_line_to_back(&mut self, start: &ProjectedVertex, end: &ProjectedVertex, color: Color) {
         let dx = end.pos.x - start.pos.x;
         let dy = end.pos.y - start.pos.y;
         let steps = dx.abs().max(dy.abs()) as i32;
@@ -72,8 +92,6 @@ impl TermPipeline {
 
         let x_inc = dx / steps as f32;
         let y_inc = dy / steps as f32;
-
-        // Interpolate depth along the line
         let depth_inc = (end.depth - start.depth) / steps as f32;
 
         let mut x = start.pos.x;
@@ -81,7 +99,7 @@ impl TermPipeline {
         let mut depth = start.depth;
 
         for _ in 0..=steps {
-            self.frontbuffer
+            self.backbuffer
                 .borrow_mut()
                 .set_pixel(x as usize, y as usize, &depth, color, '#');
 
@@ -90,6 +108,7 @@ impl TermPipeline {
             depth += depth_inc;
         }
     }
+
     fn draw_filled_triangle_scan(
         &mut self,
         v0: &ProjectedVertex,
@@ -185,6 +204,7 @@ impl TermPipeline {
     pub fn new(width: usize, height: usize) -> Self {
         TermPipeline {
             frontbuffer: RefCell::new(TermBuffer::new(width, height)),
+            backbuffer: RefCell::new(TermBuffer::new(width, height)),
         }
     }
 }
