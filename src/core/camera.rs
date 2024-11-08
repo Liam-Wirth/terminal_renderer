@@ -38,10 +38,10 @@ impl Camera {
             facing: RefCell::new(facing.normalize()),
             up: RefCell::new(Vec3::Y),
             right: RefCell::new(facing.cross(Vec3::Y).normalize()),
-            fov: 90.0_f32.to_radians(),
+            fov: 60.0_f32.to_radians(),
             aspect_ratio: RefCell::new(aspect),
             near: 0.1,
-            far: 100.0,
+            far: 1000.0,
 
             view_matrix: RefCell::new(Mat4::IDENTITY),
             projection_matrix: RefCell::new(Mat4::IDENTITY),
@@ -181,7 +181,7 @@ pub struct ProjectedVertex {
 
 impl ProjectedVertex {
     pub fn new(pos: Vec2, depth: f32, color: Color) -> Self {
-        ProjectedVertex { pos, depth, color}
+        ProjectedVertex { pos, depth, color }
     }
 }
 

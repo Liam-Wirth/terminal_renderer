@@ -12,8 +12,8 @@ use simplelog::{Config, WriteLogger};
 use std::fs::OpenOptions;
 use std::io::{self, stdout, Write};
 use std::panic;
-use terminal_renderer::core::Entity;
 use terminal_renderer::core::Color;
+use terminal_renderer::core::Entity;
 
 fn cleanup() -> io::Result<()> {
     let mut stdout = stdout();
@@ -55,7 +55,6 @@ fn main() -> io::Result<()> {
         Hide,
     )?;
 
-
     let (width, height) = terminal::size()?;
 
     // Create and initialize the engine
@@ -65,8 +64,8 @@ fn main() -> io::Result<()> {
     // Add a triangle to the scene
     let tri = Entity::create_tri();
     let cube = Entity::create_cube();
-    let  octa = Entity::create_octahedron();
-    engine.scene.entities.push(octa);
+    let octa = Entity::create_octahedron();
+    engine.scene.entities.push(tri);
 
     // Run the engine
     engine.run()?;

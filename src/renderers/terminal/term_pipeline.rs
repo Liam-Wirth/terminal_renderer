@@ -14,12 +14,13 @@ pub struct TermPipeline {
 
 impl Renderer for TermPipeline {
     type PixelType = Pixel;
+    type MetricsType = String;
 
     fn init(&mut self, width: usize, height: usize) {
         self.frontbuffer = RefCell::new(TermBuffer::new(width, height));
     }
 
-    fn render_frame(&mut self, cam: &Camera, scene: &Scene) {
+    fn render_frame(&mut self, cam: &Camera, scene: &Scene, metrics: &String) {
         let (width, height) = terminal::size().unwrap();
         {
             let mut fbuf = self.frontbuffer.borrow_mut();
@@ -50,7 +51,10 @@ impl Renderer for TermPipeline {
             }
         }
         // Render the final buffer
-        self.frontbuffer.borrow_mut().render_to_terminal().unwrap();
+        self.frontbuffer
+            .borrow_mut()
+            .render_to_terminal(metrics)
+            .unwrap();
     }
 
     fn update_res(&mut self, width: usize, height: usize) {}
@@ -156,8 +160,7 @@ impl TermPipeline {
         let mut cur_depth1 = v0.depth;
         let mut cur_depth2 = v0.depth;
 
-        for y in v0.pos.y as usize..=v1.pos.y as usize {
-        }
+        for y in v0.pos.y as usize..=v1.pos.y as usize {}
         todo!();
     }
     fn fill_flat_top_tri(
@@ -170,8 +173,13 @@ impl TermPipeline {
         todo!();
     }
 
-    pub fn render_frame(&mut self, scene: &Scene, camera: &Camera) -> std::io::Result<()> {
-        <Self as Renderer>::render_frame(self, camera, scene);
+    pub fn render_frame(
+        &mut self,
+        scene: &Scene,
+        camera: &Camera,
+        metrics: &String,
+    ) -> std::io::Result<()> {
+        <Self as Renderer>::render_frame(self, camera, scene, metrics);
         Ok(())
     }
     pub fn new(width: usize, height: usize) -> Self {
