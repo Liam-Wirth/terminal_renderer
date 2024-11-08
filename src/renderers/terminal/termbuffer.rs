@@ -3,6 +3,11 @@ use std::io::Write;
 
 use glam::UVec2;
 use glam::Vec2;
+use rayon::iter::IndexedParallelIterator;
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelBridge as _;
+use rayon::iter::ParallelIterator;
+use rayon::prelude::*;
 
 use crate::core::{Color, ProjectedVertex};
 
@@ -59,12 +64,21 @@ impl TermBuffer {
     }
 
     pub fn clear(&mut self) {
-        for pixel in &mut self.data {
-            pixel.reset();
-        }
-        for depth in &mut self.depth {
-            *depth = f32::INFINITY;
-        }
+        let buf_size = self.width * self.height;
+        self.data[..buf_size]
+            .par_chunks_mut(1024)
+            .for_each(|chunk| {
+                for point in chunk {
+                    point.reset();
+                }
+            });
+        self.depth[..buf_size]
+            .par_chunks_mut(1024)
+            .for_each(|chunk| {
+                for depth in chunk {
+                    *depth = f32::INFINITY;
+                }
+            });
     }
 
     pub fn set_pixel(&mut self, x: usize, y: usize, depth: &f32, col: Color, ch: char) {
