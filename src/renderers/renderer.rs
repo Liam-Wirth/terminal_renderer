@@ -43,8 +43,9 @@ pub fn cycle_render_mode() {
 }
 pub trait Renderer {
     type PixelType;
+    type MetricsType;
 
     fn init(&mut self, width: usize, height: usize);
-    fn render_frame(&mut self, cam: &Camera, scene: &Scene);
+    fn render_frame(&mut self, cam: &Camera, scene: &Scene, metrics: &Self::MetricsType);
     fn update_res(&mut self, width: usize, height: usize);
 }

@@ -67,7 +67,7 @@ impl TermBuffer {
         }
     }
 
-    pub fn set_pixel(&mut self, x: usize, y: usize, depth: &f32 , col: Color, ch: char) {
+    pub fn set_pixel(&mut self, x: usize, y: usize, depth: &f32, col: Color, ch: char) {
         if x < self.width && y < self.height {
             let index = x + y * self.width;
             if *depth < self.depth[index] {
@@ -78,7 +78,7 @@ impl TermBuffer {
         }
     }
 
-    pub fn render_to_terminal(&self) -> std::io::Result<()> {
+    pub fn render_to_terminal(&self, metrics: &String) -> std::io::Result<()> {
         let mut stdout = stdout();
 
         let mut output = String::new();
@@ -87,6 +87,7 @@ impl TermBuffer {
         let mut last_color = None;
 
         // Hide the cursor and clear the screen once
+        output.push_str(&format!("\x1b]0;{}\x07", metrics));
         output.push_str("\x1B[?25l"); // Hide cursor
         output.push_str("\x1B[2J"); // Clear screen
         output.push_str("\x1B[H"); // Move cursor to home position
@@ -146,24 +147,17 @@ impl BufferChunk {
         self.buffer.clear();
     }
 
-    pub fn set_pixel(
-        &mut self,
-        x: usize,
-        y: usize,
-        depth: &f32,
-        col: Color,
-        ch: char
-    ) {
+    pub fn set_pixel(&mut self, x: usize, y: usize, depth: &f32, col: Color, ch: char) {
         self.buffer.set_pixel(
             x - self.offset.x as usize,
             y - self.offset.y as usize,
             depth,
             col,
-            ch
+            ch,
         );
     }
 
-    pub fn render_to_terminal(&self) -> std::io::Result<()> {
-        self.buffer.render_to_terminal()
+    pub fn render_to_terminal(&self, metrics: &String) -> std::io::Result<()> {
+        self.buffer.render_to_terminal(metrics)
     }
 }
