@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::path::Path;
 
 use crate::core::Color;
 use crate::core::ProjectedVertex;
@@ -6,6 +7,7 @@ use glam::Mat4;
 use glam::UVec2;
 use glam::Vec3;
 use glam::Vec4Swizzles;
+use tobj::LoadOptions;
 
 use super::Camera;
 
@@ -51,6 +53,10 @@ impl Tri {
             bounds: (v0.min(v1).min(v2), v0.max(v1).max(v2)),
             dirty: false,
         }
+    }
+    pub fn is_facing_cam(&self, cam_pos: Vec3) -> bool {
+        // positive = backface, negative = frontface
+        !((self.centroid - cam_pos).normalize().dot(self.norm) < 0.0)
     }
 
     pub fn update(&mut self, vert_buf: &[Vert]) {
@@ -241,7 +247,6 @@ impl Mesh {
     }
     pub fn create_tetrahedron() -> Self {
         todo!();
-
     }
 
     pub fn create_octahedron() -> Self {
@@ -292,7 +297,6 @@ impl Mesh {
         mesh
     }
 
-
     pub fn update_projected_vertices(
         &self,
         model_mat: &Mat4,
@@ -304,5 +308,64 @@ impl Mesh {
             let world_pos = *model_mat * vert.pos.extend(1.0);
             camera.project_vertex_into(world_pos.xyz(), &screen_dims, &mut projected[i]);
         }
+    }
+    pub fn from_obj(path: &Path) -> Vec<Mesh> {
+        // Load the OBJ with triangulation enabled
+        let temp = tobj::load_obj(
+            path,
+            &LoadOptions {
+                triangulate: true,
+                ..Default::default()
+            },
+        )
+        .expect("FAIL!!! BRUH!!!");
+
+        let (models, _mats) = temp;
+        let mut meshes = Vec::new();
+
+        // Iterate over each model to create a Mesh for each
+        for model in models {
+            let mesh_data = model.mesh;
+
+            // Convert OBJ positions and normals to `Vert`s with positions and colors
+            let verts = mesh_data
+                .positions
+                .chunks(3)
+                .enumerate()
+                .map(|(i, pos)| {
+                    let position = Vec3::new(pos[0], pos[1], pos[2]);
+                    let normal = if !mesh_data.normals.is_empty() {
+                        // Get normal if it exists
+                        let normal_index = mesh_data.normal_indices.get(i).copied().unwrap_or(0);
+                        let normal = &mesh_data.normals
+                            [(normal_index * 3) as usize..(normal_index * 3 + 3) as usize];
+                        Vec3::new(normal[0], normal[1], normal[2]).normalize()
+                    } else {
+                        Vec3::ZERO // Default normal if not provided
+                    };
+                    Vert {
+                        pos: position,
+                        norm: normal,
+                        color: Color::WHITE, // Adjust if you want specific colors per model
+                    }
+                })
+                .collect::<Vec<Vert>>();
+
+            // Generate triangles (Tris) based on OBJ indices
+            let tris = mesh_data
+                .indices
+                .chunks(3)
+                .map(|idx| {
+                    let indices = [idx[0] as u32, idx[1] as u32, idx[2] as u32];
+                    Tri::new(indices, &verts)
+                })
+                .collect::<Vec<Tri>>();
+
+            // Construct the `Mesh` and append it to `meshes`
+            let mesh = Mesh::new(verts, mesh_data.indices.clone());
+            meshes.push(mesh);
+        }
+
+        meshes
     }
 }

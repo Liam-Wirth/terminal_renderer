@@ -61,7 +61,7 @@ impl Camera {
         );
 
         let projection = Mat4::perspective_rh(
-            self.fov.to_radians(),
+            self.fov,
             *self.aspect_ratio.borrow(),
             self.near,
             self.far,

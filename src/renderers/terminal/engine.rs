@@ -1,4 +1,5 @@
 use crate::core::{camera::Camera, scene::Scene};
+use crate::renderers::renderer::{cycle_render_mode, set_render_mode, RenderMode};
 use crate::renderers::terminal::term_pipeline::TermPipeline;
 use std::time::{Duration, Instant};
 
@@ -13,25 +14,27 @@ pub struct Engine {
     current_fps: f32,
     frame_times: Vec<f32>, // Store last N frame times for averaging
     metrics: String,
+    tris: u32,
 }
 
 impl Engine {
     pub fn new(width: u32, height: u32) -> Self {
+        set_render_mode(RenderMode::Wireframe);
         Self {
             renderer: TermPipeline::new(width as usize, height as usize),
             scene: Scene::new(),
             camera: Camera::new(
-                // HACK: wtf
-                glam::Vec3::new(0.0, 0.0, -13.0),
+                glam::Vec3::new(0.0, 2.4, -6.0),
                 glam::Vec3::new(0.0, 0.0, 1.0),
                 width as f32 / height as f32,
             ),
             last_frame: Instant::now(),
-            frame_time: Duration::from_secs_f32(1.0 / 144.0),
+            frame_time: Duration::from_secs_f32(1.0 / 60.0),
             fps_counter: 0,
             fps_update_timer: Instant::now(),
             current_fps: 0.0,
             frame_times: Vec::with_capacity(120), // Store last 120 frames
+            tris: 0,
             metrics: String::new(),
         }
     }
@@ -50,6 +53,7 @@ impl Engine {
             self.current_fps = self.fps_counter as f32;
             self.fps_counter = 0;
             self.fps_update_timer = Instant::now();
+            self.tris = self.scene.entities.iter().map(|e| e.mesh.tris.len() as u32).sum();
 
             // Calculate average frame time
             let avg_frame_time =
@@ -57,25 +61,21 @@ impl Engine {
 
             // Update the title with metrics
             self.metrics = format!(
-                "FPS: {:.1} | Frame Time: {:.2}ms | Entities: {} | Cam: ({:.1}, {:.1}, {:.1})",
+                "FPS: {:.1} | Frame Time: {:.2}ms | Entities: {} | Cam: ({:.1}, {:.1}, {:.1}), Tris: {}",
                 self.current_fps,
                 avg_frame_time,
                 self.scene.entities.len(),
                 self.camera.pos.borrow().x,
                 self.camera.pos.borrow().y,
                 self.camera.pos.borrow().z,
+                self.tris,
             );
         }
     }
 
     pub fn update(&mut self, delta_time: f32) {
         for entity in &mut self.scene.entities {
-            entity
-                .transform
-                .rotate_quat(glam::Quat::from_rotation_x(0.01));
-            entity
-                .transform
-                .rotate_quat(glam::Quat::from_rotation_y(0.01));
+            entity.transform.rotate_quat(glam::Quat::from_rotation_y(0.01));
         }
     }
 
@@ -136,6 +136,9 @@ impl Engine {
                     KeyCode::Right => self.camera.rotate_yaw(rotate_amount * 0.5),
                     KeyCode::Up => self.camera.rotate_pitch(rotate_amount * 0.5),
                     KeyCode::Down => self.camera.rotate_pitch(-rotate_amount * 0.5),
+                    KeyCode::Char('r') | KeyCode::Char('R') => {
+                        cycle_render_mode();
+                    }
                     _ => {}
                 }
             }
