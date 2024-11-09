@@ -53,7 +53,12 @@ impl Engine {
             self.current_fps = self.fps_counter as f32;
             self.fps_counter = 0;
             self.fps_update_timer = Instant::now();
-            self.tris = self.scene.entities.iter().map(|e| e.mesh.tris.len() as u32).sum();
+            self.tris = self
+                .scene
+                .entities
+                .iter()
+                .map(|e| e.mesh.tris.len() as u32)
+                .sum();
 
             // Calculate average frame time
             let avg_frame_time =
@@ -75,7 +80,10 @@ impl Engine {
 
     pub fn update(&mut self, delta_time: f32) {
         for entity in &mut self.scene.entities {
-            entity.transform.rotate_quat(glam::Quat::from_rotation_y(0.01));
+            entity
+                .transform
+                .rotate_quat(glam::Quat::from_rotation_y(0.01));
+            entity.mesh.update_visibility(*self.camera.pos.borrow(), &entity.transform.model_mat())
         }
     }
 
