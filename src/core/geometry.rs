@@ -7,6 +7,8 @@ use glam::Mat4;
 use glam::UVec2;
 use glam::Vec3;
 use glam::Vec4Swizzles;
+use rayon::iter::IntoParallelRefMutIterator;
+use rayon::iter::ParallelIterator;
 use tobj::LoadOptions;
 
 use super::Camera;
@@ -28,13 +30,14 @@ impl Default for Vert {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct Tri {
     pub indices: [u32; 3],
     pub norm: Vec3,
-    pub centroid: Vec3,
+    pub centroid: RefCell<Vec3>,
     pub bounds: (Vec3, Vec3),
     dirty: bool,
+    pub visible: RefCell<bool>,
 }
 
 impl Tri {
@@ -49,29 +52,60 @@ impl Tri {
         Self {
             indices,
             norm,
-            centroid,
+            centroid: centroid.into(),
             bounds: (v0.min(v1).min(v2), v0.max(v1).max(v2)),
             dirty: false,
+            visible: true.into(),
         }
     }
-    pub fn is_facing_cam(&self, cam_pos: Vec3) -> bool {
-        // positive = backface, negative = frontface
-        !((self.centroid - cam_pos).normalize().dot(self.norm) < 0.0)
+    pub fn is_facing_cam(&self, cam_pos: &Vec3) -> bool {
+        let view_dir = (*self.centroid.borrow() - *cam_pos).normalize();
+        *self.visible.borrow_mut() = view_dir.dot(self.norm) > 0.0;
+        *self.visible.borrow()
     }
 
-    pub fn update(&mut self, vert_buf: &[Vert]) {
-        if self.dirty {
-            let v0 = vert_buf[self.indices[0] as usize].pos;
-            let v1 = vert_buf[self.indices[1] as usize].pos;
-            let v2 = vert_buf[self.indices[2] as usize].pos;
+    pub fn sort_vertices(&mut self, vert_buf: &[Vert]) {
+        let mut v0 = vert_buf[self.indices[0] as usize].pos;
+        let mut v1 = vert_buf[self.indices[1] as usize].pos;
+        let mut v2 = vert_buf[self.indices[2] as usize].pos;
+        let mut indices = self.indices;
 
-            self.norm = (v1 - v0).cross(v2 - v0).normalize();
-            self.centroid = (v0 + v1 + v2) / 3.0;
-            self.bounds = (v0.min(v1).min(v2), v0.max(v1).max(v2));
-            self.dirty = false;
+        if v1.y < v0.y {
+            indices.swap(0, 1);
+            std::mem::swap(&mut v0, &mut v1);
+        }
+        if v2.y < v1.y {
+            indices.swap(1, 2);
+            std::mem::swap(&mut v1, &mut v2);
+        }
+        if v1.y < v0.y {
+            indices.swap(0, 1);
+            std::mem::swap(&mut v0, &mut v1);
         }
     }
 
+    pub fn update(&mut self, vert_buf: &[Vert], model_mat: &Mat4) {
+        self.sort_vertices(vert_buf);
+        let v0 = vert_buf[self.indices[0] as usize].pos;
+        let v1 = vert_buf[self.indices[1] as usize].pos;
+        let v2 = vert_buf[self.indices[2] as usize].pos;
+
+        // Transform to world space
+        let v0_w = model_mat.transform_point3(v0);
+        let v1_w = model_mat.transform_point3(v1);
+        let v2_w = model_mat.transform_point3(v2);
+
+        // Recompute normal in world space
+        self.norm = (v1_w - v0_w).cross(v2_w - v0_w).normalize();
+
+        // Recompute centroid in world space
+        *self.centroid.borrow_mut() = (v0_w + v1_w + v2_w) / 3.0;
+
+        // Update bounds if necessary
+        self.bounds = (v0_w.min(v1_w).min(v2_w), v0_w.max(v1_w).max(v2_w));
+
+        self.dirty = false;
+    }
     pub fn mark_dirty(&mut self) {
         self.dirty = true;
     }
@@ -116,9 +150,11 @@ impl Mesh {
         }
     }
 
-    pub fn update_triangles(&mut self) {
+    pub fn update_triangles(&mut self, model_mat: &Mat4) {
         for tri in &mut self.tris {
-            tri.update(&self.verts);
+            if tri.dirty {
+                tri.update(&self.verts, model_mat);
+            }
         }
     }
     pub fn calculate_face_normals(&mut self) {
@@ -158,6 +194,17 @@ impl Mesh {
 
         self.norms_dirty = false;
     }
+
+    pub fn update_visibility(&mut self, cam_pos: Vec3, model_mat: &Mat4) {
+        // First, update triangles with the current model matrix
+        self.update_triangles(model_mat);
+
+        // Then, update visibility based on transformed triangles
+        self.tris.par_iter_mut().for_each(|tri| {
+            tri.is_facing_cam(&cam_pos);
+        });
+    }
+
     pub fn create_cube() -> Self {
         let verts = vec![
             // Front face (-Z)

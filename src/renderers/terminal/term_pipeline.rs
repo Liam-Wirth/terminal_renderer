@@ -33,8 +33,6 @@ impl Renderer for TermPipeline {
         }
 
         let screen_dims = UVec2::new(width as u32, height as u32);
-        let _r_mode = get_render_mode();
-        let _view_proj = cam.get_view_projection_matrix();
 
         // Render to back buffer
         for entity in &scene.entities {
@@ -45,20 +43,22 @@ impl Renderer for TermPipeline {
 
             let proj_verts = entity.mesh.projected_verts.borrow();
             for tri in entity.mesh.tris.iter() {
-                let v1 = &proj_verts[tri.indices[0] as usize];
-                let v2 = &proj_verts[tri.indices[1] as usize];
-                let v3 = &proj_verts[tri.indices[2] as usize];
-                if tri.is_facing_cam(*cam.pos.borrow()) {
-                    //tri.update(&entity.mesh.verts);
-                    //continue; // TODO: Fix this with refcel
+                if !tri.is_facing_cam(&cam.pos.borrow()) {
+                    continue;
                 }
                 match get_render_mode() {
                     RenderMode::Wireframe => {
+                        let v1 = &proj_verts[tri.indices[0] as usize];
+                        let v2 = &proj_verts[tri.indices[1] as usize];
+                        let v3 = &proj_verts[tri.indices[2] as usize];
                         self.draw_line_to_back(v1, v2, Color::RED);
                         self.draw_line_to_back(v2, v3, Color::GREEN);
                         self.draw_line_to_back(v3, v1, Color::BLUE);
                     }
                     RenderMode::Solid => {
+                        let v1 = &proj_verts[tri.indices[0] as usize];
+                        let v2 = &proj_verts[tri.indices[1] as usize];
+                        let v3 = &proj_verts[tri.indices[2] as usize];
                         self.draw_filled_triangle_scan(*v1, *v2, *v3, Color::RED);
                         // TODO: add texture support
                         // TODO: Add face color support
@@ -66,7 +66,6 @@ impl Renderer for TermPipeline {
                 }
             }
         }
-
         // Display back buffer and swap
         self.backbuffer
             .borrow()
@@ -174,11 +173,11 @@ impl TermPipeline {
 
         let mut depth = depth1 + (x_start as f32 - x1) * depth_slope;
 
-        for x in x_start..=x_end {
+        for x in x_start..=x_end + 1 {
             if x >= 0
-                && x < self.backbuffer.borrow().width as i32
+                && x < self.backbuffer.borrow().width as i32 + 1
                 && y >= 0
-                && y < self.backbuffer.borrow().height as i32
+                && y < self.backbuffer.borrow().height as i32 + 1
             {
                 self.backbuffer
                     .borrow_mut()
