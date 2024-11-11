@@ -57,7 +57,7 @@ impl Engine {
                 .scene
                 .entities
                 .iter()
-                .map(|e| e.mesh.tris.len() as u32)
+                .map(|e| e.mesh.tris.borrow().len() as u32)
                 .sum();
 
             // Calculate average frame time
@@ -80,9 +80,7 @@ impl Engine {
 
     pub fn update(&mut self, delta_time: f32) {
         for entity in &mut self.scene.entities {
-            entity
-                .transform
-                .rotate_quat(glam::Quat::from_rotation_y(0.01));
+            //entity .transform .rotate_quat(glam::Quat::from_rotation_y(0.01));
             entity.mesh.update_visibility(*self.camera.pos.borrow(), &entity.transform.model_mat())
         }
     }
@@ -146,6 +144,9 @@ impl Engine {
                     KeyCode::Down => self.camera.rotate_pitch(-rotate_amount * 0.5),
                     KeyCode::Char('r') | KeyCode::Char('R') => {
                         cycle_render_mode();
+                    }
+                    KeyCode::Char('1') => {
+                        self.scene.entities[0].transform.rotate_quat(glam::Quat::from_rotation_y(0.01));
                     }
                     _ => {}
                 }

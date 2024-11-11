@@ -1,8 +1,7 @@
 use std::cell::RefCell;
 
-use crate::renderers::terminal::termbuffer::Pixel;
 
-use super::{color, Color, MAX_PITCH};
+use super::{Color, MAX_PITCH};
 use glam::{Mat4, UVec2, Vec2, Vec3};
 
 pub struct Camera {
