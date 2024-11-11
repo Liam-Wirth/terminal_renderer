@@ -3,13 +3,10 @@ use std::io::Write;
 
 use glam::UVec2;
 use glam::Vec2;
-use rayon::iter::IndexedParallelIterator;
-use rayon::iter::IntoParallelIterator;
-use rayon::iter::ParallelBridge as _;
 use rayon::iter::ParallelIterator;
 use rayon::prelude::*;
 
-use crate::core::{Color, ProjectedVertex};
+use crate::core::Color;
 
 pub const MAX_DIMS: UVec2 = UVec2::new(1920, 1080);
 
@@ -84,6 +81,7 @@ impl TermBuffer {
     pub fn set_pixel(&mut self, x: usize, y: usize, depth: &f32, col: Color, ch: char) {
         if x < self.width && y < self.height {
             let index = x + y * self.width;
+            // NOTE:  Z- Buffer culling
             if *depth < self.depth[index] {
                 self.data[index].color = col;
                 self.data[index].ch = ch;

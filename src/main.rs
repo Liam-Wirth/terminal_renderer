@@ -7,12 +7,12 @@ use crossterm::{
         self, disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
     },
 };
-use glam::Vec3;
+use glam::{Quat, Vec3};
 use log::{error, LevelFilter};
 use simplelog::{Config, WriteLogger};
-use std::{fs::OpenOptions, path::Path};
-use std::io::{self, stdout, Write};
+use std::{f32::consts::PI, io::{self, stdout, Write}};
 use std::panic;
+use std::{fs::OpenOptions, path::Path};
 use terminal_renderer::core::Color;
 use terminal_renderer::core::Entity;
 
@@ -64,21 +64,17 @@ fn main() -> io::Result<()> {
 
     // Add a triangle to the scene
     let tri = Entity::create_tri();
-    let mut suzanne = Entity::from_obj(Path::new("assets/models/suzanne.obj"));
-    let mut teapot = Entity::from_obj(Path::new("assets/models/teapot.obj"));
+    let suzanne = Entity::from_obj(Path::new("assets/models/suzanne.obj"));
+    let teapot = Entity::from_obj(Path::new("assets/models/teapot.obj"));
     let cube = Entity::create_cube();
     cube.transform.translate(Vec3::new(1., 3., 0.));
     let octa = Entity::create_octahedron();
     let spoon = Entity::from_obj(Path::new("assets/models/newell_teaset/spoon.obj"));
-    //let mut teacup = Entity::from_obj(Path::new("assets/models/newell_teaset/teacup.obj"));
-    //teacup.transform.scale_uniform(1.);
-    //for tri in &mut teacup.mesh.tris {
-        //tri.update(&teacup.mesh.verts);
-    //}
+
+    let ico = Entity::from_obj(Path::new("assets/models/icosphere.obj"));
+    suzanne.transform.rotate_quat(Quat::from_rotation_y(PI));
+    teapot.transform.scale_uniform(1.5);
     engine.scene.entities.push(teapot);
-    //engine.scene.entities.push(teacup);
-
-
 
     // Run the engine
     engine.run()?;

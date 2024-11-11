@@ -1,123 +1,25 @@
+use crate::core::camera::{Camera, ProjectedVertex};
+use crate::core::color::Color;
+use crate::core::geometry::{Tri, Vert};
+use glam::UVec2;
+use glam::Vec4Swizzles;
+use glam::{Mat4, Vec3};
+use rayon::prelude::*;
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::path::Path;
-
-use crate::core::Color;
-use crate::core::ProjectedVertex;
-use glam::Mat4;
-use glam::UVec2;
-use glam::Vec3;
-use glam::Vec4Swizzles;
-use rayon::iter::IntoParallelRefMutIterator;
-use rayon::iter::ParallelIterator;
 use tobj::LoadOptions;
 
-use super::Camera;
-
-#[derive(Clone, Copy, Debug)]
-pub struct Vert {
-    pub pos: Vec3,
-    pub norm: Vec3,
-    pub color: Color,
-}
-
-impl Default for Vert {
-    fn default() -> Self {
-        Self {
-            pos: Vec3::ZERO,
-            norm: Vec3::ZERO,
-            color: Color::WHITE,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Tri {
-    pub indices: [u32; 3],
-    pub norm: Vec3,
-    pub centroid: RefCell<Vec3>,
-    pub bounds: (Vec3, Vec3),
-    dirty: bool,
-    pub visible: RefCell<bool>,
-}
-
-impl Tri {
-    pub fn new(indices: [u32; 3], vert_buf: &[Vert]) -> Self {
-        let v0 = vert_buf[indices[0] as usize].pos;
-        let v1 = vert_buf[indices[1] as usize].pos;
-        let v2 = vert_buf[indices[2] as usize].pos;
-
-        let norm = (v1 - v0).cross(v2 - v0).normalize();
-        let centroid = (v0 + v1 + v2) / 3.0;
-
-        Self {
-            indices,
-            norm,
-            centroid: centroid.into(),
-            bounds: (v0.min(v1).min(v2), v0.max(v1).max(v2)),
-            dirty: false,
-            visible: true.into(),
-        }
-    }
-    pub fn is_facing_cam(&self, cam_pos: &Vec3) -> bool {
-        let view_dir = (*self.centroid.borrow() - *cam_pos).normalize();
-        *self.visible.borrow_mut() = view_dir.dot(self.norm) > 0.0;
-        *self.visible.borrow()
-    }
-
-    pub fn sort_vertices(&mut self, vert_buf: &[Vert]) {
-        let mut v0 = vert_buf[self.indices[0] as usize].pos;
-        let mut v1 = vert_buf[self.indices[1] as usize].pos;
-        let mut v2 = vert_buf[self.indices[2] as usize].pos;
-        let mut indices = self.indices;
-
-        if v1.y < v0.y {
-            indices.swap(0, 1);
-            std::mem::swap(&mut v0, &mut v1);
-        }
-        if v2.y < v1.y {
-            indices.swap(1, 2);
-            std::mem::swap(&mut v1, &mut v2);
-        }
-        if v1.y < v0.y {
-            indices.swap(0, 1);
-            std::mem::swap(&mut v0, &mut v1);
-        }
-    }
-
-    pub fn update(&mut self, vert_buf: &[Vert], model_mat: &Mat4) {
-        self.sort_vertices(vert_buf);
-        let v0 = vert_buf[self.indices[0] as usize].pos;
-        let v1 = vert_buf[self.indices[1] as usize].pos;
-        let v2 = vert_buf[self.indices[2] as usize].pos;
-
-        // Transform to world space
-        let v0_w = model_mat.transform_point3(v0);
-        let v1_w = model_mat.transform_point3(v1);
-        let v2_w = model_mat.transform_point3(v2);
-
-        // Recompute normal in world space
-        self.norm = (v1_w - v0_w).cross(v2_w - v0_w).normalize();
-
-        // Recompute centroid in world space
-        *self.centroid.borrow_mut() = (v0_w + v1_w + v2_w) / 3.0;
-
-        // Update bounds if necessary
-        self.bounds = (v0_w.min(v1_w).min(v2_w), v0_w.max(v1_w).max(v2_w));
-
-        self.dirty = false;
-    }
-    pub fn mark_dirty(&mut self) {
-        self.dirty = true;
-    }
-}
+use super::tri;
 
 #[derive(Clone, Debug)]
 pub struct Mesh {
-    pub verts: Vec<Vert>,
+    pub verts: RefCell<Vec<Vert>>,
     pub projected_verts: RefCell<Vec<ProjectedVertex>>,
-    pub indices: Vec<u32>, // Keep the indices
-    pub tris: Vec<Tri>,    // And the processed triangles
-    norms_dirty: bool,
+    pub indices: Vec<u32>,       // Keep the indices
+    pub tris: RefCell<Vec<Tri>>, // And the processed triangles
+    norms_dirty: RefCell<bool>,
+    transform_dirty: RefCell<bool>,
 }
 
 impl Mesh {
@@ -130,79 +32,100 @@ impl Mesh {
         }
         Mesh {
             projected_verts: RefCell::new(vec![ProjectedVertex::default(); verts.len()]),
-            verts,
+            verts: verts.into(),
             indices,
-            tris,
-            norms_dirty: false,
+            tris: tris.into(),
+            norms_dirty: false.into(),
+            transform_dirty: false.into(),
         }
     }
 
     pub fn update_vertex(&mut self, index: usize, new_pos: Vec3) {
-        if index < self.verts.len() {
-            self.verts[index].pos = new_pos;
+        let mut verts = self.verts.borrow_mut();
+        if index < verts.len() {
+            verts[index].pos = new_pos;
             // Mark affected triangles as dirty
-            for tri in &mut self.tris {
+            let mut tris = self.tris.borrow_mut();
+            for tri in tris.iter_mut() {
                 if tri.indices.contains(&(index as u32)) {
                     tri.mark_dirty();
                 }
             }
-            self.norms_dirty = true;
+            self.norms_dirty.replace(true);
         }
     }
+    pub fn update_dirty(&self, dirty: bool) {
+        self.transform_dirty.replace(dirty);
+    }
 
-    pub fn update_triangles(&mut self, model_mat: &Mat4) {
-        for tri in &mut self.tris {
-            if tri.dirty {
-                tri.update(&self.verts, model_mat);
+    pub fn update_triangles(&self, model_mat: &Mat4) {
+        if *self.transform_dirty.borrow() {
+            let mut tris = self.tris.borrow_mut();
+            for tri in tris.iter_mut() {
+                if tri.dirty {
+                    tri.update(&self.verts.borrow(), model_mat);
+                }
             }
+            self.transform_dirty.replace(false);
         }
     }
-    pub fn calculate_face_normals(&mut self) {
-        for tri in &mut self.tris {
-            let v0 = self.verts[tri.indices[0] as usize].pos;
-            let v1 = self.verts[tri.indices[1] as usize].pos;
-            let v2 = self.verts[tri.indices[2] as usize].pos;
+    pub fn calculate_face_normals(&self) {
+        let mut tris = self.tris.borrow_mut();
+        let verts = self.verts.borrow();
+        for tri in tris.iter_mut() {
+            let v0 = verts[tri.indices[0] as usize].pos;
+            let v1 = verts[tri.indices[1] as usize].pos;
+            let v2 = verts[tri.indices[2] as usize].pos;
 
-            tri.norm = (v1 - v0).cross(v2 - v0).normalize();
+            // Maintain consistent CCW winding
+            let edge1 = v1 - v0;
+            let edge2 = v2 - v0;
+            tri.norm = edge1.cross(edge2).normalize();
         }
     }
-    pub fn calculate_vertex_normals(&mut self) {
-        if !self.norms_dirty {
+
+    pub fn calculate_vertex_normals(&self) {
+        if !*self.norms_dirty.borrow() {
             return;
         }
 
+        let mut verts = self.verts.borrow_mut();
+        let mut tris = self.tris.borrow_mut();
         // Reset all vertex normals
-        for vert in &mut self.verts {
+        for vert in verts.iter_mut() {
             vert.norm = Vec3::ZERO;
         }
 
         // Add each face's contribution to its vertices
-        for tri in &self.tris {
+        for tri in tris.iter_mut() {
             let face_normal = tri.norm;
             // Each vertex gets a contribution from this face
             for &idx in &tri.indices {
-                self.verts[idx as usize].norm += face_normal;
+                verts[idx as usize].norm += face_normal;
             }
         }
 
         // Normalize the accumulated normals
-        for vert in &mut self.verts {
+        for vert in verts.iter_mut() {
             if vert.norm != Vec3::ZERO {
                 vert.norm = vert.norm.normalize();
             }
         }
 
-        self.norms_dirty = false;
+        self.norms_dirty.replace(false);
     }
 
-    pub fn update_visibility(&mut self, cam_pos: Vec3, model_mat: &Mat4) {
-        // First, update triangles with the current model matrix
-        self.update_triangles(model_mat);
-
-        // Then, update visibility based on transformed triangles
-        self.tris.par_iter_mut().for_each(|tri| {
-            tri.is_facing_cam(&cam_pos);
-        });
+    pub fn update_visibility(&self, cam_pos: Vec3, model_mat: &Mat4) {
+        if *self.transform_dirty.borrow() {
+            self.update_triangles(model_mat);
+            let mut tris = self.tris.borrow_mut();
+            let verts = self.verts.borrow();
+            for tri in tris.iter_mut() {
+                let world = model_mat.transform_point3(verts[tri.indices[0] as usize].pos);
+                tri.visible.replace(tri.is_facing_cam(world, cam_pos));
+            }
+            self.transform_dirty.replace(false);
+        }
     }
 
     pub fn create_cube() -> Self {
@@ -260,7 +183,7 @@ impl Mesh {
             3, 2, 6, 6, 7, 3, // Top (+Y)
         ];
 
-        let mut mesh = Self::new(verts, indices);
+        let mesh = Self::new(verts, indices);
         mesh.calculate_face_normals();
         mesh.calculate_vertex_normals();
         mesh
@@ -287,7 +210,7 @@ impl Mesh {
 
         let indices = vec![0, 1, 2];
 
-        let mut mesh = Self::new(verts, indices);
+        let mesh = Self::new(verts, indices);
         mesh.calculate_face_normals();
         mesh.calculate_vertex_normals();
         mesh
@@ -338,7 +261,7 @@ impl Mesh {
             3, 4, 5, 5, 0, 3, // Bottom (-Y)
         ];
 
-        let mut mesh = Self::new(verts, indices);
+        let mesh = Self::new(verts, indices);
         mesh.calculate_face_normals();
         mesh.calculate_vertex_normals();
         mesh
@@ -351,7 +274,8 @@ impl Mesh {
         camera: &Camera,
     ) {
         let mut projected = self.projected_verts.borrow_mut();
-        for (i, vert) in self.verts.iter().enumerate() {
+
+        for (i, vert) in self.verts.borrow().iter().enumerate() {
             let world_pos = *model_mat * vert.pos.extend(1.0);
             camera.project_vertex_into(world_pos.xyz(), &screen_dims, &mut projected[i]);
         }

@@ -22,6 +22,7 @@ pub struct Transform {
 
     /// Flag indicating whether the model matrix needs to be recomputed
     model_mat_dirty: RefCell<bool>,
+    pub dirty: RefCell<bool>
 }
 
 impl Transform {
@@ -38,6 +39,8 @@ impl Transform {
             scale: RefCell::new(Vec3::ONE),
             model_mat: RefCell::new(Mat4::ZERO),
             model_mat_dirty: RefCell::new(true),
+            dirty: RefCell::new(false)
+
         };
         _ = out.model_mat();
         out
@@ -102,6 +105,7 @@ impl Transform {
         };
         *self.rot.borrow_mut() = new_rot;
         *self.model_mat_dirty.borrow_mut() = true;
+        self.mark_dirty();
     }
     /// Rotates the transform using Euler angles.
     ///
@@ -116,7 +120,12 @@ impl Transform {
 
     /// Marks the model matrix as dirty, triggering a recomputation on next access.
     fn mark_dirty(&self) {
-        *self.model_mat_dirty.borrow_mut() = true;
+        self.model_mat_dirty.replace(true);
+        self.dirty.replace(true);
+    }
+    pub fn clear_dirty(&self) {
+        self.dirty.replace(false);
+        self.model_mat_dirty.replace(false);
     }
 }
 

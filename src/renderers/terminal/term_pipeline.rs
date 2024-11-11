@@ -1,12 +1,13 @@
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 
 use crate::core::{camera::Camera, scene::Scene};
-use crate::core::{Color, ProjectedVertex};
+use crate::core::{Color, Entity, ProjectedVertex};
 use crate::renderers::renderer::RenderMode;
 use crate::renderers::renderer::{get_render_mode, Renderer};
 use crate::renderers::terminal::termbuffer::{Pixel, TermBuffer};
 use crossterm::terminal;
-use glam::{UVec2, Vec2};
+use glam::UVec2;
 
 pub struct TermPipeline {
     // TODO: Add a backbuffer/double renderering
@@ -35,15 +36,20 @@ impl Renderer for TermPipeline {
         let screen_dims = UVec2::new(width as u32, height as u32);
 
         // Render to back buffer
-        for entity in &scene.entities {
+        for entity in scene.entities.iter() {
+            entity.mesh.update_dirty(*entity.transform.dirty.borrow());
+
             let model_mat = entity.transform.model_mat();
             entity
                 .mesh
                 .update_projected_vertices(&model_mat, &screen_dims, cam);
+            if *entity.transform.dirty.borrow() {
+                entity.mesh.update_visibility(*cam.pos.borrow(), &entity.transform.model_mat());
+            }
 
             let proj_verts = entity.mesh.projected_verts.borrow();
-            for tri in entity.mesh.tris.iter() {
-                if !tri.is_facing_cam(&cam.pos.borrow()) {
+            for tri in entity.mesh.tris.borrow().iter() {
+                if !*tri.visible.borrow() {
                     continue;
                 }
                 match get_render_mode() {
