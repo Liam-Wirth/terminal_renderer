@@ -2,7 +2,7 @@ use crate::core::Vert;
 use glam::{Mat4, Vec3};
 use std::cell::RefCell;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Tri {
     pub indices: [u32; 3],
     pub norm: Vec3,
@@ -11,6 +11,7 @@ pub struct Tri {
     // TODO: Fix this VVV
     pub dirty: bool,
     pub visible: RefCell<bool>,
+    pub material_id: Option<usize>,
 }
 
 impl Tri {
@@ -32,9 +33,15 @@ impl Tri {
             bounds: (v0.min(v1).min(v2), v0.max(v1).max(v2)),
             dirty: false,
             visible: true.into(),
+            ..Default::default()
         }
     }
 
+    pub fn new_with_meshID(indices: [u32; 3], vert_buf: &[Vert], mat_id: usize) -> Self {
+        let mut tmp = Self::new(indices, vert_buf);
+        tmp.material_id = Some(mat_id);
+        tmp
+    }
     pub fn is_facing_cam(&self, world_pos: Vec3, view_pos: Vec3) -> bool {
         let view = (world_pos - view_pos).normalize();
         self.norm.dot(view) < 0.

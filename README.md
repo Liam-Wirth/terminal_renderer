@@ -13,17 +13,19 @@ https://github.com/ryanweideman/3d-terminal-renderer/tree/main/src
 - [ ] Decouple Rendering logic from the terminal output
 - [x] ~~Implement parallelism with rayon~~
 - [x] Implement more fleshed out "Tri" struct, possibly in own file -
-- [ ] After that, redefine the "Faces" of a mesh to actually just be a collection of Tris
+- [x] After that, redefine the "Faces" of a mesh to actually just be a collection of Tris
 - [ ] Unify useage of Nalgebra functionality accross all files
     - Basically, I think I'm not using nalgebra to it's fullest potential and there's probably a lot of functionality I'm leaving "on the table"
 - [ ] Better document code, Rust is very much self-documenting, but it's good to explain things as I go as well
 - [ ] Beautify the links as markdown links for the "Links I looked at section"
+- [ ] migrate to possibly just using the mesh with tobj?
+- [ ] OR Finalize mesh struct, implementing materials
 
 
 
 ## TODO (much less pressing/important)
 
-- [x] fix wakatime badge to update lmao
+- [x] ~~fix wakatime badge to update lmao~~
 - [ ] github ci/cd with clippy and rustfmt
 
 ## Things I should look into:
@@ -61,7 +63,8 @@ Articles, Extremely old lecture material, Wikipedia Pages, etc, all of these pla
 | https://github.com/JasondeWolff/rusterizer| |
 |https://github.com/ecumene/rust-sloth |
 |http://www.blitzcode.net/3d_1.shtml#Software_Rasterizer| ex-nvidia employee had some fun with rust|
-
+| https://medium.com/@aminere/software-rendering-from-scratch-f60127a7cd58 | Useful to look at if I go about another another rewrite|
+|https://jamesgisele.com/blog/software_renderer/#list| this was helpful|
 
 
 # NOTES on pipeline:
