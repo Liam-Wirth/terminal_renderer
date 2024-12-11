@@ -10,11 +10,22 @@ use crossterm::{
 use glam::{Quat, Vec3};
 use log::{error, LevelFilter};
 use simplelog::{Config, WriteLogger};
-use std::{f32::consts::PI, io::{self, stdout, Write}};
+use std::env;
 use std::panic;
+use std::{
+    f32::consts::PI,
+    io::{self, stdout, Write},
+};
 use std::{fs::OpenOptions, path::Path};
 use terminal_renderer::core::Color;
 use terminal_renderer::core::Entity;
+
+#[derive(Debug, Clone, Copy)]
+pub enum RenderTarget {
+    Term,
+    Window,
+    Both, // TODO: This could be cool
+}
 
 fn cleanup() -> io::Result<()> {
     let mut stdout = stdout();
@@ -33,6 +44,31 @@ fn main() -> io::Result<()> {
 
     WriteLogger::init(LevelFilter::Info, Config::default(), log_file).unwrap();
 
+    let target = env::args()
+        .nth(1)
+        .map(|arg| match arg.as_str() {
+            "window" => RenderTarget::Window,
+            _ => RenderTarget::Term, // Default to terminal if not specified or unknown
+        })
+        .unwrap_or(RenderTarget::Term);
+
+    match target {
+        RenderTarget::Term => run_terminal_version(),
+        RenderTarget::Window => run_window_version(),
+        RenderTarget::Both => run_both(),
+    }
+}
+
+fn run_window_version() -> io::Result<()> {
+    todo!();
+    Ok(())
+}
+
+fn run_both() -> io::Result<()> {
+    todo!();
+    Ok(())
+}
+pub fn run_terminal_version() -> io::Result<()> {
     // Set up panic hook
     let original_hook = panic::take_hook();
     panic::set_hook(Box::new(move |panic_info| {

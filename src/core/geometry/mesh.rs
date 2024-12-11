@@ -347,58 +347,6 @@ impl Mesh {
         meshes
     }
     pub fn from_obj_with_materials(obj_path: &Path, mtl_path: &Path) -> Vec<Self> {
-        // Load OBJ file
-        let (models, _) = tobj::load_obj(
-            obj_path,
-            &LoadOptions {
-                triangulate: true,
-                single_index: true,
-                ..Default::default()
-            },
-        )
-        .expect("Failed to load OBJ file");
-
-        // Load MTL file
-        let materials = if let Ok((mtl_libs, _)) = tobj::load_mtl(mtl_path) {
-            Some(mtl_libs)
-        } else {
-            println!("Warning: Failed to load material file: {:?}", mtl_path);
-            None
-        };
-
-        // Get base meshes from regular obj loading
-        let mut meshes = Self::from_obj(obj_path);
-
-        // If we have materials, add them to the meshes
-        if let Some(mats) = materials {
-            for mesh in &mut meshes {
-                mesh.materials = Some(mats.clone());
-
-                // Get material indices from the original model data
-                if let Some(model) = models.iter().find(|m| m.mesh.indices == mesh.indices) {
-                    mesh.face_material_ids = Some(
-                        model
-                            .mesh
-                            .material_id
-                            .unwrap_or_default()
-                            .iter()
-                            .map(|&id| id as usize)
-                            .collect(),
-                    );
-
-                    // Update triangles with material IDs
-                    let mut tris = mesh.tris.borrow_mut();
-                    for (i, tri) in tris.iter_mut().enumerate() {
-                        if let Some(material_id) =
-                            mesh.face_material_ids.as_ref().and_then(|ids| ids.get(i))
-                        {
-                            tri.material_id = Some(material_id);
-                        }
-                    }
-                }
-            }
-        }
-
-        meshes
+        todo!();
     }
 }
