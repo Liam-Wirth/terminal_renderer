@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 
-
 use super::{Color, MAX_PITCH};
 use glam::{Mat4, UVec2, Vec2, Vec3};
 
@@ -59,12 +58,8 @@ impl Camera {
             *self.up.borrow(),
         );
 
-        let projection = Mat4::perspective_rh(
-            self.fov,
-            *self.aspect_ratio.borrow(),
-            self.near,
-            self.far,
-        );
+        let projection =
+            Mat4::perspective_rh(self.fov, *self.aspect_ratio.borrow(), self.near, self.far);
 
         *self.view_matrix.borrow_mut() = view;
         *self.projection_matrix.borrow_mut() = projection;
@@ -79,7 +74,7 @@ impl Camera {
     }
 
     /// Projects a vertex at some position in the world to screen space, and returns it's depth for the z-buffer
-    ///**Screen Dim** is the dimensions of the screen in pixels, supply with the given crossterm context
+    ///**Screen Dim** is the dimensions of the screen in pixels, supply with the given context
     pub fn project_vertex_into(
         &self,
         world_pos: Vec3,
@@ -87,15 +82,21 @@ impl Camera {
         out: &mut ProjectedVertex,
     ) {
         let view_proj = self.get_view_projection_matrix();
+        // Transform the vertex that was given in world space (x, y, z) to clip space (x, y, z, w)
         let clip_pos = view_proj * world_pos.extend(1.0);
 
+        // Vertices behind the camera are clipped
         if clip_pos.w <= 0.0 {
-            out.pos = Vec2::new(-1.0, -1.0);
+            out.pos.x = -1.0;
+            out.pos.y = -1.0;
             out.depth = f32::INFINITY;
             return;
         }
 
+        // Perspective divide
         let w_recip = 1.0 / clip_pos.w;
+
+        // Tranform to NDC
         out.pos.x = ((clip_pos.x * w_recip + 1.0) * 0.5) * screen_dim.x as f32;
         out.pos.y = ((1.0 - clip_pos.y * w_recip) * 0.5) * screen_dim.y as f32;
         out.depth = clip_pos.z * w_recip;

@@ -120,16 +120,39 @@ impl Mesh {
         self.norms_dirty.replace(false);
     }
 
+    /*
+       pub fn update_visibility(&self, cam_pos: Vec3, model_mat: &Mat4) {
+           if *self.transform_dirty.borrow() {
+               self.update_triangles(model_mat);
+               let mut tris = self.tris.borrow_mut();
+               let verts = self.verts.borrow();
+               for tri in tris.iter_mut() {
+                   let world = model_mat.transform_point3(verts[tri.indices[0] as usize].pos);
+                   tri.visible.replace(tri.is_facing_cam(world, cam_pos));
+               }
+               self.transform_dirty.replace(false);
+           }
+       }
+    */
+
     pub fn update_visibility(&self, cam_pos: Vec3, model_mat: &Mat4) {
-        if *self.transform_dirty.borrow() {
-            self.update_triangles(model_mat);
-            let mut tris = self.tris.borrow_mut();
-            let verts = self.verts.borrow();
-            for tri in tris.iter_mut() {
-                let world = model_mat.transform_point3(verts[tri.indices[0] as usize].pos);
-                tri.visible.replace(tri.is_facing_cam(world, cam_pos));
-            }
-            self.transform_dirty.replace(false);
+        let mut tris = self.tris.borrow_mut();
+        let verts = self.verts.borrow();
+
+        // Transpose flips the matrix over it's diagonal (rows/columns -> columns/rows)
+        // inverse() mathematical inverse of the matrix
+        // together they give us the corresponding normal matrix
+        let normal_mat = model_mat.transpose().inverse();
+        for tri in tris.iter_mut() {
+            // Transform triangles normal to world space
+            let world_norm = normal_mat.transform_vector3(tri.norm).normalize();
+            // get world space pos of of any vertex in the tri
+            let world_pos = model_mat.transform_point3(verts[tri.indices[0] as usize].pos);
+
+            let view_dir = (cam_pos - world_pos).normalize();
+
+            // Triangle is visible if normal points away from viewer
+            tri.visible.replace(world_norm.dot(view_dir) > 0.0);
         }
     }
 

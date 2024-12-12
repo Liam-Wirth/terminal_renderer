@@ -10,7 +10,6 @@ use crossterm::terminal;
 use glam::UVec2;
 
 pub struct TermPipeline {
-    // TODO: Add a backbuffer/double renderering
     pub frontbuffer: RefCell<TermBuffer>,
     pub backbuffer: RefCell<TermBuffer>,
 }
@@ -44,7 +43,9 @@ impl Renderer for TermPipeline {
                 .mesh
                 .update_projected_vertices(&model_mat, &screen_dims, cam);
             if *entity.transform.dirty.borrow() {
-                entity.mesh.update_visibility(*cam.pos.borrow(), &entity.transform.model_mat());
+                entity
+                    .mesh
+                    .update_visibility(*cam.pos.borrow(), &entity.transform.model_mat());
             }
 
             let proj_verts = entity.mesh.projected_verts.borrow();
