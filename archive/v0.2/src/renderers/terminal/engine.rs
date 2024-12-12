@@ -80,7 +80,9 @@ impl Engine {
 
     pub fn update(&mut self, delta_time: f32) {
         for entity in &mut self.scene.entities {
-            //entity .transform .rotate_quat(glam::Quat::from_rotation_y(0.01));
+            entity.transform.rotate_quat(glam::Quat::from_rotation_y(0.01));
+            entity.transform.rotate_quat(glam::Quat::from_rotation_x(0.02));
+            entity.transform.rotate_quat(glam::Quat::from_rotation_z(0.04));
             entity.mesh.update_visibility(*self.camera.pos.borrow(), &entity.transform.model_mat())
         }
     }

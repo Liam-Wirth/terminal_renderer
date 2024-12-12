@@ -100,14 +100,14 @@ pub fn run_terminal_version() -> io::Result<()> {
 
     // Add a triangle to the scene
     let tri = Entity::create_tri();
-    let suzanne = Entity::from_obj(Path::new("assets/models/suzanne.obj"));
-    let teapot = Entity::from_obj(Path::new("assets/models/teapot.obj"));
+    let suzanne = Entity::from_obj(Path::new("../../assets/models/suzanne.obj"));
+    let teapot = Entity::from_obj(Path::new("../../assets/models/teapot.obj"));
     let cube = Entity::create_cube();
     cube.transform.translate(Vec3::new(1., 3., 0.));
     let octa = Entity::create_octahedron();
-    let spoon = Entity::from_obj(Path::new("assets/models/newell_teaset/spoon.obj"));
+    let spoon = Entity::from_obj(Path::new("../../assets/models/newell_teaset/spoon.obj"));
 
-    let ico = Entity::from_obj(Path::new("assets/models/icosphere.obj"));
+    let ico = Entity::from_obj(Path::new("../../assets/models/icosphere.obj"));
     suzanne.transform.rotate_quat(Quat::from_rotation_y(PI));
     teapot.transform.scale_uniform(1.5);
     engine.scene.entities.push(teapot);
