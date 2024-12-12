@@ -22,7 +22,7 @@ pub struct Transform {
 
     /// Flag indicating whether the model matrix needs to be recomputed
     model_mat_dirty: RefCell<bool>,
-    pub dirty: RefCell<bool>
+    pub dirty: RefCell<bool>,
 }
 
 impl Transform {
@@ -39,8 +39,7 @@ impl Transform {
             scale: RefCell::new(Vec3::ONE),
             model_mat: RefCell::new(Mat4::ZERO),
             model_mat_dirty: RefCell::new(true),
-            dirty: RefCell::new(false)
-
+            dirty: RefCell::new(false),
         };
         _ = out.model_mat();
         out
@@ -123,9 +122,13 @@ impl Transform {
         self.model_mat_dirty.replace(true);
         self.dirty.replace(true);
     }
-    pub fn clear_dirty(&self) {
+    pub fn mark_clean(&self) {
         self.dirty.replace(false);
         self.model_mat_dirty.replace(false);
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        *self.dirty.borrow()
     }
 }
 

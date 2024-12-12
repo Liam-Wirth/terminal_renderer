@@ -9,7 +9,9 @@ pub mod terminal {
 
 pub mod window {
     pub mod engine;
+    pub mod winbuffer;
     pub mod window_pipeline;
+    pub use winbuffer::WinBuffer;
     pub use window_pipeline::WindowPipeline;
 }
 pub mod renderer;
