@@ -1,34 +1,38 @@
-use crate::core::Color;
-use crate::core::ProjectedVertex;
-use glam::Mat4;
-use glam::Vec2;
+use crate::core::{Camera, Color};
+use glam::{Mat4, Vec2};
 
+pub mod terminal_pipeline;
+pub use terminal_pipeline::TerminalPipeline;
+pub mod window_pipeline;
+pub use window_pipeline::WindowPipeline;
 pub trait Pipeline {
-    type Scene; // This is just for now
+    type Scene;
     type Camera;
-    /// Process geometry and return processed vertices ready for rasterization
+    type Buffer;
+
+    fn init(&mut self, width: usize, height: usize);
     fn process_geometry(
         &mut self,
         scene: &Self::Scene,
         camera: &Self::Camera,
     ) -> Vec<ProcessedGeometry>;
-
-    /// Convert processed geometry into fragments
     fn rasterize(&mut self, geometry: Vec<ProcessedGeometry>) -> Vec<Fragment>;
-
-    /// Process fragments and write to buffer
-    fn process_fragments(&mut self, fragments: Vec<Fragment>);
-
-    /// Present the final buffer to display
-    fn present(&mut self) -> std::io::Result<()>;
+    fn process_fragments(&mut self, fragments: Vec<Fragment>, buffer: &mut Self::Buffer);
+    fn present(&mut self, back: &mut Self::Buffer) -> std::io::Result<()>;
+    fn cleanup(&mut self) -> std::io::Result<()>;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ProcessedGeometry {
-    pub vertices: Vec<ProjectedVertex>,
-    pub indices: Vec<u32>,
     pub transform: Mat4,
     pub visible: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ProjectedVertex {
+    pub position: Vec2,
+    pub depth: f32,
+    pub color: Color,
 }
 
 #[derive(Clone)]

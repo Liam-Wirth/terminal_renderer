@@ -1,54 +1,91 @@
-use std::cell::RefCell;
-
-use super::{Color, MAX_PITCH};
-use glam::{Mat4, UVec2, Vec2, Vec3};
+use glam::{Mat4, Vec3, Quat};
+use super::MAX_PITCH;
 
 pub struct Camera {
-    /// The Global.pos of the camera
-    pub pos: RefCell<Vec3>,
-    /// The direction the camera is facing
-    pub facing: RefCell<Vec3>,
-    /// The right vector of the camera (independant from world up)
-    pub right: RefCell<Vec3>,
-    /// The Up Vector of the camera
-    pub up: RefCell<Vec3>,
-    ///Camera's FOV
-    pub fov: f32,
-    /// The aspect ratio of the camera
-    pub aspect_ratio: RefCell<f32>,
-
-    /// The near plane of the camera, anything closer than this will not be rendered
-    pub near: f32,
-    /// The far plane of the camera, anything beyond this will not be rendered
-    pub far: f32,
-
-    view_dirty: RefCell<bool>,
-    proj_dirty: RefCell<bool>,
-    view_matrix: RefCell<Mat4>,
-    projection_matrix: RefCell<Mat4>,
-    view_proj_dirty: RefCell<bool>,
+    position: Vec3,
+    orientation: Quat,
+    fov: f32,
+    aspect_ratio: f32,
+    near: f32,
+    far: f32,
 }
 
-// TODO: Probably should maybe move this elsewhere into like a pipeline/fragmentation stage
-#[derive(Debug, Clone, Copy)]
-pub struct ProjectedVertex {
-    pub pos: Vec2,
-    pub depth: f32,
-    pub color: crate::core::color::Color,
-}
+impl Camera {
+    pub fn new(position: Vec3, target: Vec3, aspect_ratio: f32) -> Self {
+        let direction = (target - position).normalize();
+        let orientation = Quat::from_rotation_arc(Vec3::Z, direction);
 
-impl ProjectedVertex {
-    pub fn new(pos: Vec2, depth: f32, color: Color) -> Self {
-        ProjectedVertex { pos, depth, color }
-    }
-}
-
-impl Default for ProjectedVertex {
-    fn default() -> Self {
-        ProjectedVertex {
-            pos: Vec2::ZERO,
-            depth: f32::INFINITY,
-            color: super::Color::default(),
+        Self {
+            position,
+            orientation,
+            fov: 60.0_f32.to_radians(),
+            aspect_ratio,
+            near: 0.1,
+            far: 1000.0,
         }
+    }
+
+    pub fn get_view_matrix(&self) -> Mat4 {
+        Mat4::look_to_rh(
+            self.position,
+            self.get_forward(),
+            self.get_up(),
+        )
+    }
+
+    pub fn get_projection_matrix(&self) -> Mat4 {
+        Mat4::perspective_rh(
+            self.fov,
+            self.aspect_ratio,
+            self.near,
+            self.far,
+        )
+    }
+
+    pub fn move_forward(&mut self, distance: f32) {
+        self.position += self.get_forward() * distance;
+    }
+
+    pub fn move_backward(&mut self, distance: f32) {
+        self.position -= self.get_forward() * distance;
+    }
+
+    pub fn move_right(&mut self, amount: f32) {
+        self.position += self.get_right() * amount;
+    }
+
+    pub fn move_left(&mut self, amount: f32) {
+        self.position -= self.get_right() * amount;
+    }
+
+    pub fn move_up(&mut self, amount: f32) {
+        self.position += Vec3::Y * amount;
+    }
+
+    pub fn move_down(&mut self, amount: f32) {
+        self.position -= Vec3::Y * amount;
+    }
+
+    pub fn rotate(&mut self, pitch: f32, yaw: f32) {
+        let pitch_rotation = Quat::from_axis_angle(self.get_right(), pitch);
+        let yaw_rotation = Quat::from_axis_angle(Vec3::Y, yaw);
+
+        self.orientation = yaw_rotation * pitch_rotation * self.orientation;
+    }
+
+    pub fn get_forward(&self) -> Vec3 {
+        self.orientation * -Vec3::Z
+    }
+
+    pub fn get_right(&self) -> Vec3 {
+        self.orientation * Vec3::X
+    }
+
+    pub fn get_up(&self) -> Vec3 {
+        self.orientation * Vec3::Y
+    }
+
+    pub fn get_pitch(&self) -> f32 {
+        self.get_forward().dot(Vec3::Y).asin()
     }
 }

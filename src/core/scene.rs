@@ -1,21 +1,24 @@
-// pub struct Scene {
-//     pub entities: Vec<Entity>,
-// }
+use crate::core::camera::Camera;
 
-// impl Default for Scene {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
+pub struct Scene {
+    pub camera: Camera,
+}
 
-// impl Scene {
-//     pub fn new() -> Self {
-//         //let mut cube = Entity::create_cube();
-//         //let mut cube2 = Entity::create_cube();
-//         //let mut dodec = Entity::create_dodecahedron();
+impl Scene {
+    pub fn new(camera: Camera) -> Self {
+        Self { camera }
+    }
+}
 
-//         //cube2.transform = transform::Transform::new();
-//         //cube2.transform.translate(0.0, 0., 0.);
-//         Scene { entities: vec![] }
-//     }
-// }
+impl Default for Scene {
+    fn default() -> Self {
+        let cam = Camera::new(
+            glam::Vec3::new(0.0, 2.4, -6.0),
+            glam::Vec3::new(0.0, 0.0, 1.0),
+            800.0 / 600.0,
+        );
+        Self {
+            camera: cam,
+        }
+    }
+}

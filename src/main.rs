@@ -11,7 +11,11 @@ use simplelog::{Config, WriteLogger};
 use std::env;
 use std::io::{self, stdout, Write};
 
-use terminal_renderer::DisplayTarget;
+use terminal_renderer::{
+    core::Scene,
+    renderers::{terminal::TerminalRenderer, window::WindowRenderer},
+    DisplayTarget,
+};
 
 fn main() -> io::Result<()> {
     // Setup logging
@@ -31,7 +35,7 @@ fn main() -> io::Result<()> {
             "window" => DisplayTarget::Window,
             _ => DisplayTarget::Terminal,
         })
-        .unwrap_or(DisplayTarget::Terminal);
+        .unwrap_or(DisplayTarget::Window);
 
     match target {
         DisplayTarget::Terminal => run_terminal(),
@@ -47,52 +51,18 @@ fn cleanup_terminal() -> io::Result<()> {
 }
 
 fn run_terminal() -> io::Result<()> {
-    // Set up panic hook for terminal cleanup
-    let original_hook = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |panic_info| {
-        let _ = cleanup_terminal();
-        eprintln!("\n=== Panic Occurred ===");
-        original_hook(panic_info);
-        error!("Panic occurred: {:?}", panic_info);
-    }));
-
-    // Initialize terminal
-    let mut stdout = stdout();
-    enable_raw_mode()?;
-    execute!(stdout, EnterAlternateScreen, Hide,)?;
-
     let (width, height) = terminal::size()?;
-    println!("Terminal mode initialized: {}x{}", width, height);
+    let mut renderer = TerminalRenderer::new()?;
+    let mut scene = Scene::default();
 
-    // TODO: Initialize and run terminal renderer
-
-    cleanup_terminal()
+    renderer.run(&mut scene)
 }
 
 fn run_window() -> io::Result<()> {
-    use minifb::{Window, WindowOptions};
+    let width = 1920;
+    let height = 1080;
+    let mut renderer = WindowRenderer::new(width, height)?;
+    let mut scene = Scene::default();
 
-    let mut window = Window::new(
-        "3D Terminal Renderer - Window Mode",
-        800,
-        600,
-        WindowOptions {
-            resize: true,
-            scale: minifb::Scale::X1,
-            ..WindowOptions::default()
-        },
-    )
-    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-
-    // Set a minimum refresh rate
-    window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
-
-    while window.is_open() {
-        // TODO: Initialize and run window renderer
-
-        // Temporary: Just show a blank window
-        window.update();
-    }
-
-    Ok(())
+    renderer.run(&mut scene)
 }
