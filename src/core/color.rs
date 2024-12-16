@@ -1,5 +1,6 @@
 // TODO: implement like a "Colors" enum to be able to more quickly access the predefined colors or
 // something
+#[deprecated]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Color {
     pub r: u8, // Red component (0-255)
@@ -330,4 +331,5 @@ impl Default for Color {
         Color::WHITE // Default to white color
     }
 }
+
 

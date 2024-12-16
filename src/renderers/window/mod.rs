@@ -25,7 +25,7 @@ impl WindowRenderer {
             if delta >= self.pipeline.frame_time {
                 // Process one frame
                 let processed = self.pipeline.process_geometry(&scene, &scene.camera);
-                let fragments = self.pipeline.rasterize(processed);
+                let fragments = self.pipeline.rasterize(processed, &scene);
 
                 // Get mutable reference to back buffer once
                 let back_buffer = &mut self.back_buffer;

@@ -6,11 +6,13 @@ use crossterm::{
         self, disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
     },
 };
+use glam::{Affine3A, Vec3};
 use log::{error, LevelFilter};
 use simplelog::{Config, WriteLogger};
 use std::env;
 use std::io::{self, stdout, Write};
 
+use terminal_renderer::core::Entity;
 use terminal_renderer::{
     core::Scene,
     renderers::{terminal::TerminalRenderer, window::WindowRenderer},
@@ -36,10 +38,22 @@ fn main() -> io::Result<()> {
             _ => DisplayTarget::Terminal,
         })
         .unwrap_or(DisplayTarget::Window);
+    let mut me: Entity = Entity::from_obj("assets/models/teapot.obj");
+    let mut e: Entity = Entity::from_obj("assets/models/teapot.obj");
+    me.transform = Affine3A::from_rotation_y(std::f32::consts::PI);
+
+    let flip_y = Affine3A::from_scale(Vec3::new(1.0, -1.0, 1.0));
+    let flip_x = Affine3A::from_scale(Vec3::new(-1.0, 1.0, 1.0));
+
+    e.transform = flip_x * flip_y;
+
+    e.transform = e.transform * Affine3A::from_translation(Vec3::new(0., 4., 0.));
+
+    let mut scene = Scene::new_with_entities(Scene::default().camera, vec![me, e]);
 
     match target {
-        DisplayTarget::Terminal => run_terminal(),
-        DisplayTarget::Window => run_window(),
+        DisplayTarget::Terminal => run_term(scene),
+        DisplayTarget::Window => run_win(scene),
     }
 }
 
@@ -53,8 +67,22 @@ fn cleanup_terminal() -> io::Result<()> {
 fn run_terminal() -> io::Result<()> {
     let (width, height) = terminal::size()?;
     let mut renderer = TerminalRenderer::new()?;
-    let mut scene = Scene::default();
+    // Instead of default scene, use a test scene
+    let mut scene = Scene::new_test_scene(Scene::default().camera);
 
+    renderer.run(&mut scene)
+}
+
+fn run_term(mut scene: Scene) -> io::Result<()> {
+    let (width, height) = terminal::size()?;
+    let mut renderer = TerminalRenderer::new()?;
+    renderer.run(&mut scene)
+}
+
+fn run_win(mut scene: Scene) -> io::Result<()> {
+    let width = 1920;
+    let height = 1080;
+    let mut renderer = WindowRenderer::new(width, height)?;
     renderer.run(&mut scene)
 }
 
@@ -62,7 +90,8 @@ fn run_window() -> io::Result<()> {
     let width = 1920;
     let height = 1080;
     let mut renderer = WindowRenderer::new(width, height)?;
-    let mut scene = Scene::default();
+    // Instead of default scene, use a test scene
+    let mut scene = Scene::new_test_scene(Scene::default().camera);
 
     renderer.run(&mut scene)
 }
