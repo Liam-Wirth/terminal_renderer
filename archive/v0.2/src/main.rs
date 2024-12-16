@@ -109,8 +109,12 @@ pub fn run_terminal_version() -> io::Result<()> {
 
     let ico = Entity::from_obj(Path::new("../../assets/models/icosphere.obj"));
     suzanne.transform.rotate_quat(Quat::from_rotation_y(PI));
-    teapot.transform.scale_uniform(1.5);
+
+    spoon.transform.translate(Vec3::new(-8., 5., 0.));
+    spoon.transform.scale_uniform(6.);
     engine.scene.entities.push(teapot);
+    engine.scene.entities.push(spoon);
+    
 
     // Run the engine
     engine.run()?;

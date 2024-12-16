@@ -1,21 +1,11 @@
 use std::f32::consts::PI;
 
-pub mod camera;
+mod camera;
 mod color;
-pub mod entity;
-//pub mod geometry;
-pub mod scene;
-pub mod transform;
+mod scene;
 
-const MAX_PITCH: f32 = PI / 2.0;
+pub const MAX_PITCH: f32 = PI / 2.0;
 
+pub use camera::Camera;
 pub use color::Color;
-
-pub use camera::ProjectedVertex;
-// pub mod geometry;
-
-// pub use camera::{Camera, ProjectedVertex};
-// pub use entity::Entity;
-// pub use geometry::{Mesh, Tri, Vert};
-// pub use scene::Scene;
-// pub use transform::Transform;
+pub use scene::Scene;
