@@ -1,7 +1,7 @@
-use crate::core::{Camera, Color, Scene};
+use crate::core::{Camera, Color, Colorf32, Pixel, Scene};
 use crate::pipeline::{Fragment, Pipeline, ProcessedGeometry, ProjectedVertex};
 use crate::renderers::window::WinBuffer;
-use glam::{Mat4, Vec2, Vec3};
+use glam::{Mat4, Vec2, Vec3, Vec4};
 use minifb::{Window, WindowOptions};
 use std::io;
 use std::time::{Duration, Instant};
@@ -25,7 +25,7 @@ impl WindowPipeline {
     pub fn new(width: usize, height: usize) -> io::Result<Self> {
         let opts = WindowOptions {
             resize: true,
-            scale: minifb::Scale::X2,
+            scale: minifb::Scale::X1,
             title: true,
             borderless: false,
             ..WindowOptions::default()
@@ -120,28 +120,107 @@ impl Pipeline for WindowPipeline {
 
     fn process_geometry(&mut self, scene: &Scene, camera: &Camera) -> Vec<ProcessedGeometry> {
         let view_proj = camera.get_projection_matrix() * camera.get_view_matrix();
-        vec![ProcessedGeometry {
-            transform: view_proj,
-            visible: true,
-        }]
+
+        scene.entities.iter().enumerate()
+            .map(|(id, entity)| {
+                ProcessedGeometry {
+                    entity_id: id,
+                    transform: view_proj * glam::Mat4::from(entity.transform),
+                }
+            })
+            .collect()
     }
 
-    fn rasterize(&mut self, _geometry: Vec<ProcessedGeometry>) -> Vec<Fragment> {
-        // No rasterization logic for now
-        Vec::new()
+    fn rasterize(&mut self, geometry: Vec<ProcessedGeometry>, scene: &Scene) -> Vec<Fragment> {
+        let mut fragments = Vec::new();
+
+        for geo in geometry {
+            let entity = &scene.entities[geo.entity_id];
+            let transform = geo.transform;
+
+            for tri in &entity.mesh.tris {
+                let v_pos = [
+                    entity.mesh.vertices[tri.vertices[0]].pos,
+                    entity.mesh.vertices[tri.vertices[1]].pos,
+                    entity.mesh.vertices[tri.vertices[2]].pos,
+                ];
+
+                let v_clip: [Vec4; 3] = [
+                    transform * Vec4::new(v_pos[0].x, v_pos[0].y, v_pos[0].z, 1.0),
+                    transform * Vec4::new(v_pos[1].x, v_pos[1].y, v_pos[1].z, 1.0),
+                    transform * Vec4::new(v_pos[2].x, v_pos[2].y, v_pos[2].z, 1.0),
+                ];
+
+                let v_ndc: [Vec2; 3] = [
+                    Vec2::new(v_clip[0].x / v_clip[0].w, v_clip[0].y / v_clip[0].w),
+                    Vec2::new(v_clip[1].x / v_clip[1].w, v_clip[1].y / v_clip[1].w),
+                    Vec2::new(v_clip[2].x / v_clip[2].w, v_clip[2].y / v_clip[2].w),
+                ];
+
+                let (w, h) = (self.window.get_size().0 as f32, self.window.get_size().1 as f32);
+
+                let v_screen: [Vec2; 3] = [
+                    Vec2::new((v_ndc[0].x + 1.0) * 0.5 * w, (v_ndc[0].y + 1.0) * 0.5 * h),
+                    Vec2::new((v_ndc[1].x + 1.0) * 0.5 * w, (v_ndc[1].y + 1.0) * 0.5 * h),
+                    Vec2::new((v_ndc[2].x + 1.0) * 0.5 * w, (v_ndc[2].y + 1.0) * 0.5 * h),
+                ];
+
+                let c_default = Colorf32::WHITE;
+                let v_color = [
+                    entity.mesh.vertices[tri.vertices[0]].color.unwrap_or(c_default),
+                    entity.mesh.vertices[tri.vertices[1]].color.unwrap_or(c_default),
+                    entity.mesh.vertices[tri.vertices[2]].color.unwrap_or(c_default),
+                ];
+
+                let mut draw_line = |start: Vec2, end: Vec2, c: Colorf32| {
+                    use crate::pipeline::rasterizer::bresenham;
+                    let col = Color {
+                        r: (c.r * 255.0) as u8,
+                        g: (c.g * 255.0) as u8,
+                        b: (c.b * 255.0) as u8,
+                    };
+                    bresenham(start, end, Pixel::new_framebuffer(c), |pos, depth, _p| {
+                        fragments.push(Fragment {
+                            screen_pos: pos,
+                            depth,
+                            color: col,
+                        });
+                    });
+                };
+
+                // Draw wireframe edges
+                draw_line(v_screen[0], v_screen[1], v_color[0]);
+                draw_line(v_screen[1], v_screen[2], v_color[1]);
+                draw_line(v_screen[2], v_screen[0], v_color[2]);
+            }
+        }
+
+        fragments
     }
 
-    fn process_fragments(&mut self, _fragments: Vec<Fragment>, buffer: &mut WinBuffer) {
-        // No fragment processing logic for now
-        //
-        buffer.draw_text(&self.metrics, 10, 10, Color::GREEN);
+    fn process_fragments(&mut self, fragments: Vec<Fragment>, buffer: &mut WinBuffer) {
+        buffer.clear(); // Clear before drawing new frame
+
+        // Draw the fragments
+        for frag in fragments {
+            let x = frag.screen_pos.x as usize;
+            let y = frag.screen_pos.y as usize;
+            let c = Colorf32 {
+                r: frag.color.r as f32 / 255.0,
+                g: frag.color.g as f32 / 255.0,
+                b: frag.color.b as f32 / 255.0,
+            };
+            buffer.set_pixel(x, y, frag.depth, Pixel::new_framebuffer(c));
+        }
+
+        // Draw the metrics text on top
+        buffer.draw_text(&self.metrics, 10, 10, Colorf32::GREEN);
     }
 
     fn present(&mut self, back: &mut WinBuffer) -> std::io::Result<()> {
         let (win_width, win_height) = self.window.get_size();
         let buffer_size = win_width * win_height;
 
-        // Get slice of exactly the size the window needs
         let buffer_data = &self.front_buffer.data[..buffer_size];
 
         self.window

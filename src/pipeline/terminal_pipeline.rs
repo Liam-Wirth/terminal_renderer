@@ -1,9 +1,10 @@
-use crate::core::{Camera, Color, Scene};
+use crate::core::{Camera, Color, Colorf32, Pixel, Scene};
 use crate::pipeline::{Fragment, Pipeline, ProcessedGeometry, ProjectedVertex};
 use crate::renderers::terminal::TermBuffer;
 use crossterm::event::{self, Event, KeyCode};
 use crossterm::terminal;
-use glam::{Mat4, Vec2, Vec3};
+use glam::{Mat4, Vec2, Vec3, Vec4};
+use rayon::vec;
 use std::cell::RefCell;
 use std::io;
 use std::time::{Duration, Instant};
@@ -114,23 +115,108 @@ impl Pipeline for TerminalPipeline {
 
     fn process_geometry(&mut self, scene: &Scene, camera: &Camera) -> Vec<ProcessedGeometry> {
         let view_proj = camera.get_projection_matrix() * camera.get_view_matrix();
-        vec![ProcessedGeometry {
-            transform: view_proj,
-            visible: true,
-        }]
+
+        scene.entities.iter().enumerate()
+            .map(|(id, entity)| {
+                ProcessedGeometry {
+                    entity_id: id,
+                    transform: view_proj * Mat4::from(entity.transform),
+                }
+            })
+            .collect()
     }
 
-    fn rasterize(&mut self, _geometry: Vec<ProcessedGeometry>) -> Vec<Fragment> {
-        // No rasterization logic for now
-        Vec::new()
-    }
+    fn rasterize(&mut self, geometry: Vec<ProcessedGeometry>, scene: &Scene) -> Vec<Fragment> {
+        let mut fragments = Vec::new();
 
-    fn process_fragments(&mut self, _fragments: Vec<Fragment>, _buffer: &mut TermBuffer) {
-        // No fragment processing logic for now
+        for geo in geometry {
+            let entity = &scene.entities[geo.entity_id];
+            let transform = geo.transform;
+
+            for tri in &entity.mesh.tris {
+                // Extract the three vertices of the triangle
+                let v_pos = [
+                    entity.mesh.vertices[tri.vertices[0]].pos,
+                    entity.mesh.vertices[tri.vertices[1]].pos,
+                    entity.mesh.vertices[tri.vertices[2]].pos,
+                ];
+
+                // Transform to clip space
+                let v_clip: [Vec4; 3] = [
+                    transform * Vec4::new(v_pos[0].x, v_pos[0].y, v_pos[0].z, 1.0),
+                    transform * Vec4::new(v_pos[1].x, v_pos[1].y, v_pos[1].z, 1.0),
+                    transform * Vec4::new(v_pos[2].x, v_pos[2].y, v_pos[2].z, 1.0),
+                ];
+
+                // Convert to NDC
+                let v_ndc: [Vec2; 3] = [
+                    Vec2::new(v_clip[0].x / v_clip[0].w, v_clip[0].y / v_clip[0].w),
+                    Vec2::new(v_clip[1].x / v_clip[1].w, v_clip[1].y / v_clip[1].w),
+                    Vec2::new(v_clip[2].x / v_clip[2].w, v_clip[2].y / v_clip[2].w),
+                ];
+
+                // Convert to screen space
+                let w = self.width as f32;
+                let h = self.height as f32;
+                let v_screen: [Vec2; 3] = [
+                    Vec2::new((v_ndc[0].x + 1.0) * 0.5 * w, (v_ndc[0].y + 1.0) * 0.5 * h),
+                    Vec2::new((v_ndc[1].x + 1.0) * 0.5 * w, (v_ndc[1].y + 1.0) * 0.5 * h),
+                    Vec2::new((v_ndc[2].x + 1.0) * 0.5 * w, (v_ndc[2].y + 1.0) * 0.5 * h),
+                ];
+
+                // Color per vertex (if available)
+                let c_default = Colorf32::WHITE;
+                let v_color = [
+                    entity.mesh.vertices[tri.vertices[0]].color.unwrap_or(c_default),
+                    entity.mesh.vertices[tri.vertices[1]].color.unwrap_or(c_default),
+                    entity.mesh.vertices[tri.vertices[2]].color.unwrap_or(c_default),
+                ];
+
+                // We'll just do wireframe rasterization for simplicity
+                // Function to rasterize a line and push fragments
+                let mut draw_line = |start: Vec2, end: Vec2, c: Colorf32| {
+                    use crate::pipeline::rasterizer::bresenham;
+                    let col = Color {
+                        r: (c.r * 255.0) as u8,
+                        g: (c.g * 255.0) as u8,
+                        b: (c.b * 255.0) as u8,
+                    };
+                    bresenham(start, end, Pixel::new_terminal('█', c), |pos, depth, _p| {
+                        fragments.push(Fragment {
+                            screen_pos: pos,
+                            depth,
+                            color: col,
+                        });
+                    });
+                };
+
+                // Draw the edges of the triangle
+                draw_line(v_screen[0], v_screen[1], v_color[0]);
+                draw_line(v_screen[1], v_screen[2], v_color[1]);
+                draw_line(v_screen[2], v_screen[0], v_color[2]);
+            }
+        }
+
+        fragments
+    }
+    fn process_fragments(&mut self, fragments: Vec<Fragment>, buffer: &mut TermBuffer) {
+        for frag in fragments {
+            let x = frag.screen_pos.x as usize;
+            let y = frag.screen_pos.y as usize;
+
+            // Convert Fragment color (which is Color) to Colorf32 for terminal pixel
+            let c = Colorf32 {
+                r: frag.color.r as f32 / 255.0,
+                g: frag.color.g as f32 / 255.0,
+                b: frag.color.b as f32 / 255.0,
+            };
+
+            buffer.set_pixel(x, y, frag.depth, Pixel::new_terminal('█', c));
+        }
     }
 
     fn present(&mut self, back: &mut TermBuffer) -> std::io::Result<()> {
-        self.front_buffer.render_to_terminal(&self.metrics);
+        self.front_buffer.render_to_terminal(&self.metrics)?;
         self.swap_buffers(back);
         Ok(())
     }

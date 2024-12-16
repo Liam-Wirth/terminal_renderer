@@ -89,6 +89,10 @@ Articles, Extremely old lecture material, Wikipedia Pages, etc, all of these pla
 - https://gamedev.stackexchange.com/questions/159511/how-can-i-generate-the-smallest-enclosing-sphere-from-a-mesh
 - https://www.sunshine2k.de/coding/java/Welzl/Welzl.html
 - https://www.sunshine2k.de/coding_java.html   <- Good amount of rasterization algorithms/implementations here
+- https://github.com/ssloy/tinyrenderer/wiki
+- https://en.wikipedia.org/wiki/Polygon_mesh
+- https://en.wikipedia.org/wiki/Triangle_mesh
+
 
 ## Other cool projects! (that ended up helping me out :)
 | Link | Comments/Notes      |

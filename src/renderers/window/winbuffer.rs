@@ -1,8 +1,8 @@
-use crate::core::Color;
+use crate::core::{Color, Colorf32, Pixel};
 use fontdue::{Font, FontSettings};
 use std::sync::Arc;
+use glam::Vec2;
 
-// You could even make this configurable or detect from the system
 pub const MAX_DIMS: (usize, usize) = (3840, 2160); // 4K resolution as max
 const MAX_BUFFER_SIZE: usize = MAX_DIMS.0 * MAX_DIMS.1;
 
@@ -27,7 +27,6 @@ impl WinBuffer {
         )
         .unwrap();
 
-        // Allocate maximum size but only use current width * height
         WinBuffer {
             width,
             height,
@@ -57,8 +56,7 @@ impl WinBuffer {
         self.height = new_height;
     }
 
-    pub fn draw_text(&mut self, text: &str, x: i32, y: i32, color: Color) {
-        let color_u32 = ((color.r as u32) << 16) | ((color.g as u32) << 8) | (color.b as u32);
+    pub fn draw_text(&mut self, text: &str, x: i32, y: i32, color: Colorf32) {
         let mut cursor_x = x;
         let font_size = 14.0;
 
@@ -77,11 +75,12 @@ impl WinBuffer {
                     let idx = (py as usize) * self.width + (px as usize);
                     if idx < self.get_active_size() {
                         let alpha_f = alpha as f32 / 255.0;
-                        let r = (color.r as f32 * alpha_f) as u32;
-                        let g = (color.g as f32 * alpha_f) as u32;
-                        let b = (color.b as f32 * alpha_f) as u32;
-                        let pixel = (r << 16) | (g << 8) | b;
-                        self.data[idx] = pixel;
+                        let text_color = Colorf32::new(
+                            color.r * alpha_f,
+                            color.g * alpha_f,
+                            color.b * alpha_f,
+                        );
+                        self.data[idx] = text_color.to_u32();
                     }
                 }
             }
@@ -90,8 +89,26 @@ impl WinBuffer {
         }
     }
 
-    // Helper method to get a slice of the active buffer area
     pub fn get_active_buffer(&self) -> &[u32] {
         &self.data[..self.get_active_size()]
+    }
+
+    pub fn set_pixel(&mut self, x: usize, y: usize, depth: f32, pixel: Pixel) {
+        if x < self.width && y < self.height {
+            let index = x + y * self.width;
+            if depth < self.depth[index] {
+                let color = pixel.get_color();
+                self.data[index] = color.to_u32();
+                self.depth[index] = depth;
+            }
+        }
+    }
+    pub fn draw_line(&mut self, start: Vec2, end: Vec2, color: Colorf32) {
+        use crate::pipeline::rasterizer::bresenham;
+        let pixel = Pixel::new_framebuffer(color);
+
+        bresenham(start, end, pixel, |pos, depth, p| {
+            self.set_pixel(pos.x as usize, pos.y as usize, depth, p);
+        });
     }
 }

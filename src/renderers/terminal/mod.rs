@@ -65,7 +65,7 @@ impl TerminalRenderer {
             if delta >= self.pipeline.frame_time {
                 // Process one frame
                 let processed = self.pipeline.process_geometry(&scene, &scene.camera);
-                let fragments = self.pipeline.rasterize(processed);
+                let fragments = self.pipeline.rasterize(processed, &scene);
                 self.pipeline.process_fragments(fragments, &mut self.back_buffer);
                 self.pipeline.present(&mut self.back_buffer)?;
                 self.pipeline.update_metrics(delta, &scene.camera);
