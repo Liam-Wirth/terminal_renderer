@@ -2,17 +2,16 @@ use std::f32::consts::PI;
 
 mod camera;
 mod color;
-mod colorf32;
 mod scene;
 
 pub use scene::Scene;
 pub use scene::Entity;
 
-pub use colorf32::Colorf32;
+pub use color::Color;
 
 mod pixel;
 pub use pixel::Pixel;
-mod geometry{
+pub mod geometry{
     mod mesh;
     mod process;
     mod mat;
@@ -23,4 +22,3 @@ mod geometry{
 pub const MAX_PITCH: f32 = PI / 2.0;
 
 pub use camera::Camera;
-pub use color::Color;

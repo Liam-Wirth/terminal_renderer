@@ -1,12 +1,12 @@
 use super::{process, Material};
-use crate::core::{colorf32::Colorf32, Color};
+use crate::core::{color::Color};
 use glam::{Vec2, Vec3};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Vertex {
     pub pos: Vec3,               // Position in model space
     pub uv: Option<Vec2>,        // Optional texture coordinates
-    pub color: Option<Colorf32>, // Optional vertex color for debugging/flat shading
+    pub color: Option<Color>, // Optional vertex color for debugging/flat shading
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -90,7 +90,7 @@ impl Mesh {
                     if let Some(material) = materials.get(mat_id) {
                         let mut mat = Material {
                             name: material.name.clone(),
-                            diffuse_color: Colorf32::WHITE,
+                            diffuse_color: Color::WHITE,
                             diffuse_texture: None,
                             normal_texture: None,
                             specular_texture: None,
@@ -100,7 +100,7 @@ impl Mesh {
 
                         if let Some(diffuse_col) = material.diffuse {
                             mat.diffuse_color = {
-                                Colorf32::from_rgba(
+                                Color::from_rgba(
                                     diffuse_col[0],
                                     diffuse_col[1],
                                     diffuse_col[2],
@@ -125,17 +125,17 @@ impl Mesh {
         let v1 = Vertex {
             pos: Vec3::new(-1.0, -1.0, 0.0),
             uv: None,
-            color: Colorf32::RED.into(),
+            color: Color::RED.into(),
         };
         let v2: Vertex = Vertex {
             pos: Vec3::new(1.0, -1.0, 0.0),
             uv: None,
-            color: Colorf32::GREEN.into(),
+            color: Color::GREEN.into(),
         };
         let v3: Vertex = Vertex {
             pos: Vec3::new(0.0, 1.0, 0.0),
             uv: None,
-            color: Colorf32::BLUE.into(),
+            color: Color::BLUE.into(),
         };
 
         let tri = Tri {

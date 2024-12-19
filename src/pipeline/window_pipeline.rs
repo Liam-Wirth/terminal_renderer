@@ -1,5 +1,5 @@
-use crate::core::{Camera, Color, Colorf32, Pixel, Scene};
-use crate::pipeline::{Fragment, Pipeline, ProcessedGeometry, ProjectedVertex};
+use crate::core::{Camera, Color, Pixel, Scene};
+use crate::pipeline::{Fragment, OldPipeline, ProcessedGeometry, ProjectedVertex};
 use crate::renderers::window::WinBuffer;
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use minifb::{Window, WindowOptions};
@@ -108,7 +108,7 @@ impl WindowPipeline {
     }
 }
 
-impl Pipeline for WindowPipeline {
+impl OldPipeline for WindowPipeline {
     type Scene = Scene;
     type Camera = Camera;
     type Buffer = WinBuffer;
@@ -165,25 +165,20 @@ impl Pipeline for WindowPipeline {
                     Vec2::new((v_ndc[2].x + 1.0) * 0.5 * w, (v_ndc[2].y + 1.0) * 0.5 * h),
                 ];
 
-                let c_default = Colorf32::WHITE;
+                let c_default = Color::WHITE;
                 let v_color = [
                     entity.mesh.vertices[tri.vertices[0]].color.unwrap_or(c_default),
                     entity.mesh.vertices[tri.vertices[1]].color.unwrap_or(c_default),
                     entity.mesh.vertices[tri.vertices[2]].color.unwrap_or(c_default),
                 ];
 
-                let mut draw_line = |start: Vec2, end: Vec2, c: Colorf32| {
+                let mut draw_line = |start: Vec2, end: Vec2, c: Color| {
                     use crate::pipeline::rasterizer::bresenham;
-                    let col = Color {
-                        r: (c.r * 255.0) as u8,
-                        g: (c.g * 255.0) as u8,
-                        b: (c.b * 255.0) as u8,
-                    };
                     bresenham(start, end, Pixel::new_framebuffer(c), |pos, depth, _p| {
                         fragments.push(Fragment {
                             screen_pos: pos,
                             depth,
-                            color: col,
+                            color: c,
                         });
                     });
                 };
@@ -205,7 +200,7 @@ impl Pipeline for WindowPipeline {
         for frag in fragments {
             let x = frag.screen_pos.x as usize;
             let y = frag.screen_pos.y as usize;
-            let c = Colorf32 {
+            let c = Color {
                 r: frag.color.r as f32 / 255.0,
                 g: frag.color.g as f32 / 255.0,
                 b: frag.color.b as f32 / 255.0,
@@ -214,7 +209,7 @@ impl Pipeline for WindowPipeline {
         }
 
         // Draw the metrics text on top
-        buffer.draw_text(&self.metrics, 10, 10, Colorf32::GREEN);
+        buffer.draw_text(&self.metrics, 10, 10, Color::GREEN);
     }
 
     fn present(&mut self, back: &mut WinBuffer) -> std::io::Result<()> {
