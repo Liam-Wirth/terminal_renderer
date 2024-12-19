@@ -1,28 +1,41 @@
-use crate::renderers::terminal::TermBuffer;
-use crate::renderers::window::WinBuffer;
 use crate::core::color::Color;
-use crate::core::colorf32::Colorf32;
 #[derive(Clone, Copy, Debug)]
 pub enum Pixel {
-    Terminal {
-        ch: char,
-        color: Colorf32,
-    },
-    Framebuffer {
-        color: Colorf32,
-    }
+    Terminal { ch: char, color: Color },
+    Framebuffer { color: Color },
 }
 
+
 impl Pixel {
-    pub fn new_terminal(ch: char, color: Colorf32) -> Self {
+    pub fn new_terminal(ch: char, color: Color) -> Self {
         Pixel::Terminal { ch, color }
     }
+    pub fn default_term() -> Self {
+        let ch = ' ';
+        let color = Color::WHITE;
+        Pixel::new_terminal(ch, color)
+    }
 
-    pub fn new_framebuffer(color: Colorf32) -> Self {
+    pub fn term_full(color: Color) -> Self {
+        let ch = '█';
+        Pixel::new_terminal(ch, color)
+    }
+
+    pub fn reset(&mut self) {
+        match self {
+            Pixel::Terminal { ch, color } => {
+                *ch = ' ';
+                *color = Color::WHITE;
+            }
+            Pixel::Framebuffer { color } => *color = Color::WHITE,
+        }
+    }
+
+    pub fn new_framebuffer(color: Color) -> Self {
         Pixel::Framebuffer { color }
     }
 
-    pub fn get_color(&self) -> Colorf32 {
+    pub fn get_color(&self) -> Color {
         match self {
             Pixel::Terminal { color, .. } => *color,
             Pixel::Framebuffer { color } => *color,

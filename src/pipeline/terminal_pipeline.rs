@@ -1,5 +1,5 @@
-use crate::core::{Camera, Color, Colorf32, Pixel, Scene};
-use crate::pipeline::{Fragment, Pipeline, ProcessedGeometry, ProjectedVertex};
+use crate::core::{Camera, Color, Pixel, Scene};
+use crate::pipeline::{Fragment, OldPipeline, ProcessedGeometry, ProjectedVertex};
 use crate::renderers::terminal::TermBuffer;
 use crossterm::event::{self, Event, KeyCode};
 use crossterm::terminal;
@@ -101,7 +101,7 @@ impl TerminalPipeline {
     }
 }
 
-impl Pipeline for TerminalPipeline {
+impl OldPipeline for TerminalPipeline {
     type Scene = Scene;
     type Camera = Camera;
     type Buffer = TermBuffer;
@@ -165,7 +165,7 @@ impl Pipeline for TerminalPipeline {
                 ];
 
                 // Color per vertex (if available)
-                let c_default = Colorf32::WHITE;
+                let c_default = Color::WHITE;
                 let v_color = [
                     entity.mesh.vertices[tri.vertices[0]].color.unwrap_or(c_default),
                     entity.mesh.vertices[tri.vertices[1]].color.unwrap_or(c_default),
@@ -174,18 +174,14 @@ impl Pipeline for TerminalPipeline {
 
                 // We'll just do wireframe rasterization for simplicity
                 // Function to rasterize a line and push fragments
-                let mut draw_line = |start: Vec2, end: Vec2, c: Colorf32| {
+                let mut draw_line = |start: Vec2, end: Vec2, c: Color| {
                     use crate::pipeline::rasterizer::bresenham;
-                    let col = Color {
-                        r: (c.r * 255.0) as u8,
-                        g: (c.g * 255.0) as u8,
-                        b: (c.b * 255.0) as u8,
-                    };
+                    // Keep color as f32 values (0.0 to 1.0)
                     bresenham(start, end, Pixel::new_terminal('█', c), |pos, depth, _p| {
                         fragments.push(Fragment {
                             screen_pos: pos,
                             depth,
-                            color: col,
+                            color: c,
                         });
                     });
                 };
@@ -205,7 +201,7 @@ impl Pipeline for TerminalPipeline {
             let y = frag.screen_pos.y as usize;
 
             // Convert Fragment color (which is Color) to Colorf32 for terminal pixel
-            let c = Colorf32 {
+            let c = Color {
                 r: frag.color.r as f32 / 255.0,
                 g: frag.color.g as f32 / 255.0,
                 b: frag.color.b as f32 / 255.0,
