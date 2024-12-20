@@ -3,8 +3,6 @@ use std::time::{Duration, Instant};
 pub mod core;
 pub mod pipeline;
 
-pub mod terminal;
-pub mod window;
 #[derive(Debug, Clone, Copy)]
 pub enum DisplayTarget {
     Terminal,
@@ -42,8 +40,29 @@ impl Metrics {
             "FPS: {:.2} | Avg: {:.2}ms | Min: {:.2}ms | Max: {:.2}ms",
             self.current_fps,
             self.frame_time.as_secs_f32() * 1000.0,
-            self.frame_times.iter().copied().reduce(f32::min).unwrap_or(0.0),
-            self.frame_times.iter().copied().reduce(f32::max).unwrap_or(0.0)
+            self.frame_times
+                .iter()
+                .copied()
+                .reduce(f32::min)
+                .unwrap_or(0.0),
+            self.frame_times
+                .iter()
+                .copied()
+                .reduce(f32::max)
+                .unwrap_or(0.0)
         )
     }
+}
+
+pub static DEBUG_PIPELINE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+// Helper macro for debug printing
+#[macro_export]
+macro_rules! debug_print {
+    ($($arg:tt)*) => {
+        if crate::DEBUG_PIPELINE.load(std::sync::atomic::Ordering::Relaxed) {
+            println!($($arg)*);
+        }
+    };
 }

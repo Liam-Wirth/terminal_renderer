@@ -1,11 +1,11 @@
 use super::{process, Material};
-use crate::core::{color::Color};
+use crate::core::color::Color;
 use glam::{Vec2, Vec3};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Vertex {
-    pub pos: Vec3,               // Position in model space
-    pub uv: Option<Vec2>,        // Optional texture coordinates
+    pub pos: Vec3,            // Position in model space
+    pub uv: Option<Vec2>,     // Optional texture coordinates
     pub color: Option<Color>, // Optional vertex color for debugging/flat shading
 }
 
@@ -14,7 +14,7 @@ pub struct Normal {
     pub norm: Vec3, // Normal vector
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Tri {
     pub vertices: [usize; 3],        // Indices into the vertex buffer
     pub normals: Option<[usize; 3]>, // Optional per-vertex normals
@@ -36,6 +36,24 @@ impl Mesh {
             normals: Vec::new(),
             tris: Vec::new(),
             materials: Vec::new(),
+        }
+    }
+
+    pub fn bake_normals_to_colors(&mut self) {
+        // First ensure we have normals
+        if self.normals.is_empty() {
+            process::compute_normals(self);
+        }
+
+        // For each vertex, update its color based on its normal
+        for (i, vertex) in self.vertices.iter_mut().enumerate() {
+            let normal = self.normals[i].norm;
+            // Convert normal components from [-1,1] to [0,1] range
+            vertex.color = Some(Color::new(
+                (normal.x + 1.0) * 0.5,
+                (normal.y + 1.0) * 0.5,
+                (normal.z + 1.0) * 0.5,
+            ));
         }
     }
 
