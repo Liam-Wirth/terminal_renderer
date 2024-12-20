@@ -1,10 +1,10 @@
 use crate::core::camera::Camera;
 
-use glam::{Affine3A, Mat3, Mat4, Quat, Vec3};
+use glam::Affine3A;
 
 use crate::core::geometry::Mesh;
-use std::cell::RefCell;
 
+#[derive(Clone)]
 pub struct Entity {
     pub mesh: Mesh,
     pub transform: glam::Affine3A,
@@ -17,7 +17,10 @@ impl Entity {
 
     pub fn from_obj(path: &str) -> Self {
         let mesh = Mesh::from_obj(path);
-        Self { mesh, transform: Affine3A::IDENTITY }
+        Self {
+            mesh,
+            transform: Affine3A::IDENTITY,
+        }
     }
 
     pub fn from_obj_with_transform(path: &str, transform: Affine3A) -> Self {
@@ -26,6 +29,7 @@ impl Entity {
     }
 }
 
+#[derive(Clone)]
 pub struct Scene {
     pub camera: Camera,
     pub entities: Vec<Entity>,
@@ -33,7 +37,10 @@ pub struct Scene {
 
 impl Scene {
     pub fn new(camera: Camera) -> Self {
-        Self { camera, entities: Vec::new()}
+        Self {
+            camera,
+            entities: Vec::new(),
+        }
     }
 
     pub fn new_with_entities(camera: Camera, entities: Vec<Entity>) -> Self {
@@ -47,7 +54,7 @@ impl Scene {
     pub fn new_test_scene(camera: Camera) -> Self {
         let mut scene = Scene::default();
         scene.camera = camera;
-        let mut mesh = Mesh::new_test_mesh();
+        let mesh = Mesh::new_test_mesh();
         scene.entities.push(Entity::new(mesh, Affine3A::IDENTITY));
         scene
     }

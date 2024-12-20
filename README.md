@@ -27,7 +27,22 @@
   - clear pipeline
   - everything else
 
+```mermaid
+graph LR
+    VD[Vertex Data] --> VS[Vertex Shader]
+    VS --> SA[Shape Assembly]
+    SA --> GS[Geometry Shader]
+    GS --> R[Rasterization]
+    R --> FS[Fragment Shader]
+    FS --> TB[Tests and Blending]
 
+    style VS fill:#99c0ff
+    style SA fill:#cccccc
+    style GS fill:#99c0ff
+    style R fill:#cccccc
+    style FS fill:#99c0ff
+    style TB fill:#cccccc
+    ```
 
 
 # TODO
