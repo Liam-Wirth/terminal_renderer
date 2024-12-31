@@ -1,4 +1,5 @@
-use glam::{Mat4, Quat, Vec3, Vec4};
+
+use glam::{Mat4, Quat, Vec3, Vec4, Vec4Swizzles};
 use std::cell::RefCell;
 
 #[derive(Clone)]
@@ -62,62 +63,19 @@ impl Camera {
     }
 
     fn update_frustum_planes(&self) {
-        let vp = *self.cached_proj_matrix.borrow() * *self.cached_view_matrix.borrow();
-        let mut planes = self.cached_frustum_planes.borrow_mut();
+            let vp = *self.cached_proj_matrix.borrow() * *self.cached_view_matrix.borrow();
+            let mut planes = self.cached_frustum_planes.borrow_mut();
 
-        // Left plane
-        planes[0] = Vec4::new(
-            vp.row(3).x + vp.row(0).x,
-            vp.row(3).y + vp.row(0).y,
-            vp.row(3).z + vp.row(0).z,
-            vp.row(3).w + vp.row(0).w,
-        );
+            // Construct the six frustum planes from the view-projection matrix
+            // The planes are: Left, Right, Bottom, Top, Near, Far
+            for (i, sign) in [(0, 1), (0, -1), (1, 1), (1, -1), (2, 1), (2, -1)].iter() {
+                let row = vp.row(3) + vp.row(*i) * (*sign as f32);
+                let normal = Vec3::new(row.x, row.y, row.z);
+                let length = normal.length();
 
-        // Right plane
-        planes[1] = Vec4::new(
-            vp.row(3).x - vp.row(0).x,
-            vp.row(3).y - vp.row(0).y,
-            vp.row(3).z - vp.row(0).z,
-            vp.row(3).w - vp.row(0).w,
-        );
+                planes[i * 2 + if *sign > 0 { 0 } else { 1 }] = row / length;
+            }
 
-        // Bottom plane
-        planes[2] = Vec4::new(
-            vp.row(3).x + vp.row(1).x,
-            vp.row(3).y + vp.row(1).y,
-            vp.row(3).z + vp.row(1).z,
-            vp.row(3).w + vp.row(1).w,
-        );
-
-        // Top plane
-        planes[3] = Vec4::new(
-            vp.row(3).x - vp.row(1).x,
-            vp.row(3).y - vp.row(1).y,
-            vp.row(3).z - vp.row(1).z,
-            vp.row(3).w - vp.row(1).w,
-        );
-
-        // Near plane
-        planes[4] = Vec4::new(
-            vp.row(3).x + vp.row(2).x,
-            vp.row(3).y + vp.row(2).y,
-            vp.row(3).z + vp.row(2).z,
-            vp.row(3).w + vp.row(2).w,
-        );
-
-        // Far plane
-        planes[5] = Vec4::new(
-            vp.row(3).x - vp.row(2).x,
-            vp.row(3).y - vp.row(2).y,
-            vp.row(3).z - vp.row(2).z,
-            vp.row(3).w - vp.row(2).w,
-        );
-
-        // Normalize the planes
-        for plane in planes.iter_mut() {
-            let len = (plane.x * plane.x + plane.y * plane.y + plane.z * plane.z).sqrt();
-            *plane /= len;
-        }
     }
 
     fn update_frustum_corners(&self) {

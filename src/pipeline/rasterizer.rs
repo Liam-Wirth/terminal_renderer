@@ -51,7 +51,7 @@ impl Rasterizer {
         ];
 
         // Rasterize the triangle
-        self.rasterize_triangle_barycentric(screen_verts, colors)
+      self.rasterize_triangle_barycentric(screen_verts, colors)
     }
 
     // fn project_to_screen(&self, vertices: &[Vec4; 3]) -> [Vec2; 3] {
@@ -275,6 +275,70 @@ impl Rasterizer {
 
         fragments
     }
+
+    fn rasterize_fixed_point(
+        &self,
+        screen_verts: [glam::Vec2; 3],
+        colors: [Color; 3],
+    ) -> Vec<Fragment> {
+        let mut fragments = Vec::new();
+        let width = self.width;
+        let height = self.height;
+
+        let v0 = screen_verts[0];
+        let v1 = screen_verts[1];
+        let v2 = screen_verts[2];
+        let area = edge_function(v0, v1, v2);
+
+        if area <= 0 {
+            return fragments; // Backface culling
+        }
+
+        let (min_x, max_x) = (
+            v0.x.min(v1.x).min(v2.x).max(0.0) as i32,
+            v0.x.max(v1.x).max(v2.x).min(width as f32) as i32,
+        );
+        let (min_y, max_y) = (
+            v0.y.min(v1.y).min(v2.y).max(0.0) as i32,
+            v0.y.max(v1.y).max(v2.y).min(height as f32) as i32,
+        );
+
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                let p = glam::Vec2::new(x as f32, y as f32);
+
+                let w0 = edge_function(v1, v2, p);
+                let w1 = edge_function(v2, v0, p);
+                let w2 = edge_function(v0, v1, p);
+
+                if w0 >= 0 && w1 >= 0 && w2 >= 0 {
+                    let inv_area = 1.0 / (area as f32);
+
+                    // Convert weights back to floating-point for interpolation
+                    let w0f = w0 as f32 * inv_area;
+                    let w1f = w1 as f32 * inv_area;
+                    let w2f = w2 as f32 * inv_area;
+
+                    let color = Color {
+                        r: colors[0].r * w0f + colors[1].r * w1f + colors[2].r * w2f,
+                        g: colors[0].g * w0f + colors[1].g * w1f + colors[2].g * w2f,
+                        b: colors[0].b * w0f + colors[1].b * w1f + colors[2].b * w2f,
+                    };
+
+                    fragments.push(Fragment {
+                        screen_pos: p,
+                        depth: 0.0, // Implement depth interpolation here
+                        color,
+                    });
+                }
+            }
+        }
+
+        fragments
+    }
+}
+pub fn edge_function(v0: glam::Vec2, v1: glam::Vec2, p: glam::Vec2) -> i32 {
+    ((p.x - v0.x) as i32 * (v1.y - v0.y) as i32 - (p.y - v0.y) as i32 * (v1.x - v0.x) as i32) << 16
 }
 
 fn barycentric(
@@ -325,5 +389,47 @@ where
             err += dx;
             y0 += sy;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::Color;
+    use std::time::Instant;
+
+    #[test]
+    fn benchmark_rasterization() {
+        let iterations = 100;
+
+        let rasterizer = Rasterizer::new(1920, 1080);
+        let screen_verts = [
+            Vec2::new(100.0, 100.0),
+            Vec2::new(400.0, 150.0),
+            Vec2::new(300.0, 300.0),
+        ];
+        let colors = [Color::RED, Color::GREEN, Color::BLUE];
+
+        // Benchmark Float Rasterization
+        let start_time = Instant::now();
+        for _ in 0..iterations {
+            let _ = rasterizer.rasterize_triangle_barycentric(screen_verts, colors);
+        }
+        let float_time = start_time.elapsed();
+
+        // Benchmark Fixed-Point Rasterization
+        let start_time = Instant::now();
+        for _ in 0..iterations {
+        }
+        let fixed_time = start_time.elapsed();
+
+        println!("Float Rasterization took: {:?}", float_time);
+        println!("Average per iteration: {:?}", float_time / iterations);
+        println!("Fixed-Point Rasterization took: {:?}", fixed_time);
+        println!("Average per iteration: {:?}", fixed_time / iterations);
+        println!(
+            "Speed difference: {:.2}x",
+            float_time.as_nanos() as f64 / fixed_time.as_nanos() as f64
+        );
     }
 }

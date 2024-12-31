@@ -70,11 +70,20 @@ impl<B: Buffer> Pipeline<B> {
     /// Consider this function to be like the function that gets run every frame, like the main loop
     pub fn render_frame(&self, window: Option<&mut Window>) -> io::Result<()> {
         self.back_buffer.borrow_mut().clear();
+
+        // 1. Process vertices to clip space
         self.process_geometry();
+
+        // 2. Clip triangles (already integrated in process_geometry)
+        // The clipper operates during geometry processing
+
+        // 3. Rasterize clipped triangles
         self.rasterize();
+
+        // 4. Process fragments
         self.process_fragments(&self.fragments.borrow());
 
-        // Present based on window availability
+        // Present
         if let Some(window) = window {
             self.front_buffer.borrow().present_window(window)?;
         } else {
@@ -82,7 +91,6 @@ impl<B: Buffer> Pipeline<B> {
         }
 
         self.swap_buffers();
-        println!("Screen frags: {:?}", self.fragments.borrow().len());
         Ok(())
     }
 

@@ -16,8 +16,8 @@ use terminal_renderer::{
     DEBUG_PIPELINE,
 };
 
-const WIDTH: usize = 2000;
-const HEIGHT: usize = 2000;
+const WIDTH: usize = 1920;
+const HEIGHT: usize = 1080;
 
 fn main() -> io::Result<()> {
     let store = DEBUG_PIPELINE.store(false, std::sync::atomic::Ordering::Relaxed);
