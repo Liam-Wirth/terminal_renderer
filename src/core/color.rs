@@ -151,3 +151,43 @@ impl Default for Color {
         Color::WHITE // Default to white color
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Instant;
+
+    #[test]
+    fn benchmark_lerp() {
+        let iterations = 10_000_000;
+
+        // Test float lerp
+        let start_color = Color::new(1.0, 0.0, 0.0);
+        let end_color = Color::new(0.0, 1.0, 0.0);
+        let start_time = Instant::now();
+        for t in 0..iterations {
+            let t = (t as f32) / (iterations as f32);
+            let _result = start_color.lerp(&end_color, t);
+        }
+        let float_time = start_time.elapsed();
+
+        // Test u32 lerp
+        let start_u32 = start_color.to_u32();
+        let end_u32 = end_color.to_u32();
+        let start_time = Instant::now();
+        for t in 0..iterations {
+            let t = (t as f32) / (iterations as f32);
+            let _result = Color::lerp_u32(start_u32, end_u32, t);
+        }
+        let u32_time = start_time.elapsed();
+
+        println!("Float lerp took: {:?}", float_time);
+        println!("For an average of: {:?}", float_time / iterations);
+        println!("U32 lerp took: {:?}", u32_time);
+        println!("For an average of: {:?}", u32_time / iterations);
+        println!(
+            "Speed difference: {:.2}x",
+            float_time.as_nanos() as f64 / u32_time.as_nanos() as f64
+        );
+    }
+}
