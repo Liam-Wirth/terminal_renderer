@@ -112,8 +112,8 @@ impl Buffer for TermBuffer {
                     stdout.queue(Print(ch))?;
                 }
             }
+            // Print a newline but avoid scrolling on last line:
             if y < self.height - 1 {
-                // Avoid going to the last line, as it may cause scrolling
                 stdout.queue(Print("\r\n"))?;
             }
         }

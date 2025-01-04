@@ -51,7 +51,7 @@ impl Rasterizer {
         ];
 
         // Rasterize the triangle
-      self.rasterize_triangle_barycentric(screen_verts, colors)
+        self.rasterize_triangle_barycentric(screen_verts, colors)
     }
 
     // fn project_to_screen(&self, vertices: &[Vec4; 3]) -> [Vec2; 3] {
@@ -276,6 +276,7 @@ impl Rasterizer {
         fragments
     }
 
+    /// This was purely implemented for fun, no real use case
     fn rasterize_fixed_point(
         &self,
         screen_verts: [glam::Vec2; 3],
@@ -419,8 +420,7 @@ mod tests {
 
         // Benchmark Fixed-Point Rasterization
         let start_time = Instant::now();
-        for _ in 0..iterations {
-        }
+        for _ in 0..iterations {}
         let fixed_time = start_time.elapsed();
 
         println!("Float Rasterization took: {:?}", float_time);

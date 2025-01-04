@@ -57,6 +57,10 @@ impl Mesh {
         }
     }
 
+    pub fn calculate_normals(&mut self) {
+        process::compute_normals(self);
+    }
+
     pub fn from_obj(path: &str) -> Self {
         let (models, materials_result) = tobj::load_obj(
             path,
@@ -70,19 +74,40 @@ impl Mesh {
 
         let mut mesh = Mesh::new();
 
+        // If there are materials in the .mtl, parse them into our Mesh
+        if let Ok(mats) = materials_result {
+            for mat in &mats {
+                let mut m = Material::default();
+                m.name = mat.name.clone();
+                // Convert [r, g, b] to your Color
+                let dif = mat.diffuse.unwrap();
+                let (dr, dg, db) = (dif[0], dif[1], dif[2]);
+                m.diffuse_color = Color::from_rgba(dr, dg, db, 1.0);
+                m.shininess = mat.shininess;
+
+                // If there's a texture path (like "my_texture.png"), store it:
+                if let Some(dif_tex) = &mat.diffuse_texture {
+                    // m.diffuse_texture = Some(load_texture(dif_tex));
+                }
+
+                mesh.materials.push(m);
+            }
+        }
+
+        // For each model in the OBJ (often there's just one)
         for model in models {
             let mesh_data = model.mesh;
 
-            // Load vertices
+            // positions => each triple => a vertex
             for pos in mesh_data.positions.chunks(3) {
                 mesh.vertices.push(Vertex {
                     pos: Vec3::new(pos[0], pos[1], pos[2]),
-                    uv: None,
-                    color: None, // Apply later based on material
+                    uv: None, // if you parse `mesh_data.texcoords`, put them here
+                    color: None,
                 });
             }
 
-            // Load normals if available
+            // optional normals => if not present, we can compute
             if !mesh_data.normals.is_empty() {
                 for norm in mesh_data.normals.chunks(3) {
                     mesh.normals.push(Normal {
@@ -90,51 +115,19 @@ impl Mesh {
                     });
                 }
             } else {
-                super::process::compute_normals(&mut mesh); // Compute normals if not provided
+                process::compute_normals(&mut mesh);
             }
 
-            // Load triangles
+            // for each face
             for face in mesh_data.indices.chunks(3) {
                 mesh.tris.push(Tri {
                     vertices: [face[0] as usize, face[1] as usize, face[2] as usize],
-                    normals: None, // Updated if normal data exists
-                    material: mesh_data.material_id,
+                    normals: None,
+                    material: mesh_data.material_id, // <-- tie to .materials
                 });
             }
-
-            // Load materials if available
-            if let Ok(ref materials) = materials_result {
-                if let Some(mat_id) = mesh_data.material_id {
-                    if let Some(material) = materials.get(mat_id) {
-                        let mut mat = Material {
-                            name: material.name.clone(),
-                            diffuse_color: Color::WHITE,
-                            diffuse_texture: None,
-                            normal_texture: None,
-                            specular_texture: None,
-                            shininess: material.shininess,
-                        };
-                        // mesh.materials.push(Material {
-
-                        if let Some(diffuse_col) = material.diffuse {
-                            mat.diffuse_color = {
-                                Color::from_rgba(
-                                    diffuse_col[0],
-                                    diffuse_col[1],
-                                    diffuse_col[2],
-                                    1.0,
-                                )
-                            }
-                        }
-                        if let Some(dif_tex) = &material.diffuse_texture {
-                            // TODO!: this
-                        }
-
-                        mesh.materials.push(mat);
-                    }
-                }
-            }
         }
+
         mesh
     }
 
