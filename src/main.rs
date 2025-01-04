@@ -29,16 +29,18 @@ fn main() -> io::Result<()> {
 
     let mut scene = Scene::new(camera);
 
-    scene.add_entity(Entity::from_obj("assets/models/suzanne.obj"));
-    scene.entities[0].mesh.bake_normals_to_colors();
+    scene.add_entity(Entity::from_obj("assets/models/banjofrog.obj"));
+    scene.entities[0].mesh.calculate_normals();
+    // scene.entities[0].mesh.bake_normals_to_colors();
 
     // You can choose which one to run
-    run_win(scene)
+    // let _ = run_win(scene.clone());
     // or
     // run_term(scene)
+    run_win(scene)
 }
 
-pub fn run_term(scene: Scene) -> io::Result<()> {
+pub fn run_term(mut scene: Scene) -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = stdout();
     execute!(
@@ -48,19 +50,41 @@ pub fn run_term(scene: Scene) -> io::Result<()> {
         Clear(ClearType::All)
     )?;
 
-    let pipeline = Pipeline::<TermBuffer>::new(WIDTH, HEIGHT, scene);
+    let (tw, th) = crossterm::terminal::size()?;
 
+    let mut pipeline = Pipeline::<TermBuffer>::new(tw as usize, th as usize, scene);
+
+    // 4) Main loop
     loop {
-        if event::poll(Duration::from_millis(16))? {
-            if let Event::Key(key_event) = event::read()? {
-                if key_event.code == KeyCode::Esc {
-                    break;
+        if event::poll(Duration::from_millis(0))? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Esc => break,
+                    KeyCode::Char('w') => pipeline.scene.camera.move_forward(0.1),
+                    KeyCode::Char('s') => pipeline.scene.camera.move_backward(0.1),
+                    KeyCode::Char('a') => pipeline.scene.camera.move_left(0.1),
+                    KeyCode::Char('d') => pipeline.scene.camera.move_right(0.1),
+                    KeyCode::Up => pipeline.scene.camera.rotate(0.05, 0.0),
+                    KeyCode::Down => pipeline.scene.camera.rotate(-0.05, 0.0),
+                    KeyCode::Left => pipeline.scene.camera.rotate(0.0, 0.05),
+                    KeyCode::Right => pipeline.scene.camera.rotate(0.0, -0.05),
+                    KeyCode::Char('p') => pipeline.scene.spin(0),
+                    // etc...
+                    _ => {}
                 }
             }
         }
 
+        let (nw, nh) = crossterm::terminal::size()?;
+        if nw as usize != pipeline.width || nh as usize != pipeline.height {
+            pipeline =
+                Pipeline::<TermBuffer>::new(nw as usize, nh as usize, pipeline.scene.clone());
+        }
+
         pipeline.render_frame(None)?;
-        thread::sleep(Duration::from_millis(16));
+
+        // 4D) Sleep ~16 ms or so
+        //thread::sleep(Duration::from_millis(16));
     }
 
     cleanup_terminal()?;

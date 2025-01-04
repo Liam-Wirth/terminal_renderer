@@ -103,7 +103,7 @@ impl Clipper {
         let normal = edge1.cross(edge2);
 
         // If z component is negative, triangle is facing camera
-        normal.z < 0.0
+        normal.z > 0.0
     }
 
     fn clip_against_plane(&self, triangles: Vec<ClipTriangle>, plane: Vec4) -> Vec<ClipTriangle> {

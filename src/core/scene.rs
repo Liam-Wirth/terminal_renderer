@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use crate::core::camera::Camera;
 
 use glam::Affine3A;
@@ -57,6 +59,12 @@ impl Scene {
         let mesh = Mesh::new_test_mesh();
         scene.entities.push(Entity::new(mesh, Affine3A::IDENTITY));
         scene
+    }
+
+    pub fn spin(&mut self, entity: usize) {
+        self.entities[entity].transform *= glam::Affine3A::from_rotation_y(0.03);
+        self.entities[entity].transform *= glam::Affine3A::from_rotation_x(0.01);
+        self.entities[entity].transform *= glam::Affine3A::from_rotation_z(0.01);
     }
 }
 
