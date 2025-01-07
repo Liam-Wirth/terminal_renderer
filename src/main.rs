@@ -6,7 +6,8 @@ use crossterm::{
 };
 use glam::Vec3;
 use minifb::{Key, Scale, Window, WindowOptions};
-use std::io::{self, stdout};
+use nalgebra::clamp;
+use std::{io::{self, stdout}, path::PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
 use terminal_renderer::{
@@ -29,14 +30,44 @@ fn main() -> io::Result<()> {
 
     let mut scene = Scene::new(camera);
 
-    scene.add_entity(Entity::from_obj("assets/models/banjofrog.obj"));
+    //scene.add_entity(Entity::from_obj("assets/models/banjofrog.obj"));
+    //scene.add_entity(Entity::from_obj("assets/models/solids.obj"));
+    let model_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("newell_teaset/spoon.obj");
+
+    scene.add_entity(Entity::from_obj(&model_path.to_str().unwrap()));
+    scene.entities[0].mesh.bake_normals_to_colors();
+    let mod2_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("african_head.obj");
+
+    let mod3_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("suzanne.mtl");
+
+    //scene.add_entity(Entity::from_obj(&mod2_path.to_str().unwrap()));
+    //scene.entities[1].mesh.bake_normals_to_colors();
+    scene.add_entity(Entity::from_obj(&mod3_path.to_str().unwrap()));
+    scene.entities[1].mesh.bake_normals_to_colors();
+    scene.entities[1].mesh.calculate_normals();
+    scene.add_entity(Entity::from_obj(&mod2_path.to_str().unwrap()));
+    scene.entities[2].mesh.calculate_normals();
+    scene.entities[2].mesh.bake_normals_to_colors();
+
+
+
+
     scene.entities[0].mesh.calculate_normals();
     // scene.entities[0].mesh.bake_normals_to_colors();
 
     // You can choose which one to run
     // let _ = run_win(scene.clone());
     // or
-    // run_term(scene)
+     //run_term(scene)
     run_win(scene)
 }
 
@@ -59,7 +90,7 @@ pub fn run_term(mut scene: Scene) -> io::Result<()> {
         if event::poll(Duration::from_millis(0))? {
             if let Event::Key(key) = event::read()? {
                 match key.code {
-                    KeyCode::Esc => break,
+                    KeyCode::Esc => cleanup_terminal()?,
                     KeyCode::Char('w') => pipeline.scene.camera.move_forward(0.1),
                     KeyCode::Char('s') => pipeline.scene.camera.move_backward(0.1),
                     KeyCode::Char('a') => pipeline.scene.camera.move_left(0.1),

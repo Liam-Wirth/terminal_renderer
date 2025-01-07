@@ -1,10 +1,11 @@
-use std::{cell::RefCell, io};
+pub(crate) use std::{cell::RefCell, io};
 
 use glam::{Mat4, Vec4};
 use minifb::Window;
 
 use crate::{
-    core::{Color, Scene},
+    core::{Color, Scene, Camera},
+    
     debug_print,
     pipeline::{ClipTriangle, ClipVertex},
     Metrics,
@@ -12,6 +13,13 @@ use crate::{
 
 use super::{buffer::Buffer, rasterizer::Rasterizer, Clipper, Fragment, ProcessedGeometry};
 
+pub struct States {
+    pub draw_wireframe: bool,
+    pub bake_normals: bool,
+    pub backface_culling: bool,
+    pub move_obj: bool,
+    pub current_obj: usize,
+}
 pub struct Pipeline<B: Buffer> {
     pub width: usize,
     pub height: usize,
@@ -23,6 +31,7 @@ pub struct Pipeline<B: Buffer> {
     clipper: RefCell<Clipper>, // Add this
     fragments: RefCell<Vec<Fragment>>,
     metrics: Metrics,
+    states: RefCell<States>,
 }
 
 impl<B: Buffer> Pipeline<B> {
@@ -64,6 +73,13 @@ impl<B: Buffer> Pipeline<B> {
             rasterizer: RefCell::new(Rasterizer::new(width, height)),
             clipper: RefCell::new(Clipper::new()), // Add this
             fragments: RefCell::new(Vec::with_capacity(1024)),
+            states: RefCell::new(States {
+                draw_wireframe: false,
+                bake_normals: false,
+                backface_culling: true,
+                move_obj: false,
+                current_obj: 0, // kinda dumb but I'll make it work trust
+            }),
         }
     }
 
@@ -115,6 +131,12 @@ impl<B: Buffer> Pipeline<B> {
 
             // Process each triangle
             for tri in &entity.mesh.tris {
+                // Get material color if available
+                let material_color = tri
+                    .material
+                    .map(|mat_id| entity.mesh.materials[mat_id].diffuse_color)
+                    .unwrap_or(Color::WHITE);
+
                 // Create clip vertices
                 let clip_verts = [
                     ClipVertex {
@@ -122,21 +144,21 @@ impl<B: Buffer> Pipeline<B> {
                             * Vec4::from((entity.mesh.vertices[tri.vertices[0]].pos, 1.0)),
                         color: entity.mesh.vertices[tri.vertices[0]]
                             .color
-                            .unwrap_or(Color::WHITE),
+                            .unwrap_or(material_color), // Use material color if vertex color not present
                     },
                     ClipVertex {
                         position: mvp_matrix
                             * Vec4::from((entity.mesh.vertices[tri.vertices[1]].pos, 1.0)),
                         color: entity.mesh.vertices[tri.vertices[1]]
                             .color
-                            .unwrap_or(Color::WHITE),
+                            .unwrap_or(material_color), // Use material color if vertex color not present
                     },
                     ClipVertex {
                         position: mvp_matrix
                             * Vec4::from((entity.mesh.vertices[tri.vertices[2]].pos, 1.0)),
                         color: entity.mesh.vertices[tri.vertices[2]]
                             .color
-                            .unwrap_or(Color::WHITE),
+                            .unwrap_or(material_color), // Use material color if vertex color not present
                     },
                 ];
 
@@ -152,7 +174,7 @@ impl<B: Buffer> Pipeline<B> {
                     self.geometry.borrow_mut().push(ProcessedGeometry {
                         transform: mvp_matrix,
                         entity_id: i,
-                        vertices: triangle.vertices, // Add this field to ProcessedGeometry
+                        vertices: triangle.vertices,
                     });
                 }
             }
@@ -195,36 +217,120 @@ impl<B: Buffer> Pipeline<B> {
         &self.back_buffer
     }
 
-    pub fn window_handle_input(&mut self, input: &minifb::Window) {
-        let delta = 0.1;
-        // Base speeds
-        let move_speed = 2.0; // Units per second
-        let rotate_speed = 1.0; // Radians per second
-        let orbit_speed = 1.0; // Radians per second
+pub fn window_handle_input(&mut self, input: &minifb::Window) {
+    let delta = 0.1;
+    let move_speed = 1.0;
+    let rotate_speed = 1.0;
+    let orbit_speed = 1.0;
+    let orbit_amount = orbit_speed * delta;
+    let move_amount = move_speed * delta;
+    let rotate_amount = rotate_speed * delta;
 
-        let orbit_amount = orbit_speed * delta;
-
-        // Calculate frame-adjusted movements
-        let move_amount = move_speed * delta;
-        let rotate_amount = rotate_speed * delta;
-        if let Some(keys) = Some(input.get_keys()) {
-            // LMFAO
-            for key in keys {
-                match key {
-                    minifb::Key::W => self.scene.camera.move_forward(move_amount),
-                    minifb::Key::S => self.scene.camera.move_forward(-move_amount),
-                    minifb::Key::A => self.scene.camera.rotate(0.0, rotate_amount),
-                    minifb::Key::D => self.scene.camera.rotate(0.0, -rotate_amount),
-                    minifb::Key::Up => self.scene.camera.rotate(rotate_amount, 0.0),
-                    minifb::Key::Down => self.scene.camera.rotate(-rotate_amount, 0.0),
-                    minifb::Key::E => {
-                        // Orbit clockwise
-                        let current_angle = self.scene.camera.get_orbital_angle();
-                        self.scene.camera.orbit(current_angle - orbit_amount);
-                    }
-                    _ => {}
+    if let Some(keys) = Some(input.get_keys()) {
+        for key in keys {
+            match key {
+                minifb::Key::Q => {
+                    let current = self.states.borrow().draw_wireframe;
+                    self.states.borrow_mut().draw_wireframe = !current;
                 }
+                minifb::Key::B => {
+                    let current = self.states.borrow().bake_normals;
+                    self.states.borrow_mut().bake_normals = !current;
+                }
+                minifb::Key::J => {
+                    let current = self.states.borrow().move_obj;
+                    self.states.borrow_mut().move_obj = !current;
+                    println!("Move obj: {}", !current);
+                }
+                minifb::Key::LeftBracket => {
+                    let mut current = self.states.borrow().current_obj;
+                    current = current.saturating_sub(1);
+                    if current > self.scene.entities.len() - 1 {
+                        current = self.scene.entities.len() - 1;
+                    }
+                    self.states.borrow_mut().current_obj = current;
+                    println!("Current object: {}", current);
+                }
+                minifb::Key::RightBracket => {
+                    let mut current = self.states.borrow().current_obj;
+                    current += 1;
+                    if current > self.scene.entities.len() - 1 {
+                        current %= self.scene.entities.len();
+                    }
+                    self.states.borrow_mut().current_obj = current;
+                    println!("Current object: {}", current);
+                }
+                minifb::Key::W => {
+                    let move_obj = self.states.borrow().move_obj;
+                    let current_obj = self.states.borrow().current_obj;
+                    if move_obj {
+                        self.scene.entities[current_obj].transform.translation.z += move_amount;
+                    } else {
+                        self.scene.camera.move_forward(move_amount);
+                    }
+                }
+                minifb::Key::S => {
+                    let move_obj = self.states.borrow().move_obj;
+                    let current_obj = self.states.borrow().current_obj;
+                    if move_obj {
+                        self.scene.entities[current_obj].transform.translation.z -= move_amount;
+                    } else {
+                        self.scene.camera.move_forward(-move_amount);
+                    }
+                }
+                minifb::Key::A => {
+                    let move_obj = self.states.borrow().move_obj;
+                    let current_obj = self.states.borrow().current_obj;
+                    if move_obj {
+                        self.scene.entities[current_obj].transform.translation.x -= move_amount;
+                    } else {
+                        self.scene.camera.move_right(-move_amount);
+                    }
+                }
+                minifb::Key::U => {
+                        // reset cam or obj
+                         if self.states.borrow().move_obj {
+                            self.scene.entities[self.states.borrow().current_obj].transform.translation = glam::Vec3::ZERO.into();
+                        } else {
+                            self.scene.camera.reset();
+                        }
+                    }
+                minifb::Key::D => {
+                    let move_obj = self.states.borrow().move_obj;
+                    let current_obj = self.states.borrow().current_obj;
+                    if move_obj {
+                        self.scene.entities[current_obj].transform.translation.x += move_amount;
+                    } else {
+                        self.scene.camera.move_right(move_amount);
+                    }
+                }
+                minifb::Key::Space => {
+                    let move_obj = self.states.borrow().move_obj;
+                    let current_obj = self.states.borrow().current_obj;
+                    if move_obj {
+                        self.scene.entities[current_obj].transform.translation.y += move_amount;
+                    } else {
+                        self.scene.camera.move_up(move_amount);
+                    }
+                }
+                minifb::Key::LeftShift => {
+                    let move_obj = self.states.borrow().move_obj;
+                    let current_obj = self.states.borrow().current_obj;
+                    if move_obj {
+                        self.scene.entities[current_obj].transform.translation.y -= move_amount;
+                    } else {
+                        self.scene.camera.move_up(-move_amount);
+                    }
+                }
+                minifb::Key::Up => self.scene.camera.rotate(rotate_amount, 0.0),
+                minifb::Key::Down => self.scene.camera.rotate(-rotate_amount, 0.0),
+                minifb::Key::E => {
+                    let current_angle = self.scene.camera.get_orbital_angle();
+                    self.scene.camera.orbit(current_angle - orbit_amount);
+                }
+                _ => {}
             }
         }
     }
+}
 }
