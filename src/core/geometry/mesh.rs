@@ -1,5 +1,6 @@
 use super::{process, Material};
 use crate::core::color::Color;
+use crossterm::event::EnableFocusChange;
 use glam::{Vec2, Vec3};
 
 #[derive(Debug, Clone, Copy)]
@@ -67,6 +68,8 @@ impl Mesh {
             &tobj::LoadOptions {
                 triangulate: true,
                 single_index: true,
+                ignore_points: true, // Not doing point clouds right now
+                ignore_lines: true, // TODO: Support line segments in the future
                 ..Default::default()
             },
         )
@@ -74,40 +77,47 @@ impl Mesh {
 
         let mut mesh = Mesh::new();
 
-        // If there are materials in the .mtl, parse them into our Mesh
-        if let Ok(mats) = materials_result {
-            for mat in &mats {
-                let mut m = Material::default();
-                m.name = mat.name.clone();
-                // Convert [r, g, b] to your Color
-                let dif = mat.diffuse.unwrap();
-                let (dr, dg, db) = (dif[0], dif[1], dif[2]);
-                m.diffuse_color = Color::from_rgba(dr, dg, db, 1.0);
-                m.shininess = mat.shininess;
+        // Load materials first
+        let materials = if let Ok(mats) = materials_result {
+            mats.into_iter()
+                .map(|mat| {
+                    let mut m = Material::default();
+                    m.name = mat.name;
+                    // Convert diffuse color
+                    if let Some(diffuse) = mat.diffuse {
+                        m.diffuse_color = Color::new(diffuse[0], diffuse[1], diffuse[2]);
+                    }
+                    m.shininess = mat.shininess;
+                    m
+                })
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
 
-                // If there's a texture path (like "my_texture.png"), store it:
-                if let Some(dif_tex) = &mat.diffuse_texture {
-                    // m.diffuse_texture = Some(load_texture(dif_tex));
-                }
+        mesh.materials = materials;
 
-                mesh.materials.push(m);
-            }
-        }
-
-        // For each model in the OBJ (often there's just one)
+        // For each model in the OBJ
         for model in models {
             let mesh_data = model.mesh;
 
-            // positions => each triple => a vertex
-            for pos in mesh_data.positions.chunks(3) {
+            // Create vertices with material colors
+            for (i, pos) in mesh_data.positions.chunks(3).enumerate() {
+                let color = if let Some(material_id) = mesh_data.material_id {
+                    // Use material color if available
+                    Some(mesh.materials[material_id].diffuse_color)
+                } else {
+                    None
+                };
+
                 mesh.vertices.push(Vertex {
                     pos: Vec3::new(pos[0], pos[1], pos[2]),
-                    uv: None, // if you parse `mesh_data.texcoords`, put them here
-                    color: None,
+                    uv: None,
+                    color,
                 });
             }
 
-            // optional normals => if not present, we can compute
+            // Handle normals
             if !mesh_data.normals.is_empty() {
                 for norm in mesh_data.normals.chunks(3) {
                     mesh.normals.push(Normal {
@@ -118,12 +128,16 @@ impl Mesh {
                 process::compute_normals(&mut mesh);
             }
 
-            // for each face
-            for face in mesh_data.indices.chunks(3) {
+            // Create triangles with material references
+            for indices in mesh_data.indices.chunks(3) {
                 mesh.tris.push(Tri {
-                    vertices: [face[0] as usize, face[1] as usize, face[2] as usize],
+                    vertices: [
+                        indices[0] as usize,
+                        indices[1] as usize,
+                        indices[2] as usize,
+                    ],
                     normals: None,
-                    material: mesh_data.material_id, // <-- tie to .materials
+                    material: mesh_data.material_id,
                 });
             }
         }
@@ -164,5 +178,18 @@ impl Mesh {
         process::compute_normals(&mut mesh);
 
         mesh
+    }
+
+    fn triangulate_face(idxs: &[usize]) -> Vec<[usize; 3]> {
+        let mut tris = Vec::new();
+        if idxs.len() == 3 {
+            tris.push([idxs[0], idxs[1], idxs[2]]);
+        } else {
+            // fan triangulate
+            for i in 1..idxs.len() - 1 {
+                tris.push([idxs[0], idxs[i], idxs[i + 1]]);
+            }
+        }
+        tris
     }
 }

@@ -87,23 +87,42 @@ impl Clipper {
         false
     }
 
-    fn is_front_facing(&self, triangle: &ClipTriangle) -> bool {
-        let v0 = triangle.vertices[0].position;
-        let v1 = triangle.vertices[1].position;
-        let v2 = triangle.vertices[2].position;
+    //fn is_front_facing(&self, triangle: &ClipTriangle) -> bool {
+    //    let v0 = triangle.vertices[0].position;
+    //    let v1 = triangle.vertices[1].position;
+    //    let v2 = triangle.vertices[2].position;
+    //
+    //    // Project to screen space
+    //    let v0 = Vec3::new(v0.x / v0.w, v0.y / v0.w, v0.z / v0.w);
+    //    let v1 = Vec3::new(v1.x / v1.w, v1.y / v1.w, v1.z / v1.w);
+    //    let v2 = Vec3::new(v2.x / v2.w, v2.y / v2.w, v2.z / v2.w);
+    //
+    //    // Calculate normal in view space
+    //    let edge1 = v1 - v0;
+    //    let edge2 = v2 - v0;
+    //    let normal = edge1.cross(edge2);
+    //
+    //    // If z component is negative, triangle is facing camera
+    //    normal.z > 0.0
+    //}
+    //
+    fn is_front_facing(&self, tri: &ClipTriangle) -> bool {
+        let v0 = tri.vertices[0].position;
+        let v1 = tri.vertices[1].position;
+        let v2 = tri.vertices[2].position;
 
-        // Project to screen space
-        let v0 = Vec3::new(v0.x / v0.w, v0.y / v0.w, v0.z / v0.w);
-        let v1 = Vec3::new(v1.x / v1.w, v1.y / v1.w, v1.z / v1.w);
-        let v2 = Vec3::new(v2.x / v2.w, v2.y / v2.w, v2.z / v2.w);
+        // NDC space instead of screen space cause fuck it
+        let v0_ndc = Vec3::new(v0.x / v0.w, v0.y / v0.w, v0.z / v0.w);
+        let v1_ndc = Vec3::new(v1.x / v1.w, v1.y / v1.w, v1.z / v1.w);
+        let v2_ndc = Vec3::new(v2.x / v2.w, v2.y / v2.w, v2.z / v2.w);
 
-        // Calculate normal in view space
-        let edge1 = v1 - v0;
-        let edge2 = v2 - v0;
+        // calculate the normals
+        let edge1 = v1_ndc - v0_ndc;
+        let edge2 = v2_ndc - v0_ndc;
+
         let normal = edge1.cross(edge2);
 
-        // If z component is negative, triangle is facing camera
-        normal.z > 0.0
+        normal.z < 0.0
     }
 
     fn clip_against_plane(&self, triangles: Vec<ClipTriangle>, plane: Vec4) -> Vec<ClipTriangle> {

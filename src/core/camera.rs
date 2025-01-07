@@ -4,6 +4,8 @@ use std::cell::RefCell;
 
 #[derive(Clone)]
 pub struct Camera {
+    // TODO: implement a controls mode that allows for like elite/elitedangerous style controls for
+    // the minigame
     position: Vec3,
     orientation: Quat,
     fov: f32,
@@ -191,5 +193,10 @@ impl Camera {
 
     pub fn get_orbital_angle(&self) -> f32 {
         self.position.z.atan2(self.position.x)
+    }
+    pub fn reset(&mut self) {
+        self.position = Vec3::ZERO;
+        self.orientation = Quat::IDENTITY;
+        *self.dirty.borrow_mut() = true;
     }
 }

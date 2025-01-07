@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
 pub mod core;
+pub mod game;
 pub mod pipeline;
 
 #[derive(Debug, Clone, Copy)]
@@ -18,6 +19,11 @@ pub struct Metrics {
     pub frame_times: Vec<f32>,
 }
 
+impl Default for Metrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl Metrics {
     pub fn new() -> Self {
         Self {
