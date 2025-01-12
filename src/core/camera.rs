@@ -1,3 +1,4 @@
+
 use glam::{Mat4, Quat, Vec3, Vec4, Vec4Swizzles};
 use std::cell::RefCell;
 
@@ -7,7 +8,6 @@ pub struct Camera {
     // the minigame
     position: Vec3,
     orientation: Quat,
-    target: Vec3,
     fov: f32,
     aspect_ratio: f32,
     near: f32,
@@ -26,13 +26,12 @@ impl Camera {
         let direction = (target - position).normalize();
         let orientation = Quat::from_rotation_arc(Vec3::Z, direction);
 
-        let mut cam = Self {
+        let cam = Self {
             position,
             orientation,
-            target,
             fov: 60.0_f32.to_radians(),
             aspect_ratio,
-            near: 0.1,
+            near: 0.01,
             far: 100.0,
 
             dirty: RefCell::new(true),
@@ -43,17 +42,20 @@ impl Camera {
         };
 
         // Initial cache update
-        cam.update_direction();
         cam.update_cache();
         cam
     }
 
     fn update_cache(&self) {
         if *self.dirty.borrow() {
+            // Update view matrix
             *self.cached_view_matrix.borrow_mut() =
-                Mat4::look_at_rh(self.position, self.target, -Vec3::Y);
+                Mat4::look_to_rh(self.position, self.get_forward(), self.get_up());
+
+            // Update projection matrix
             *self.cached_proj_matrix.borrow_mut() =
                 Mat4::perspective_rh(self.fov, self.aspect_ratio, self.near, self.far);
+
             // Update frustum planes and corners
             self.update_frustum_planes();
             self.update_frustum_corners();
@@ -62,24 +64,20 @@ impl Camera {
         }
     }
 
-    fn update_direction(&mut self) {
-        let direction = (self.target - self.position).normalize();
-        self.orientation = Quat::from_rotation_arc(Vec3::Z, direction);
-    }
-
     fn update_frustum_planes(&self) {
-        let vp = *self.cached_proj_matrix.borrow() * *self.cached_view_matrix.borrow();
-        let mut planes = self.cached_frustum_planes.borrow_mut();
+            let vp = *self.cached_proj_matrix.borrow() * *self.cached_view_matrix.borrow();
+            let mut planes = self.cached_frustum_planes.borrow_mut();
 
-        // Construct the six frustum planes from the view-projection matrix
-        // The planes are: Left, Right, Bottom, Top, Near, Far
-        for (i, sign) in [(0, 1), (0, -1), (1, 1), (1, -1), (2, 1), (2, -1)].iter() {
-            let row = vp.row(3) + vp.row(*i) * (*sign as f32);
-            let normal = Vec3::new(row.x, row.y, row.z);
-            let length = normal.length();
+            // Construct the six frustum planes from the view-projection matrix
+            // The planes are: Left, Right, Bottom, Top, Near, Far
+            for (i, sign) in [(0, 1), (0, -1), (1, 1), (1, -1), (2, 1), (2, -1)].iter() {
+                let row = vp.row(3) + vp.row(*i) * (*sign as f32);
+                let normal = Vec3::new(row.x, row.y, row.z);
+                let length = normal.length();
 
-            planes[i * 2 + if *sign > 0 { 0 } else { 1 }] = row / length;
-        }
+                planes[i * 2 + if *sign > 0 { 0 } else { 1 }] = row / length;
+            }
+
     }
 
     fn update_frustum_corners(&self) {
@@ -120,17 +118,12 @@ impl Camera {
     }
 
     pub fn move_right(&mut self, amount: f32) {
-        let right = self.get_right();
-        self.position += right * amount;
-        self.target += right * amount;
-        // No need to update_direction() here since relative orientation stays the same
+        self.position += self.get_right() * amount;
         *self.dirty.borrow_mut() = true;
     }
+
     pub fn move_left(&mut self, amount: f32) {
-        let right = self.get_right();
-        self.position -= right * amount;
-        self.target -= right * amount;
-        // No need to update_direction() here since relative orientation stays the same
+        self.position -= self.get_right() * amount;
         *self.dirty.borrow_mut() = true;
     }
 
@@ -183,11 +176,11 @@ impl Camera {
     }
 
     pub fn get_forward(&self) -> Vec3 {
-        (self.target - self.position).normalize()
+        self.orientation * Vec3::Z
     }
 
     pub fn get_right(&self) -> Vec3 {
-        self.get_forward().cross(-Vec3::Y).normalize()
+        self.orientation * Vec3::X
     }
 
     pub fn get_up(&self) -> Vec3 {
@@ -205,21 +198,5 @@ impl Camera {
         self.position = Vec3::ZERO;
         self.orientation = Quat::IDENTITY;
         *self.dirty.borrow_mut() = true;
-    }
-
-    pub fn target(&self) -> Vec3 {
-        self.target
-    }
-
-    pub fn fov(&self) -> f32 {
-        self.fov
-    }
-
-    pub fn orientation(&self) -> Quat {
-        self.orientation
-    }
-
-    pub fn position(&self) -> Vec3 {
-        self.position
     }
 }
