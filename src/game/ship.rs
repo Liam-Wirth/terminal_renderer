@@ -57,3 +57,9 @@ impl Ship {
     }
 }
 
+impl Default for Ship {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+

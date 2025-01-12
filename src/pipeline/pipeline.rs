@@ -4,7 +4,7 @@ use glam::{Affine3A, Mat4, Vec4};
 use minifb::Window;
 
 use crate::{
-    core::{Camera, Color, Scene},
+    core::{Color, Scene},
     debug_print,
     pipeline::{ClipTriangle, ClipVertex},
     util::format_mat4,

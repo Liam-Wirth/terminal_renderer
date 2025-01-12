@@ -1,5 +1,4 @@
-use crate::core::geometry::Tri;
-use crate::core::{Color, Entity, Scene};
+use crate::core::{Color, Scene};
 use crate::debug_print;
 use crate::pipeline::{Fragment, ProcessedGeometry};
 use glam::{Mat4, Vec2, Vec4};

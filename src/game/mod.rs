@@ -3,8 +3,7 @@
 pub mod player;
 pub mod ship;
 
-use crate::core::{Scene, Camera};
-use glam::Vec3;
+use crate::core::Scene;
 use ship::Ship;
 
 pub struct GameState {
@@ -29,6 +28,12 @@ impl GameState {
         }
 
         // Update chase camera if enabled
+    }
+}
+
+impl Default for GameState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

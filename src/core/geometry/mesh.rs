@@ -1,6 +1,5 @@
 use super::{process, Material};
 use crate::core::color::Color;
-use crossterm::event::EnableFocusChange;
 use glam::{Vec2, Vec3};
 
 #[derive(Debug, Clone, Copy)]
