@@ -33,57 +33,21 @@ impl Rasterizer {
     }
 
     fn process_mesh_triangles(&self, geo: &ProcessedGeometry) -> Vec<Fragment> {
-        // Now we're working with already clipped vertices
         let vertices = [
             geo.vertices[0].position,
             geo.vertices[1].position,
             geo.vertices[2].position,
         ];
 
-        // Project to screen space
         let screen_verts = self.project_to_screen(&vertices);
-
-        // Get colors from the clipped vertices
         let colors = [
             geo.vertices[0].color,
             geo.vertices[1].color,
             geo.vertices[2].color,
         ];
 
-        // Rasterize the triangle
-        self.rasterize_triangle_barycentric(screen_verts, colors)
+        self.rasterize_triangle_barycentric(screen_verts, colors, &vertices)
     }
-
-    // fn project_to_screen(&self, vertices: &[Vec4; 3]) -> [Vec2; 3] {
-    //     let mut screen_verts = [Vec2::ZERO; 3];
-    //     for i in 0..3 {
-    //         // Perspective divide
-    //         let ndc = Vec2::new(vertices[i].x / vertices[i].w, vertices[i].y / vertices[i].w);
-    //         // Convert to screen space
-    //         screen_verts[i] = Vec2::new(
-    //             (ndc.x + 1.0) * 0.5 * self.width as f32,
-    //             (ndc.y + 1.0) * 0.5 * self.height as f32,
-    //         );
-    //     }
-    //     screen_verts
-    // }
-
-    // fn process_mesh_triangles(&self, processed_geo: &ProcessedGeometry) -> Vec<Fragment> {
-    //     let vertices = [
-    //         processed_geo.vertices[0].position,
-    //         processed_geo.vertices[1].position,
-    //         processed_geo.vertices[2].position,
-    //     ];
-
-    //     let colors = [
-    //         processed_geo.vertices[0].color,
-    //         processed_geo.vertices[1].color,
-    //         processed_geo.vertices[2].color,
-    //     ];
-
-    //     let screen_verts = self.project_to_screen(&vertices);
-    //     self.rasterize_triangle_barycentric(screen_verts, colors)
-    // }
 
     fn get_transformed_vertices(
         &self,
@@ -225,9 +189,9 @@ impl Rasterizer {
         &self,
         screen_verts: [glam::Vec2; 3],
         colors: [crate::core::Color; 3],
+        clip_verts: &[Vec4; 3], // Add this parameter
     ) -> Vec<crate::pipeline::Fragment> {
         let mut fragments = Vec::new();
-
         // Compute bounding box
         let mut bbox_min = glam::Vec2::new(self.width as f32 - 1.0, self.height as f32 - 1.0);
         let mut bbox_max = glam::Vec2::new(0.0, 0.0);
@@ -246,22 +210,39 @@ impl Rasterizer {
         bbox_max.y = bbox_max.y.min((self.height - 1) as f32);
 
         let (v0, v1, v2) = (screen_verts[0], screen_verts[1], screen_verts[2]);
+
+        // Get z and w values for perspective-correct interpolation
+        let w0 = clip_verts[0].w;
+        let w1 = clip_verts[1].w;
+        let w2 = clip_verts[2].w;
+
+        let z0 = clip_verts[0].z / w0;
+        let z1 = clip_verts[1].z / w1;
+        let z2 = clip_verts[2].z / w2;
+
         for y in bbox_min.y as i32..=bbox_max.y as i32 {
             for x in bbox_min.x as i32..=bbox_max.x as i32 {
                 let p = glam::Vec2::new(x as f32, y as f32);
-                if let Some((w0, w1, w2)) = barycentric(p, v0, v1, v2) {
-                    // If inside the triangle
-                    if w0 >= 0.0 && w1 >= 0.0 && w2 >= 0.0 {
+                if let Some((b0, b1, b2)) = barycentric(p, v0, v1, v2) {
+                    if b0 >= 0.0 && b1 >= 0.0 && b2 >= 0.0 {
+                        // Perspective-correct interpolation
+                        let w = 1.0 / (b0 / w0 + b1 / w1 + b2 / w2);
+                        let b0_c = (b0 / w0) * w;
+                        let b1_c = (b1 / w1) * w;
+                        let b2_c = (b2 / w2) * w;
+
+                        // Interpolate z
+                        let mut depth = z0 * b0_c + z1 * b1_c + z2 * b2_c; // In [-1, 1] range
+                        depth = (depth + 1.0) * 0.5; // In [0, 1] range
+                        depth = depth.clamp(0.1, 1.0);
+
+
                         // Interpolate color
                         let color = crate::core::Color {
-                            r: colors[0].r * w0 + colors[1].r * w1 + colors[2].r * w2,
-                            g: colors[0].g * w0 + colors[1].g * w1 + colors[2].g * w2,
-                            b: colors[0].b * w0 + colors[1].b * w1 + colors[2].b * w2,
+                            r: colors[0].r * b0_c + colors[1].r * b1_c + colors[2].r * b2_c,
+                            g: colors[0].g * b0_c + colors[1].g * b1_c + colors[2].g * b2_c,
+                            b: colors[0].b * b0_c + colors[1].b * b1_c + colors[2].b * b2_c,
                         };
-
-                        // Interpolate depth if needed (assuming you have vertex depths)
-                        // For now just set a dummy depth
-                        let depth = 0.0;
 
                         fragments.push(crate::pipeline::Fragment {
                             screen_pos: p,
@@ -393,43 +374,3 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::core::Color;
-    use std::time::Instant;
-
-    #[test]
-    fn benchmark_rasterization() {
-        let iterations = 100;
-
-        let rasterizer = Rasterizer::new(1920, 1080);
-        let screen_verts = [
-            Vec2::new(100.0, 100.0),
-            Vec2::new(400.0, 150.0),
-            Vec2::new(300.0, 300.0),
-        ];
-        let colors = [Color::RED, Color::GREEN, Color::BLUE];
-
-        // Benchmark Float Rasterization
-        let start_time = Instant::now();
-        for _ in 0..iterations {
-            let _ = rasterizer.rasterize_triangle_barycentric(screen_verts, colors);
-        }
-        let float_time = start_time.elapsed();
-
-        // Benchmark Fixed-Point Rasterization
-        let start_time = Instant::now();
-        for _ in 0..iterations {}
-        let fixed_time = start_time.elapsed();
-
-        println!("Float Rasterization took: {:?}", float_time);
-        println!("Average per iteration: {:?}", float_time / iterations);
-        println!("Fixed-Point Rasterization took: {:?}", fixed_time);
-        println!("Average per iteration: {:?}", fixed_time / iterations);
-        println!(
-            "Speed difference: {:.2}x",
-            float_time.as_nanos() as f64 / fixed_time.as_nanos() as f64
-        );
-    }
-}
