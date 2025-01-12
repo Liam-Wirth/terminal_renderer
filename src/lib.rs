@@ -5,7 +5,6 @@ use clap::{Arg, Command, Subcommand};
 pub mod core;
 pub mod game;
 pub mod pipeline;
-pub mod util;
 
 #[derive(Debug, Clone, Copy)]
 pub enum DisplayTarget {
@@ -76,7 +75,7 @@ macro_rules! debug_print {
     };
 }
 
-pub fn create_clap_command() -> Command<> {
+pub fn create_clap_command() -> Command<'static> {
     Command::new("terminal_renderer")
         .about("3D Software Renderer")
         .version("0.1")
