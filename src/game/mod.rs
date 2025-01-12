@@ -1,3 +1,5 @@
+// NOTE: Dead code for now, was wanting to try and maybe make like a first person asteroids type
+// game but I'd rather fix the renderer first
 pub mod player;
 pub mod ship;
 
@@ -15,23 +17,7 @@ pub struct GameState {
 
 impl GameState {
     pub fn new() -> Self {
-        let camera = Camera::new(
-            Vec3::new(0.0, 5.0, -10.0),
-            Vec3::ZERO,
-            16.0 / 9.0,
-        );
-
-        let mut scene = Scene::new(camera);
-        // Load ship model TODO: come up with either a ship model, or just a crosshair
-        //scene.add_entity(Entity::from_obj("assets/models/ship.obj"));
-
-        Self {
-            ship: Ship::new(),
-            scene,
-            chase_camera: true,
-            camera_distance: 10.0,
-            camera_height: 3.0,
-        }
+        todo!()
     }
 
     pub fn update(&mut self, delta_time: f32) {
