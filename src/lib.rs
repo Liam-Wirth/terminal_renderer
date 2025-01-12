@@ -1,4 +1,6 @@
-use std::time::{Duration, Instant};
+use std::{path::{Path, PathBuf}, time::{Duration, Instant}};
+
+use clap::{Arg, Command, Subcommand};
 
 pub mod core;
 pub mod game;
@@ -72,3 +74,53 @@ macro_rules! debug_print {
         }
     };
 }
+
+pub fn create_clap_command() -> Command<'static> {
+    Command::new("terminal_renderer")
+        .about("3D Software Renderer")
+        .version("0.1")
+        .author("Liam Wirth")
+        .subcommand(
+            Command::new("render")
+                .about("Render a 3D model in the terminal or a window (using minifb)")
+                .arg(
+                    Arg::new("mode")
+                        .short('m')
+                        .long("mode")
+                        .value_name("MODE")
+                        .help("Specify the mode ('terminal', 'video', 't', or 'v')")
+                        .required(false)
+                        .value_parser(["terminal", "video", "t", "v"]), // Accept both long and shorthand
+                )
+                .arg(
+                    Arg::new("model")
+                        .short('f')
+                        .long("model")
+                        .value_name("FILE")
+                        .help("Specify the absolute path to the .obj model you want to render. If not supplied, a debug model is used.")
+                        .required(false),
+                ),
+        )
+}
+
+pub fn handle_clap_matches(matches: &clap::ArgMatches) -> (DisplayTarget, Option<PathBuf>) {
+    if let Some(("render", sub_matches)) = matches.subcommand() {
+        let mode = sub_matches.get_one::<String>("mode").map(|s| s.as_str()).unwrap_or("terminal");
+        let model = sub_matches.get_one::<String>("model").map(|s| s.as_str()).unwrap_or("assets/models/african_head.obj");
+
+        let target = match mode {
+            "terminal" | "t" => DisplayTarget::Terminal,
+            "video" | "v" => DisplayTarget::Window,
+            _ => {
+                eprintln!("Invalid mode: {}. Defaulting to terminal.", mode);
+                DisplayTarget::Terminal
+            }
+        };
+        let model = Path::new(model).to_owned().canonicalize().unwrap();
+        return (target, Some(model));
+    }
+
+    // Default behavior when no subcommand is provided
+    (DisplayTarget::Terminal, None)
+}
+
