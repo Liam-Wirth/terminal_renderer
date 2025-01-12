@@ -26,7 +26,7 @@ pub trait Buffer {
     fn present(&self) -> io::Result<()> {
         Ok(()) // Default does nothin
     }
-    fn present_window(&self, window: &mut Window) -> io::Result<()> {
+    fn present_window(&self, _window: &mut Window) -> io::Result<()> {
         Ok(()) // Default implementation does nothing
     }
 }
@@ -42,7 +42,7 @@ impl Buffer for TermBuffer {
     type Pixel = Pixel;
 
     fn new(width: usize, height: usize) -> Self {
-        let max = MAX_DIMS.x as usize * MAX_DIMS.y as usize;
+        let _max = MAX_DIMS.x as usize * MAX_DIMS.y as usize;
         TermBuffer {
             width,
             height,
@@ -147,7 +147,7 @@ impl Buffer for FrameBuffer {
     }
 
     fn clear(&mut self) {
-        let buf_size = self.width * self.height;
+        let _buf_size = self.width * self.height;
         self.data.par_chunks_mut(1024).for_each(|chunk| {
             for point in chunk {
                 *point = 0; // Reset to white

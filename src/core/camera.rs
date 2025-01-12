@@ -1,4 +1,4 @@
-use glam::{Mat4, Quat, Vec3, Vec4, Vec4Swizzles};
+use glam::{Mat4, Quat, Vec3, Vec4};
 use std::cell::RefCell;
 
 #[derive(Clone)]

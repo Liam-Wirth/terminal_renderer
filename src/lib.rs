@@ -1,6 +1,10 @@
-use std::{path::{Path, PathBuf}, time::{Duration, Instant}};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+    time::{Duration, Instant},
+};
 
-use clap::{Arg, Command, Subcommand};
+use clap::{Arg, Command};
 
 pub mod core;
 pub mod game;
@@ -43,9 +47,11 @@ impl Metrics {
         self.fps_counter += 1;
         self.frame_times.push(frame_delta.as_secs_f32() * 1000.0);
     }
-
-    fn to_string(&self) -> String {
-        format!(
+}
+impl Display for Metrics {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
             "FPS: {:.2} | Avg: {:.2}ms | Min: {:.2}ms | Max: {:.2}ms",
             self.current_fps,
             self.frame_time.as_secs_f32() * 1000.0,
@@ -70,13 +76,13 @@ pub static DEBUG_PIPELINE: std::sync::atomic::AtomicBool =
 #[macro_export]
 macro_rules! debug_print {
     ($($arg:tt)*) => {
-        if crate::DEBUG_PIPELINE.load(std::sync::atomic::Ordering::Relaxed) {
+        if $crate::DEBUG_PIPELINE.load(std::sync::atomic::Ordering::Relaxed) {
             println!($($arg)*);
         }
     };
 }
 
-pub fn create_clap_command() -> Command<> {
+pub fn create_clap_command() -> Command {
     Command::new("terminal_renderer")
         .about("3D Software Renderer")
         .version("0.1")
@@ -106,8 +112,14 @@ pub fn create_clap_command() -> Command<> {
 
 pub fn handle_clap_matches(matches: &clap::ArgMatches) -> (DisplayTarget, Option<PathBuf>) {
     if let Some(("render", sub_matches)) = matches.subcommand() {
-        let mode = sub_matches.get_one::<String>("mode").map(|s| s.as_str()).unwrap_or("terminal");
-        let model = sub_matches.get_one::<String>("model").map(|s| s.as_str()).unwrap_or("assets/models/african_head.obj");
+        let mode = sub_matches
+            .get_one::<String>("mode")
+            .map(|s| s.as_str())
+            .unwrap_or("terminal");
+        let model = sub_matches
+            .get_one::<String>("model")
+            .map(|s| s.as_str())
+            .unwrap_or("assets/models/african_head.obj");
 
         let target = match mode {
             "terminal" | "t" => DisplayTarget::Terminal,
@@ -124,4 +136,3 @@ pub fn handle_clap_matches(matches: &clap::ArgMatches) -> (DisplayTarget, Option
     // Default behavior when no subcommand is provided
     (DisplayTarget::Terminal, None)
 }
-

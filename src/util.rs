@@ -1,4 +1,4 @@
-use glam::{Mat4, Quat, Vec3};
+use glam::Mat4;
 
 pub fn format_mat4(name: &str, mat: &Mat4) -> String {
     let mut output = String::new();

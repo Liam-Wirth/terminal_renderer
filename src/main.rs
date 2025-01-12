@@ -25,7 +25,7 @@ use crossterm::{
 use glam::Vec3;
 use minifb::{Key, Scale, Window, WindowOptions};
 use std::{io::{self, stdout}, path::PathBuf};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use terminal_renderer::{
     core::Entity,
     core::{Camera, Scene},
@@ -37,7 +37,7 @@ const WIDTH: usize = 1920;
 const HEIGHT: usize = 1080;
 
 fn main() -> io::Result<()> {
-    let store = DEBUG_PIPELINE.store(false, std::sync::atomic::Ordering::Relaxed);
+    DEBUG_PIPELINE.store(false, std::sync::atomic::Ordering::Relaxed);
     let camera = Camera::new(
         Vec3::new(0.0, 0.0, -6.), // Position camera back a bit
         Vec3::new(0.0, 0.0, 0.),
@@ -46,14 +46,14 @@ fn main() -> io::Result<()> {
 
     let mut scene = Scene::new(camera);
 
-    let model_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let _model_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("assets")
         .join("models")
         .join("newell_teaset/spoon.obj");
 
     //scene.add_entity(Entity::from_obj(&model_path.to_str().unwrap()));
     //scene.entities[0].mesh.bake_normals_to_colors();
-    let mod2_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let _mod2_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("assets")
         .join("models")
         .join("african_head.obj");
@@ -79,7 +79,7 @@ fn main() -> io::Result<()> {
     //run_win(scene)
 }
 
-pub fn run_term(mut scene: Scene) -> io::Result<()> {
+pub fn run_term(scene: Scene) -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = stdout();
     execute!(
@@ -94,11 +94,11 @@ pub fn run_term(mut scene: Scene) -> io::Result<()> {
     let mut pipeline = Pipeline::<TermBuffer>::new(tw as usize, th as usize, scene);
 
     // 4) Main loop
-    loop {
+    'l: loop {
         if event::poll(Duration::from_millis(0))? {
             if let Event::Key(key) = event::read()? {
                 match key.code {
-                    KeyCode::Esc => cleanup_terminal()?,
+                    KeyCode::Esc => break 'l,
                     KeyCode::Char('w') => pipeline.scene.camera.move_forward(0.1),
                     KeyCode::Char('s') => pipeline.scene.camera.move_backward(0.1),
                     KeyCode::Char('a') => pipeline.scene.camera.move_left(0.1),
@@ -108,10 +108,11 @@ pub fn run_term(mut scene: Scene) -> io::Result<()> {
                     KeyCode::Left => pipeline.scene.camera.rotate(0.0, 0.05),
                     KeyCode::Right => pipeline.scene.camera.rotate(0.0, -0.05),
                     KeyCode::Char('p') => pipeline.scene.spin(0),
-                    // etc...
+                    KeyCode::Char('q') => break 'l,
                     _ => {}
                 }
             }
+            cleanup_terminal()?;
         }
 
         let (nw, nh) = crossterm::terminal::size()?;
@@ -144,7 +145,7 @@ pub fn run_win(scene: Scene) -> io::Result<()> {
     .expect("Unable to open window");
 
     let mut pipeline = Pipeline::<FrameBuffer>::new(WIDTH, HEIGHT, scene);
-    while (window.is_open()) {
+    while window.is_open() {
         if window.is_key_down(Key::Escape) || window.is_key_down(Key::Q) {
             break;
         }
