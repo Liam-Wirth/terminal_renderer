@@ -29,6 +29,12 @@ impl Entity {
         let mesh = Mesh::from_obj(path);
         Self { mesh, transform }
     }
+
+    pub fn from_obj_with_scale(path: &str, scale: f32) -> Self {
+        let mesh = Mesh::from_obj(path);
+        let transform = Affine3A::from_scale(glam::Vec3::splat(scale));
+        Self { mesh, transform }
+    }
 }
 
 #[derive(Clone)]

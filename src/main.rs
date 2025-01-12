@@ -39,8 +39,8 @@ const HEIGHT: usize = 1080;
 fn main() -> io::Result<()> {
     let store = DEBUG_PIPELINE.store(false, std::sync::atomic::Ordering::Relaxed);
     let camera = Camera::new(
-        Vec3::new(0.0, 0.0, -3.), // Position camera back a bit
-        Vec3::ZERO,               // Look at origin
+        Vec3::new(0.0, 0.0, -6.), // Position camera back a bit
+        Vec3::new(0.0, 0.0, 0.),
         WIDTH as f32 / HEIGHT as f32,
     );
 
@@ -51,8 +51,8 @@ fn main() -> io::Result<()> {
         .join("models")
         .join("newell_teaset/spoon.obj");
 
-    scene.add_entity(Entity::from_obj(&model_path.to_str().unwrap()));
-    scene.entities[0].mesh.bake_normals_to_colors();
+    //scene.add_entity(Entity::from_obj(&model_path.to_str().unwrap()));
+    //scene.entities[0].mesh.bake_normals_to_colors();
     let mod2_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("assets")
         .join("models")
@@ -61,22 +61,16 @@ fn main() -> io::Result<()> {
     let mod3_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("assets")
         .join("models")
-        .join("suzanne.mtl");
+        .join("suzanne.obj");
 
     //scene.add_entity(Entity::from_obj(&mod2_path.to_str().unwrap()));
     //scene.entities[1].mesh.bake_normals_to_colors();
-    scene.add_entity(Entity::from_obj(&mod3_path.to_str().unwrap()));
-    scene.entities[1].mesh.bake_normals_to_colors();
-    scene.entities[1].mesh.calculate_normals();
-    scene.add_entity(Entity::from_obj(&mod2_path.to_str().unwrap()));
-    scene.entities[2].mesh.calculate_normals();
-    scene.entities[2].mesh.bake_normals_to_colors();
-
-
-
-
+    //scene.add_entity(Entity::from_obj(&mod3_path.to_str().unwrap()));
+    //scene.entities[1].mesh.bake_normals_to_colors();
+    //scene.entities[1].mesh.calculate_normals();
+    scene.add_entity(Entity::from_obj_with_scale(mod3_path.to_str().unwrap(), 2.));
     scene.entities[0].mesh.calculate_normals();
-    // scene.entities[0].mesh.bake_normals_to_colors();
+    scene.entities[0].mesh.bake_normals_to_colors();
 
     // You can choose which one to run
     // let _ = run_win(scene.clone());
@@ -150,7 +144,10 @@ pub fn run_win(scene: Scene) -> io::Result<()> {
     .expect("Unable to open window");
 
     let mut pipeline = Pipeline::<FrameBuffer>::new(WIDTH, HEIGHT, scene);
-    while (window.is_open() && (!window.is_key_down(Key::Escape) || !window.is_key_down(Key::Q))) {
+    while (window.is_open()) {
+        if window.is_key_down(Key::Escape) || window.is_key_down(Key::Q) {
+            break;
+        }
         pipeline.render_frame(Some(&mut window))?;
         pipeline.window_handle_input(&window);
     }

@@ -1,13 +1,13 @@
 pub(crate) use std::{cell::RefCell, io};
 
-use glam::{Mat4, Vec4};
+use glam::{Affine3A, Mat4, Vec4};
 use minifb::Window;
 
 use crate::{
-    core::{Color, Scene, Camera},
-    
+    core::{Camera, Color, Scene},
     debug_print,
     pipeline::{ClipTriangle, ClipVertex},
+    util::format_mat4,
     Metrics,
 };
 
@@ -217,120 +217,172 @@ impl<B: Buffer> Pipeline<B> {
         &self.back_buffer
     }
 
-pub fn window_handle_input(&mut self, input: &minifb::Window) {
-    let delta = 0.1;
-    let move_speed = 1.0;
-    let rotate_speed = 1.0;
-    let orbit_speed = 1.0;
-    let orbit_amount = orbit_speed * delta;
-    let move_amount = move_speed * delta;
-    let rotate_amount = rotate_speed * delta;
+    pub fn window_handle_input(&mut self, input: &minifb::Window) {
+        let delta = 0.1;
+        let move_speed = 1.0;
+        let rotate_speed = 1.0;
+        let orbit_speed = 1.0;
+        let orbit_amount = orbit_speed * delta;
+        let move_amount = move_speed * delta;
+        let rotate_amount = rotate_speed * delta;
 
-    if let Some(keys) = Some(input.get_keys()) {
-        for key in keys {
-            match key {
-                minifb::Key::Q => {
-                    let current = self.states.borrow().draw_wireframe;
-                    self.states.borrow_mut().draw_wireframe = !current;
-                }
-                minifb::Key::B => {
-                    let current = self.states.borrow().bake_normals;
-                    self.states.borrow_mut().bake_normals = !current;
-                }
-                minifb::Key::J => {
-                    let current = self.states.borrow().move_obj;
-                    self.states.borrow_mut().move_obj = !current;
-                    println!("Move obj: {}", !current);
-                }
-                minifb::Key::LeftBracket => {
-                    let mut current = self.states.borrow().current_obj;
-                    current = current.saturating_sub(1);
-                    if current > self.scene.entities.len() - 1 {
-                        current = self.scene.entities.len() - 1;
+        // FIX: Update input handling to be less "fast" like if I try and just tap a button it
+        // seems to register that I hit it like 4 times (due to fast framerate) need to slow down
+        // polling I presume, or handle it using the key_pressed instead of some other thing
+        if let Some(keys) = Some(input.get_keys()) {
+            for key in keys {
+                match key {
+                    minifb::Key::P => {
+                        let current = self.states.borrow().draw_wireframe;
+                        self.states.borrow_mut().draw_wireframe = !current;
                     }
-                    self.states.borrow_mut().current_obj = current;
-                    println!("Current object: {}", current);
-                }
-                minifb::Key::RightBracket => {
-                    let mut current = self.states.borrow().current_obj;
-                    current += 1;
-                    if current > self.scene.entities.len() - 1 {
-                        current %= self.scene.entities.len();
+                    minifb::Key::B => {
+                        let current = self.states.borrow().bake_normals;
+                        self.states.borrow_mut().bake_normals = !current;
                     }
-                    self.states.borrow_mut().current_obj = current;
-                    println!("Current object: {}", current);
-                }
-                minifb::Key::W => {
-                    let move_obj = self.states.borrow().move_obj;
-                    let current_obj = self.states.borrow().current_obj;
-                    if move_obj {
-                        self.scene.entities[current_obj].transform.translation.z += move_amount;
-                    } else {
-                        self.scene.camera.move_forward(move_amount);
+                    minifb::Key::J => {
+                        let current = self.states.borrow().move_obj;
+                        self.states.borrow_mut().move_obj = !current;
+                        println!("Move obj: {}", !current);
                     }
-                }
-                minifb::Key::S => {
-                    let move_obj = self.states.borrow().move_obj;
-                    let current_obj = self.states.borrow().current_obj;
-                    if move_obj {
-                        self.scene.entities[current_obj].transform.translation.z -= move_amount;
-                    } else {
-                        self.scene.camera.move_forward(-move_amount);
+                    minifb::Key::LeftBracket => {
+                        let mut current = self.states.borrow().current_obj;
+                        current = current.saturating_sub(1);
+                        if current > self.scene.entities.len() - 1 {
+                            current = self.scene.entities.len() - 1;
+                        }
+                        self.states.borrow_mut().current_obj = current;
+                        println!("Current object: {}", current);
                     }
-                }
-                minifb::Key::A => {
-                    let move_obj = self.states.borrow().move_obj;
-                    let current_obj = self.states.borrow().current_obj;
-                    if move_obj {
-                        self.scene.entities[current_obj].transform.translation.x -= move_amount;
-                    } else {
-                        self.scene.camera.move_right(-move_amount);
+                    minifb::Key::RightBracket => {
+                        let mut current = self.states.borrow().current_obj;
+                        current += 1;
+                        if current > self.scene.entities.len() - 1 {
+                            current %= self.scene.entities.len();
+                        }
+                        self.states.borrow_mut().current_obj = current;
+                        println!("Current object: {}", current);
                     }
-                }
-                minifb::Key::U => {
+                    minifb::Key::W => {
+                        let move_obj = self.states.borrow().move_obj;
+                        let current_obj = self.states.borrow().current_obj;
+                        if move_obj {
+                            self.scene.entities[current_obj].transform.translation.z += move_amount;
+                        } else {
+                            self.scene.camera.move_forward(move_amount);
+                        }
+                    }
+                    minifb::Key::S => {
+                        let move_obj = self.states.borrow().move_obj;
+                        let current_obj = self.states.borrow().current_obj;
+                        if move_obj {
+                            self.scene.entities[current_obj].transform.translation.z -= move_amount;
+                        } else {
+                            self.scene.camera.move_forward(-move_amount);
+                        }
+                    }
+                    minifb::Key::A => {
+                        let move_obj = self.states.borrow().move_obj;
+                        let current_obj = self.states.borrow().current_obj;
+                        if move_obj {
+                            self.scene.entities[current_obj].transform.translation.x -= move_amount;
+                        } else {
+                            self.scene.camera.move_right(-move_amount);
+                        }
+                    }
+                    minifb::Key::U => {
                         // reset cam or obj
-                         if self.states.borrow().move_obj {
-                            self.scene.entities[self.states.borrow().current_obj].transform.translation = glam::Vec3::ZERO.into();
+                        if self.states.borrow().move_obj {
+                            self.scene.entities[self.states.borrow().current_obj]
+                                .transform
+                                .translation = glam::Vec3::ZERO.into();
                         } else {
                             self.scene.camera.reset();
                         }
                     }
-                minifb::Key::D => {
-                    let move_obj = self.states.borrow().move_obj;
-                    let current_obj = self.states.borrow().current_obj;
-                    if move_obj {
-                        self.scene.entities[current_obj].transform.translation.x += move_amount;
-                    } else {
-                        self.scene.camera.move_right(move_amount);
+                    minifb::Key::D => {
+                        let move_obj = self.states.borrow().move_obj;
+                        let current_obj = self.states.borrow().current_obj;
+                        if move_obj {
+                            self.scene.entities[current_obj].transform.translation.x += move_amount;
+                        } else {
+                            self.scene.camera.move_right(move_amount);
+                        }
                     }
-                }
-                minifb::Key::Space => {
-                    let move_obj = self.states.borrow().move_obj;
-                    let current_obj = self.states.borrow().current_obj;
-                    if move_obj {
-                        self.scene.entities[current_obj].transform.translation.y += move_amount;
-                    } else {
-                        self.scene.camera.move_up(move_amount);
+                    minifb::Key::Space => {
+                        let move_obj = self.states.borrow().move_obj;
+                        let current_obj = self.states.borrow().current_obj;
+                        if move_obj {
+                            self.scene.entities[current_obj].transform.translation.y += move_amount;
+                        } else {
+                            self.scene.camera.move_up(move_amount);
+                        }
                     }
-                }
-                minifb::Key::LeftShift => {
-                    let move_obj = self.states.borrow().move_obj;
-                    let current_obj = self.states.borrow().current_obj;
-                    if move_obj {
-                        self.scene.entities[current_obj].transform.translation.y -= move_amount;
-                    } else {
-                        self.scene.camera.move_up(-move_amount);
+                    minifb::Key::Slash => {
+                        // Treat this as a question mark to print out debug info
+                        println!("Printing out Matrices:");
+                        println!(
+                            "{}",
+                            format_mat4("Camera View Matrix", &self.scene.camera.get_view_matrix())
+                        );
+                        println!(
+                            "{}",
+                            format_mat4(
+                                "Camera Projection Matrix",
+                                &self.scene.camera.get_projection_matrix()
+                            )
+                        );
+                        println!(
+                            "{}",
+                            format_mat4(
+                                "Model Matrix (first entity)",
+                                &Mat4::from(self.scene.entities[0].transform)
+                            )
+                        );
+                        println!(
+                            "{}",
+                            format_mat4(
+                                "MVP matrix of first entity",
+                                &(self.scene.camera.get_projection_matrix()
+                                    * self.scene.camera.get_view_matrix()
+                                    * Mat4::from(self.scene.entities[0].transform))
+                            )
+                        );
                     }
+                    minifb::Key::LeftShift => {
+                        let move_obj = self.states.borrow().move_obj;
+                        let current_obj = self.states.borrow().current_obj;
+                        if move_obj {
+                            self.scene.entities[current_obj].transform.translation.y -= move_amount;
+                        } else {
+                            self.scene.camera.move_up(-move_amount);
+                        }
+                    }
+                    minifb::Key::Up => self.scene.camera.rotate(rotate_amount, 0.0),
+                    minifb::Key::Down => self.scene.camera.rotate(-rotate_amount, 0.0),
+                    minifb::Key::E => {
+                        println!("Camera Debug Info:");
+                        println!("Camera position: {:?}", self.scene.camera.position());
+                        println!("Camera target: {:?}\n", self.scene.camera.target());
+
+                        println!("{:?}", self.scene.camera.orientation()); 
+
+                        println!("Camera forward: {:?}", self.scene.camera.get_forward());
+                        println!("Camera right: {:?}\n", self.scene.camera.get_right());
+                        println!("Camera up: {:?}\n", self.scene.camera.get_up());
+
+                        println!("{}", format_mat4("Camera View Matrix", &self.scene.camera.get_view_matrix()));
+                        println!("{}", format_mat4("Camera Projection Matrix", &self.scene.camera.get_projection_matrix()));
+                        println!("\n\n");
+                    }
+
+                    minifb::Key::Key0 => {
+                        let current_obj = self.states.borrow().current_obj;
+                        self.scene.entities[current_obj].transform *= Affine3A::from_rotation_x(0.1);
+                    }
+                    _ => {}
                 }
-                minifb::Key::Up => self.scene.camera.rotate(rotate_amount, 0.0),
-                minifb::Key::Down => self.scene.camera.rotate(-rotate_amount, 0.0),
-                minifb::Key::E => {
-                    let current_angle = self.scene.camera.get_orbital_angle();
-                    self.scene.camera.orbit(current_angle - orbit_amount);
-                }
-                _ => {}
             }
         }
     }
-}
 }
