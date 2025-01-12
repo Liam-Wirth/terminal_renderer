@@ -1,3 +1,21 @@
+// TODO: Re-implement the floating point thing I did a while ago that like produced that really
+// cool "wiggly" effect from old n64, PS2 and ds 3d games (banjo kazooie)
+//
+// TODO: re-implement Clap stuff for command line parsing/ mode selection
+//  TODO: In name of that specifically I'd like
+//  - Ability to choose model by passing a flag
+// TODO: Add a background to scenes
+// TODO: Re-Implement the debug menu thing
+//
+// TODO: Would be cool to try and see if I can get this rust engine to compile to WASM and interact
+//with the javascript canvas to make draw calls 
+//
+// TODO: Materials
+// TODO: Lighting
+// TODO: Difuse
+// TODO: pre-baking renders?
+//
+//
 use crossterm::{
     cursor::Hide,
     event::{self, Event, KeyCode},
@@ -6,9 +24,7 @@ use crossterm::{
 };
 use glam::Vec3;
 use minifb::{Key, Scale, Window, WindowOptions};
-use nalgebra::clamp;
 use std::{io::{self, stdout}, path::PathBuf};
-use std::thread;
 use std::time::{Duration, Instant};
 use terminal_renderer::{
     core::Entity,
@@ -30,8 +46,6 @@ fn main() -> io::Result<()> {
 
     let mut scene = Scene::new(camera);
 
-    //scene.add_entity(Entity::from_obj("assets/models/banjofrog.obj"));
-    //scene.add_entity(Entity::from_obj("assets/models/solids.obj"));
     let model_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("assets")
         .join("models")
@@ -67,8 +81,8 @@ fn main() -> io::Result<()> {
     // You can choose which one to run
     // let _ = run_win(scene.clone());
     // or
-     //run_term(scene)
-    run_win(scene)
+     run_term(scene)
+    //run_win(scene)
 }
 
 pub fn run_term(mut scene: Scene) -> io::Result<()> {
