@@ -35,7 +35,7 @@ impl Pixel {
         }
     }
 
-    pub fn get_color(&self) -> Color {
+    pub fn color(&self) -> Color {
         match self {
             Pixel::Terminal { color, .. } => *color,
             Pixel::Framebuffer(color) => {
@@ -48,4 +48,12 @@ impl Pixel {
             }
         }
     }
+
+    pub fn ch(&self) -> char {
+        match self {
+            Pixel::Terminal { ch, .. } => *ch,
+            Pixel::Framebuffer(_) => ' ',
+        }
+    }
+
 }

@@ -41,7 +41,7 @@ pub struct Pipeline<B: Buffer> {
     clipper: RefCell<Clipper>,        // Clips triangles against view frustum
     fragments: RefCell<Vec<Fragment>>, // Output fragments from rasterization
     metrics: Metrics,                  // Performance metrics
-    states: RefCell<States>,          // Pipeline state flags
+    pub states: RefCell<States>,          // Pipeline state flags
 }
 
 impl<B: Buffer> Pipeline<B> {
@@ -491,3 +491,6 @@ impl<B: Buffer> Pipeline<B> {
         }
     }
 }
+
+
+

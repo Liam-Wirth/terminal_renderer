@@ -1,6 +1,7 @@
 // TODO: Re-implement the floating point thing I did a while ago that like produced that really
 // cool "wiggly" effect from old n64, PS2 and ds 3d games (banjo kazooie, crash bandicoot)
 // To do the above, we might need to implement a separate fixed-point pipeline that enforces fixed point math on ALL stages of the pipeline
+// that will take, alot of code (maybe)
 //
 // TODO: re-implement Clap stuff for command line parsing/ mode selection
 //  TODO: In name of that specifically I'd like
@@ -16,24 +17,23 @@
 // TODO: Difuse
 // TODO: pre-baking renders?
 //
-//
+// TODO: Egui for debug console?
+// TODO: Live debug log with egui?
 use crossterm::{
-    cursor::Hide,
-    event::{self, Event, KeyCode},
+    cursor::{Hide, Show},
+    event::{self, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{self, disable_raw_mode, enable_raw_mode, Clear, ClearType},
 };
 use glam::Vec3;
 use minifb::{Key, Scale, Window, WindowOptions};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::{
     io::{self, stdout},
     path::PathBuf,
 };
 use terminal_renderer::{
-    core::{Background, Camera, Entity, Environment, Scene},
-    pipeline::{pipeline::Pipeline, FrameBuffer, TermBuffer},
-    Color, DEBUG_PIPELINE,
+    core::{Background, Camera, Entity, Environment, Scene}, handle_crossterm_keys, pipeline::{pipeline::Pipeline, FrameBuffer, TermBuffer}, Color, DEBUG_PIPELINE
 };
 
 const WIDTH: usize = 1920;
@@ -85,13 +85,14 @@ fn main() -> io::Result<()> {
     // You can choose which one to run
     // let _ = run_win(scene.clone());
     // or
-    //  run_term(scene)
-    run_win(scene)
+      run_term(scene)
+    //run_win(scene)
 }
 
-pub fn run_term(scene: Scene) -> io::Result<()> {
+fn run_term(scene: Scene) -> io::Result<()> {
+    // 1) Setup crossterm
     enable_raw_mode()?;
-    let mut stdout = stdout();
+    let mut stdout = io::stdout();
     execute!(
         stdout,
         terminal::EnterAlternateScreen,
@@ -99,48 +100,56 @@ pub fn run_term(scene: Scene) -> io::Result<()> {
         Clear(ClearType::All)
     )?;
 
+    // 2) Create pipeline
     let (tw, th) = crossterm::terminal::size()?;
-
     let mut pipeline = Pipeline::<TermBuffer>::new(tw as usize, th as usize, scene);
 
+    // 3) For timing
+    let mut last_frame = Instant::now();
+    let frame_duration = Duration::from_millis(16); // ~60 FPS
+
     // 4) Main loop
-    'l: loop {
-        if event::poll(Duration::from_millis(0))? {
+    'mainloop: loop {
+        // (a) Check for input
+        if event::poll(Duration::from_millis(1))? {
             if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Esc => break 'l,
-                    KeyCode::Char('w') => pipeline.scene.camera.move_forward(0.1),
-                    KeyCode::Char('s') => pipeline.scene.camera.move_backward(0.1),
-                    KeyCode::Char('a') => pipeline.scene.camera.move_left(0.1),
-                    KeyCode::Char('d') => pipeline.scene.camera.move_right(0.1),
-                    KeyCode::Up => pipeline.scene.camera.rotate(0.05, 0.0),
-                    KeyCode::Down => pipeline.scene.camera.rotate(-0.05, 0.0),
-                    KeyCode::Left => pipeline.scene.camera.rotate(0.0, 0.05),
-                    KeyCode::Right => pipeline.scene.camera.rotate(0.0, -0.05),
-                    KeyCode::Char('p') => pipeline.scene.spin(0),
-                    KeyCode::Char('q') => break 'l,
-                    _ => {}
+                if handle_crossterm_keys!(key.code,pipeline.states, pipeline.scene, 1.) {
+                    break 'mainloop;
                 }
             }
-            cleanup_terminal()?;
         }
 
-        let (nw, nh) = crossterm::terminal::size()?;
-        if nw as usize != pipeline.width || nh as usize != pipeline.height {
-            pipeline =
-                Pipeline::<TermBuffer>::new(nw as usize, nh as usize, pipeline.scene.clone());
+        // (b) Check if enough time has passed
+        let now = Instant::now();
+        if now - last_frame >= frame_duration {
+            // (c) Possibly do any scene updates
+            // e.g. pipeline.scene.spin(0);
+
+            // (d) Check if terminal size changed
+            let (nw, nh) = crossterm::terminal::size()?;
+            if nw as usize != pipeline.width || nh as usize != pipeline.height {
+                pipeline =
+                    Pipeline::<TermBuffer>::new(nw as usize, nh as usize, pipeline.scene.clone());
+            }
+
+            // (e) Render
+            pipeline.render_frame(None)?;
+
+            last_frame = now;
         }
-
-        pipeline.render_frame(None)?;
-
-        // 4D) Sleep ~16 ms or so
-        //thread::sleep(Duration::from_millis(16));
     }
 
+    // 5) Cleanup
     cleanup_terminal()?;
     Ok(())
 }
 
+fn cleanup_terminal() -> io::Result<()> {
+    disable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, Show, terminal::LeaveAlternateScreen)?;
+    Ok(())
+}
 pub fn run_win(scene: Scene) -> io::Result<()> {
     let mut window = Window::new(
         "Terminal Renderer - Window Mode",
@@ -166,9 +175,3 @@ pub fn run_win(scene: Scene) -> io::Result<()> {
     Ok(())
 }
 
-fn cleanup_terminal() -> io::Result<()> {
-    let mut stdout = stdout();
-    disable_raw_mode()?;
-    execute!(stdout, terminal::LeaveAlternateScreen,)?;
-    Ok(())
-}
