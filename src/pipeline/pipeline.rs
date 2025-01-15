@@ -4,7 +4,7 @@ use glam::{Affine3A, Mat4, Vec4};
 use minifb::Window;
 
 use crate::{
-    core::{Color, Scene},
+    core::{Color, RenderMode, Scene},
     debug_print,
     pipeline::{ClipTriangle, ClipVertex},
     util::format_mat4,
@@ -20,6 +20,9 @@ pub struct States {
     pub move_obj: bool,
     pub current_obj: usize,
 }
+
+
+
 pub struct Pipeline<B: Buffer> {
     pub width: usize,
     pub height: usize,
@@ -87,6 +90,7 @@ impl<B: Buffer> Pipeline<B> {
     pub fn render_frame(&self, window: Option<&mut Window>) -> io::Result<()> {
         self.back_buffer.borrow_mut().clear();
 
+        self.process_environment();
         // 1. Process vertices to clip space
         self.process_geometry();
 
@@ -111,13 +115,13 @@ impl<B: Buffer> Pipeline<B> {
     }
 
     pub fn process_geometry(&self) {
-        let view_matrix = self.scene.camera.get_view_matrix();
-        let projection_matrix = self.scene.camera.get_projection_matrix();
+        let view_matrix = self.scene.camera.view_matrix();
+        let projection_matrix = self.scene.camera.projection_matrix();
 
         // Update clipper with current frustum planes
         self.clipper
             .borrow_mut()
-            .update_frustum_planes(&self.scene.camera.get_frustum_planes());
+            .update_frustum_planes(&self.scene.camera.frustum_planes());
 
         self.geometry.borrow_mut().clear();
         debug_print!(
@@ -197,6 +201,57 @@ impl<B: Buffer> Pipeline<B> {
                 fragment.screen_pos.y as usize,
             );
             buffer.set_pixel(pos, &fragment.depth, pixel);
+        }
+    }
+
+    fn process_environment(&self) {
+        if let Some(env_mesh) = self.scene.environment.get_mesh() {
+            let view_matrix = self.scene.camera.view_matrix();
+            let projection_matrix = self.scene.camera.projection_matrix();
+            let mvp_matrix = projection_matrix * view_matrix; // No model matrix needed for environment
+
+            // Process environment mesh triangles
+            for tri in &env_mesh.tris {
+                let clip_verts = [
+                    ClipVertex {
+                        position: mvp_matrix
+                            * Vec4::from((env_mesh.vertices[tri.vertices[0]].pos, 1.0)),
+                        color: env_mesh.vertices[tri.vertices[0]]
+                            .color
+                            .unwrap_or(Color::WHITE),
+                    },
+                    ClipVertex {
+                        position: mvp_matrix
+                            * Vec4::from((env_mesh.vertices[tri.vertices[1]].pos, 1.0)),
+                        color: env_mesh.vertices[tri.vertices[1]]
+                            .color
+                            .unwrap_or(Color::WHITE),
+                    },
+                    ClipVertex {
+                        position: mvp_matrix
+                            * Vec4::from((env_mesh.vertices[tri.vertices[2]].pos, 1.0)),
+                        color: env_mesh.vertices[tri.vertices[2]]
+                            .color
+                            .unwrap_or(Color::WHITE),
+                    },
+                ];
+
+                let clip_triangle = ClipTriangle {
+                    vertices: clip_verts,
+                };
+
+                // Clip the triangle
+                let clipped_triangles = self.clipper.borrow().clip_triangle(&clip_triangle);
+
+                // Add resulting triangles to geometry buffer
+                for triangle in clipped_triangles {
+                    self.geometry.borrow_mut().push(ProcessedGeometry {
+                        transform: mvp_matrix,
+                        entity_id: usize::MAX, // Special ID for environment
+                        vertices: triangle.vertices,
+                    });
+                }
+            }
         }
     }
 
@@ -323,13 +378,13 @@ impl<B: Buffer> Pipeline<B> {
                         println!("Printing out Matrices:");
                         println!(
                             "{}",
-                            format_mat4("Camera View Matrix", &self.scene.camera.get_view_matrix())
+                            format_mat4("Camera View Matrix", &self.scene.camera.view_matrix())
                         );
                         println!(
                             "{}",
                             format_mat4(
                                 "Camera Projection Matrix",
-                                &self.scene.camera.get_projection_matrix()
+                                &self.scene.camera.projection_matrix()
                             )
                         );
                         println!(
@@ -343,8 +398,8 @@ impl<B: Buffer> Pipeline<B> {
                             "{}",
                             format_mat4(
                                 "MVP matrix of first entity",
-                                &(self.scene.camera.get_projection_matrix()
-                                    * self.scene.camera.get_view_matrix()
+                                &(self.scene.camera.projection_matrix()
+                                    * self.scene.camera.view_matrix()
                                     * Mat4::from(self.scene.entities[0].transform))
                             )
                         );
@@ -365,20 +420,47 @@ impl<B: Buffer> Pipeline<B> {
                         println!("Camera position: {:?}", self.scene.camera.position());
                         println!("Camera target: {:?}\n", self.scene.camera.target());
 
-                        println!("{:?}", self.scene.camera.orientation()); 
+                        println!("{:?}", self.scene.camera.orientation());
 
-                        println!("Camera forward: {:?}", self.scene.camera.get_forward());
-                        println!("Camera right: {:?}\n", self.scene.camera.get_right());
-                        println!("Camera up: {:?}\n", self.scene.camera.get_up());
+                        println!("Camera forward: {:?}", self.scene.camera.forward());
+                        println!("Camera right: {:?}\n", self.scene.camera.right());
+                        println!("Camera up: {:?}\n", self.scene.camera.up());
 
-                        println!("{}", format_mat4("Camera View Matrix", &self.scene.camera.get_view_matrix()));
-                        println!("{}", format_mat4("Camera Projection Matrix", &self.scene.camera.get_projection_matrix()));
+                        println!(
+                            "{}",
+                            format_mat4("Camera View Matrix", &self.scene.camera.view_matrix())
+                        );
+                        println!(
+                            "{}",
+                            format_mat4(
+                                "Camera Projection Matrix",
+                                &self.scene.camera.projection_matrix()
+                            )
+                        );
                         println!("\n\n");
                     }
 
                     minifb::Key::Key0 => {
                         let current_obj = self.states.borrow().current_obj;
-                        self.scene.entities[current_obj].transform *= Affine3A::from_rotation_x(0.1);
+                        self.scene.entities[current_obj].transform *=
+                            Affine3A::from_rotation_x(0.1);
+                    }
+                    minifb::Key::R => {
+                        println!("Updating Render Mode of selected object");
+                        // We'll do it cyclicly for now
+                        let obj = &self.scene.entities[self.states.borrow().current_obj];
+
+                        print!("Selected Object: {:?} -> ", obj.name);
+
+                        if let Ok(mut mode) = obj.render_mode().lock() {
+                            // Cycle through the render modes
+                            *mode = match *mode {
+                                RenderMode::Solid => RenderMode::Wireframe,
+                                RenderMode::Wireframe => RenderMode::FixedPoint,
+                                RenderMode::FixedPoint => RenderMode::Solid,
+                            };
+                            println!("New render mode: {:?}", *mode);
+                        }
                     }
                     _ => {}
                 }

@@ -8,7 +8,7 @@
 // TODO: Re-Implement the debug menu thing
 //
 // TODO: Would be cool to try and see if I can get this rust engine to compile to WASM and interact
-//with the javascript canvas to make draw calls 
+//with the javascript canvas to make draw calls
 //
 // TODO: Materials
 // TODO: Lighting
@@ -24,13 +24,15 @@ use crossterm::{
 };
 use glam::Vec3;
 use minifb::{Key, Scale, Window, WindowOptions};
-use std::{io::{self, stdout}, path::PathBuf};
 use std::time::Duration;
+use std::{
+    io::{self, stdout},
+    path::PathBuf,
+};
 use terminal_renderer::{
-    core::Entity,
-    core::{Camera, Scene},
+    core::{Background, Camera, Entity, Environment, Scene},
     pipeline::{pipeline::Pipeline, FrameBuffer, TermBuffer},
-    DEBUG_PIPELINE,
+    Color, DEBUG_PIPELINE,
 };
 
 const WIDTH: usize = 1920;
@@ -44,7 +46,14 @@ fn main() -> io::Result<()> {
         WIDTH as f32 / HEIGHT as f32,
     );
 
-    let mut scene = Scene::new(camera);
+    let mut scene = Scene::new_with_background(
+        camera,
+        Background::Room {
+            size: 20,
+            cell_size: 2.,
+            wall_colors: [Color::RED, Color::GREEN, Color::BLUE, Color::WHITE],
+        },
+    );
 
     let _model_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("assets")
@@ -75,8 +84,8 @@ fn main() -> io::Result<()> {
     // You can choose which one to run
     // let _ = run_win(scene.clone());
     // or
-     run_term(scene)
-    //run_win(scene)
+    //  run_term(scene)
+    run_win(scene)
 }
 
 pub fn run_term(scene: Scene) -> io::Result<()> {

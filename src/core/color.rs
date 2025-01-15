@@ -40,6 +40,36 @@ impl Color {
 
         Ok(Self::new(r, g, b))
     }
+
+    const fn hex_char_to_u8(c: char) -> u8 {
+        match c {
+            '0'..='9' => (c as u8) - b'0',
+            'a'..='f' => (c as u8) - b'a' + 10,
+            'A'..='F' => (c as u8) - b'A' + 10,
+            _ => 0, // Default to 0 for invalid characters (can handle better with Result/Option if needed)
+        }
+    }
+
+    /// Convert two hex characters to a single byte (u8).
+    const fn hex_pair_to_u8(high: char, low: char) -> u8 {
+        (Self::hex_char_to_u8(high) << 4) | Self::hex_char_to_u8(low)
+    }
+
+    /// ONLY FOR INTERNAL USE!!! DO NOT USE OTHERWISE!
+    const fn hex(hex: &str) -> Self {
+        let bytes = hex.as_bytes(); // Convert to bytes for indexing
+        let offset = if bytes[0] == b'#' { 1 } else { 0 }; // Handle optional `#`
+
+        let r =
+            Self::hex_pair_to_u8(bytes[offset] as char, bytes[offset + 1] as char) as f32 / 255.0;
+        let g = Self::hex_pair_to_u8(bytes[offset + 2] as char, bytes[offset + 3] as char) as f32
+            / 255.0;
+        let b = Self::hex_pair_to_u8(bytes[offset + 4] as char, bytes[offset + 5] as char) as f32
+            / 255.0;
+
+        Self { r, g, b }
+    }
+
     pub fn to_crossterm_color(&self) -> crossterm::style::Color {
         crossterm::style::Color::Rgb {
             r: (self.r * 255.0) as u8,
@@ -117,33 +147,33 @@ impl Color {
     }
 }
 
-// Example Predefined Colors
+// Predefined colors
 impl Color {
-    pub const RED: Color = Color {
-        r: 1.0,
-        g: 0.0,
-        b: 0.0,
-    };
-    pub const GREEN: Color = Color {
-        r: 0.0,
-        g: 1.0,
-        b: 0.0,
-    };
-    pub const BLUE: Color = Color {
-        r: 0.0,
-        g: 0.0,
-        b: 1.0,
-    };
-    pub const WHITE: Color = Color {
-        r: 1.0,
-        g: 1.0,
-        b: 1.0,
-    };
-    pub const BLACK: Color = Color {
-        r: 0.0,
-        g: 0.0,
-        b: 0.0,
-    };
+    pub const BLACK: Color = Color::hex("000000");
+    pub const LIGHT_GRAY: Color = Color::hex("D3D3D3");
+    pub const DARK_GRAY: Color = Color::hex("363737");
+    pub const GRAY: Color = Color::hex("808080");
+    pub const WHITE: Color = Color::hex("FFFFFF");
+    pub const RED: Color = Color::hex("FF0000");
+    pub const GREEN: Color = Color::hex("00FF00");
+    pub const BLUE: Color = Color::hex("0000FF");
+    pub const YELLOW: Color = Color::hex("FFFF00");
+    pub const CYAN: Color = Color::hex("00FFFF");
+    pub const MAGENTA: Color = Color::hex("FF00FF");
+    pub const ORANGE: Color = Color::hex("FFA500");
+    pub const PURPLE: Color = Color::hex("800080");
+    pub const PINK: Color = Color::hex("FFC0CB");
+    pub const BROWN: Color = Color::hex("A52A2A");
+    pub const GOLD: Color = Color::hex("FFD700");
+    pub const SILVER: Color = Color::hex("C0C0C0");
+    pub const TEAL: Color = Color::hex("008080");
+    pub const NAVY: Color = Color::hex("000080");
+    pub const MAROON: Color = Color::hex("800000");
+    pub const OLIVE: Color = Color::hex("808000");
+    pub const LIME: Color = Color::hex("00FF00");
+    pub const AQUA: Color = Color::hex("00FFFF");
+    pub const FUCHSIA: Color = Color::hex("FF00FF");
+
 }
 
 impl Default for Color {
