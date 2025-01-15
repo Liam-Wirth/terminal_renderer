@@ -23,18 +23,25 @@ pub struct States {
 
 
 
+/// A graphics rendering pipeline that processes 3D geometry into 2D screen output
+///
+/// The pipeline handles:
+/// - Vertex processing and transformation to clip space
+/// - Triangle clipping against view frustum
+/// - Rasterization of triangles to fragments
+/// - Fragment processing and writing to framebuffer
 pub struct Pipeline<B: Buffer> {
-    pub width: usize,
-    pub height: usize,
-    front_buffer: RefCell<B>,
-    back_buffer: RefCell<B>,
-    pub scene: Scene,
-    geometry: RefCell<Vec<ProcessedGeometry>>,
-    rasterizer: RefCell<Rasterizer>,
-    clipper: RefCell<Clipper>, // Add this
-    fragments: RefCell<Vec<Fragment>>,
-    metrics: Metrics,
-    states: RefCell<States>,
+    pub width: usize,  // Screen width in pixels
+    pub height: usize, // Screen height in pixels
+    front_buffer: RefCell<B>, // Currently displayed buffer
+    back_buffer: RefCell<B>,  // Buffer being rendered to
+    pub scene: Scene,         // 3D scene with camera and objects
+    geometry: RefCell<Vec<ProcessedGeometry>>, // Transformed geometry ready for rasterization
+    rasterizer: RefCell<Rasterizer>,  // Converts triangles to fragments
+    clipper: RefCell<Clipper>,        // Clips triangles against view frustum
+    fragments: RefCell<Vec<Fragment>>, // Output fragments from rasterization
+    metrics: Metrics,                  // Performance metrics
+    states: RefCell<States>,          // Pipeline state flags
 }
 
 impl<B: Buffer> Pipeline<B> {
@@ -86,7 +93,16 @@ impl<B: Buffer> Pipeline<B> {
         }
     }
 
-    /// Consider this function to be like the function that gets run every frame, like the main loop
+    /// Main render loop function - processes one frame
+    /// 
+    /// Steps:
+    /// 1. Clear back buffer
+    /// 2. Process environment geometry
+    /// 3. Transform vertices to clip space and clip triangles
+    /// 4. Rasterize visible triangles to fragments  
+    /// 5. Process fragments and write to back buffer
+    /// 6. Present back buffer to window or output
+    /// 7. Swap front and back buffers
     pub fn render_frame(&self, window: Option<&mut Window>) -> io::Result<()> {
         self.back_buffer.borrow_mut().clear();
 
@@ -114,6 +130,13 @@ impl<B: Buffer> Pipeline<B> {
         Ok(())
     }
 
+    /// Process scene geometry through vertex transformation and clipping
+    ///
+    /// For each mesh:
+    /// 1. Calculate model-view-projection matrix
+    /// 2. Transform vertices to clip space
+    /// 3. Clip triangles against view frustum
+    /// 4. Store processed geometry for rasterization
     pub fn process_geometry(&self) {
         let view_matrix = self.scene.camera.view_matrix();
         let projection_matrix = self.scene.camera.projection_matrix();

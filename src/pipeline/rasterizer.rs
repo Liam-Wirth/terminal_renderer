@@ -490,12 +490,14 @@ impl Rasterizer {
 }
 
 /// Same edge function you already have, but left as is.
-    #[inline(always)]
-    fn edge_function_fixed(v0: (i32, i32), v1: (i32, i32), p: (i32, i32)) -> i32 {
-        let dx = v1.0 - v0.0;
-        let dy = v1.1 - v0.1;
-        ((p.0 - v0.0) * dy - (p.1 - v0.1) * dx) >> (FP_SHIFT - 4)
-    }
+#[inline(always)]
+fn edge_function_fixed(v0: (i32, i32), v1: (i32, i32), p: (i32, i32)) -> i32 {
+    let dx = v1.0 - v0.0;
+    let dy = v1.1 - v0.1;
+    ((p.0 - v0.0) * dy - (p.1 - v0.1) * dx) >> (FP_SHIFT - 4)
+}
+/// Barycentric coordinates for a point in a triangle
+/// Returns None if the triangle is degenerate
 fn barycentric(
     p: glam::Vec2,
     v0: glam::Vec2,
@@ -513,6 +515,10 @@ fn barycentric(
     Some((w0, w1, w2))
 }
 
+///  Bresenham's line algorithm
+/// https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
+/// 
+/// This function is used to draw lines in the rasterizer
 pub fn bresenham<F>(start: glam::Vec2, end: glam::Vec2, p: crate::core::Pixel, mut plot: F)
 where
     F: FnMut(glam::Vec2, f32, crate::core::Pixel),

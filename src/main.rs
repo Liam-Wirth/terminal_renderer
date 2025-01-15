@@ -1,5 +1,6 @@
 // TODO: Re-implement the floating point thing I did a while ago that like produced that really
-// cool "wiggly" effect from old n64, PS2 and ds 3d games (banjo kazooie)
+// cool "wiggly" effect from old n64, PS2 and ds 3d games (banjo kazooie, crash bandicoot)
+// To do the above, we might need to implement a separate fixed-point pipeline that enforces fixed point math on ALL stages of the pipeline
 //
 // TODO: re-implement Clap stuff for command line parsing/ mode selection
 //  TODO: In name of that specifically I'd like
