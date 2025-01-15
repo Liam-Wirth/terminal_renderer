@@ -63,3 +63,16 @@ impl Default for Fragment {
         }
     }
 }
+
+
+pub const FP_SHIFT: i32 = 9;  // Adjust this to control precision/wobble
+pub const FP_ONE: i32 = 1 << FP_SHIFT;
+#[inline(always)]
+pub fn to_fixed(f: f32) -> i32 {
+    (f * FP_ONE as f32) as i32
+}
+
+#[inline(always)]
+pub fn from_fixed(f: i32) -> f32 {
+    f as f32 / FP_ONE as f32
+}

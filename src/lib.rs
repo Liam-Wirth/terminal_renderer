@@ -11,6 +11,19 @@ pub mod game;
 pub mod pipeline;
 pub mod util;
 
+
+pub use core::Camera;
+pub use core::Color;
+pub use core::Entity;
+pub use core::Scene;
+pub use core::geometry;
+pub use util::format_mat4;
+
+
+
+
+
+
 #[derive(Debug, Clone, Copy)]
 pub enum DisplayTarget {
     Terminal,
