@@ -1,14 +1,9 @@
 use crate::core::{Color, Pixel};
-use crossterm::{
-    cursor::{Hide, MoveTo, Show},
-    style::{Print, SetForegroundColor},
-    QueueableCommand,
-};
 use glam::UVec2;
 use minifb::Window;
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSliceMut;
-use std::io::{self, Write};
+use std::io::{self, stdout, Stdout, Write};
 pub const MAX_DIMS: UVec2 = UVec2::new(1920, 1080);
 
 // Note might be worth going back to refcells for interior mutability
@@ -73,6 +68,7 @@ impl Buffer for TermBuffer {
         if pos.0 < self.width && pos.1 < self.height {
             let index = pos.0 + pos.1 * self.width;
             if *depth < self.depth[index] {
+                // NOTE: Depth Check here
                 self.data[index] = pixel;
                 self.depth[index] = *depth;
             }
@@ -97,30 +93,92 @@ impl Buffer for TermBuffer {
         );
     }
 
-    fn present(&self) -> io::Result<()> {
-        let mut stdout = io::stdout();
+    // TODO: Profile old present code against new/current present code
 
-        // Use Crossterm's queueing system to minimize syscalls
-        stdout.queue(MoveTo(0, 0))?;
-        stdout.queue(Hide)?;
+    /*
+        fn present(&self) -> io::Result<()> {
+            let mut stdout = io::stdout();
 
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let index = x + y * self.width;
-                if let Pixel::Terminal { ch, color } = self.data[index] {
-                    stdout.queue(SetForegroundColor(color.to_crossterm_color()))?;
-                    stdout.queue(Print(ch))?;
+            // Use Crossterm's queueing system to minimize syscalls
+            stdout.queue(MoveTo(0, 0))?;
+            stdout.queue(Hide)?;
+
+            for y in 0..self.height {
+                for x in 0..self.width {
+                    let index = x + y * self.width;
+                    if let Pixel::Terminal { ch, color } = self.data[index] {
+                        stdout.queue(SetForegroundColor(color.to_crossterm_color()))?;
+                        stdout.queue(Print(ch))?;
+                    }
+                }
+                // Print a newline but avoid scrolling on last line:
+                if y < self.height - 1 {
+                    stdout.queue(Print("\r\n"))?;
                 }
             }
-            // Print a newline but avoid scrolling on last line:
-            if y < self.height - 1 {
-                stdout.queue(Print("\r\n"))?;
+
+            stdout.queue(Show)?;
+            stdout.flush()?;
+            Ok(())
+        }
+    }
+        */
+    fn present(&self) -> std::io::Result<()> {
+        let mut stdout = stdout();
+        let mut output = String::new();
+
+        // Keep track of the last color to minimize color changes
+        let mut last_color = None;
+
+        // Cache previously rendered lines to minimize rendering
+
+        // Hide the cursor and clear the screen once
+        //output.push_str(&format!("\x1b]0;{}\x07", metrics));
+        output.push_str("\x1B[?25l"); // Hide cursor
+        output.push_str("\x1B[2J"); // Clear screen
+        output.push_str("\x1B[H"); // Move cursor to home position
+
+        // Render each line
+        for y in 0..self.height {
+            let mut x = 0;
+            // NOTE: Considering we are rendering line by line, we could possibly multithread this
+            // operation too, but I think I might need to be more sparse with rayon multithreading
+            // because that adds overhead and might not be worth it for small operations like this,
+            // buuuut this does operate over millions of pixels so it might be worth it
+            let mut rendered_line = String::new();
+
+            // Move cursor to the beginning of the line once
+            rendered_line.push_str(&format!("\x1B[{};{}H", y + 1, 1));
+
+            while x < self.width {
+                let index = x + y * self.width;
+                let pixel: &Pixel = &self.data[index];
+                let current_color = pixel.color().to_ansii_escape(); // returns the ANSI
+                                                                     // escape code string
+
+                // Accumulate characters with the same color
+                let mut pixel_chars = String::new();
+                while x < self.width && self.data[x + y * self.width].color() == pixel.color() {
+                    pixel_chars.push(self.data[x + y * self.width].ch());
+                    x += 1;
+                }
+                // Change color if necessary
+                if last_color != Some(current_color.clone()) {
+                    rendered_line.push_str(&current_color);
+                    last_color = Some(current_color.clone());
+                }
+
+                // Append the accumulated characters
+                rendered_line.push_str(&pixel_chars);
             }
+
+            // TODO:  Only update the output if the line has changed
+            output.push_str(&rendered_line);
         }
 
-        stdout.queue(Show)?;
-        stdout.flush()?;
-        Ok(())
+        // Show the cursor again
+        stdout.write_all(output.as_bytes())?;
+        stdout.flush()
     }
 }
 

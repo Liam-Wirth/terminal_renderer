@@ -163,7 +163,7 @@ impl Rasterizer {
         }
     }
 
-    fn get_transformed_vertices(
+    fn transform_vertices(
         &self,
         tri: &crate::core::geometry::Tri,
         entity: &crate::core::Entity,
@@ -202,7 +202,7 @@ impl Rasterizer {
         screen_verts
     }
 
-    fn get_vertex_colors(
+    fn vertex_colors(
         &self,
         tri: &crate::core::geometry::Tri,
         entity: &crate::core::Entity,

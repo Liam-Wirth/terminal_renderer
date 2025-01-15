@@ -11,18 +11,12 @@ pub mod game;
 pub mod pipeline;
 pub mod util;
 
-
+pub use core::geometry;
 pub use core::Camera;
 pub use core::Color;
 pub use core::Entity;
 pub use core::Scene;
-pub use core::geometry;
 pub use util::format_mat4;
-
-
-
-
-
 
 #[derive(Debug, Clone, Copy)]
 pub enum DisplayTarget {
@@ -148,4 +142,201 @@ pub fn handle_clap_matches(matches: &clap::ArgMatches) -> (DisplayTarget, Option
 
     // Default behavior when no subcommand is provided
     (DisplayTarget::Terminal, None)
+}
+
+/// Macro that expands into a match statement handling various key codes.
+/// It mirrors the logic from your minifb input handling, but for crossterm.
+#[macro_export]
+// TODO: Look into possibly using key_event instead of key_code, might have more flexibility
+macro_rules! handle_crossterm_keys {
+    ($key_code:expr, $states:expr, $scene:expr, $move_amount:expr) => {{
+        let mut should_break = false;
+        match $key_code {
+            // Toggle wireframe
+            KeyCode::Char('p') => {
+                let current = $states.borrow().draw_wireframe;
+                $states.borrow_mut().draw_wireframe = !current;
+            }
+            // Toggle bake_normals
+            KeyCode::Char('b') => {
+                let current = $states.borrow().bake_normals;
+                $states.borrow_mut().bake_normals = !current;
+            }
+            // Toggle move_obj
+            KeyCode::Char('j') => {
+                let current = $states.borrow().move_obj;
+                $states.borrow_mut().move_obj = !current;
+                println!("Move obj: {}", !current);
+            }
+            // Decrement current_obj
+            KeyCode::Char('[') => {
+                let mut current = $states.borrow().current_obj;
+                current = current.saturating_sub(1);
+                if current > $scene.entities.len() - 1 {
+                    current = $scene.entities.len() - 1;
+                }
+                $states.borrow_mut().current_obj = current;
+                println!("Current object: {}", current);
+            }
+            // Increment current_obj
+            KeyCode::Char(']') => {
+                let mut current = $states.borrow().current_obj;
+                current += 1;
+                if current > $scene.entities.len() - 1 {
+                    current %= $scene.entities.len();
+                }
+                $states.borrow_mut().current_obj = current;
+                println!("Current object: {}", current);
+            }
+            // Move forward/back or entity
+            KeyCode::Char('w') => {
+                let move_obj = $states.borrow().move_obj;
+                let current_obj = $states.borrow().current_obj;
+                if move_obj {
+                    $scene.entities[current_obj].transform.translation.z += $move_amount;
+                } else {
+                    $scene.camera.move_forward($move_amount);
+                }
+            }
+            KeyCode::Char('s') => {
+                let move_obj = $states.borrow().move_obj;
+                let current_obj = $states.borrow().current_obj;
+                if move_obj {
+                    $scene.entities[current_obj].transform.translation.z -= $move_amount;
+                } else {
+                    $scene.camera.move_forward(-$move_amount);
+                }
+            }
+            // Move left/right or entity
+            KeyCode::Char('a') => {
+                let move_obj = $states.borrow().move_obj;
+                let current_obj = $states.borrow().current_obj;
+                if move_obj {
+                    $scene.entities[current_obj].transform.translation.x -= $move_amount;
+                } else {
+                    $scene.camera.move_right(-$move_amount);
+                }
+            }
+            KeyCode::Char('d') => {
+                let move_obj = $states.borrow().move_obj;
+                let current_obj = $states.borrow().current_obj;
+                if move_obj {
+                    $scene.entities[current_obj].transform.translation.x += $move_amount;
+                } else {
+                    $scene.camera.move_right($move_amount);
+                }
+            }
+            // Reset entity or camera
+            KeyCode::Char('u') => {
+                if $states.borrow().move_obj {
+                    $scene.entities[$states.borrow().current_obj]
+                        .transform
+                        .translation = glam::Vec3::ZERO.into();
+                } else {
+                    $scene.camera.reset();
+                }
+            }
+            // Move up/down (space/shift in minifb example)
+            KeyCode::Char(' ') => {
+                let move_obj = $states.borrow().move_obj;
+                let current_obj = $states.borrow().current_obj;
+                if move_obj {
+                    $scene.entities[current_obj].transform.translation.y += $move_amount;
+                } else {
+                    $scene.camera.move_up($move_amount);
+                }
+            }
+
+            KeyCode::Char('q') | KeyCode::Esc | KeyCode::Char('Q') => {
+                should_break = true;
+            }
+            // Catch-all
+            _ => {}
+        }
+        should_break
+    }};
+}
+
+use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+
+// TODO: eventually use this to handle mouse input
+#[macro_export]
+macro_rules! handle_crossterm_mouse {
+    ($mouse_event:expr, $states:expr, $scene:expr) => {
+        match $mouse_event.kind {
+            // When mouse button is pressed down
+            MouseEventKind::Down(btn) => {
+                match btn {
+                    MouseButton::Left => {
+                        println!(
+                            "Left click at ({}, {})",
+                            $mouse_event.column, $mouse_event.row
+                        );
+                        // Add your "on left click" logic here.
+                        // E.g. maybe toggle wireframe, or select an entity, etc.
+                        // $states.borrow_mut().some_flag = true;
+                    }
+                    MouseButton::Right => {
+                        println!(
+                            "Right click at ({}, {})",
+                            $mouse_event.column, $mouse_event.row
+                        );
+                        // Some other logic for right click
+                    }
+                    MouseButton::Middle => {
+                        println!(
+                            "Middle click at ({}, {})",
+                            $mouse_event.column, $mouse_event.row
+                        );
+                    }
+                }
+            }
+            // When mouse button is released
+            MouseEventKind::Up(btn) => {
+                match btn {
+                    MouseButton::Left => {
+                        println!("Left button released");
+                        // Add custom logic for left release
+                    }
+                    MouseButton::Right => {
+                        println!("Right button released");
+                    }
+                    MouseButton::Middle => {
+                        println!("Middle button released");
+                    }
+                }
+            }
+            // When mouse is moved while button is held (drag)
+            MouseEventKind::Drag(btn) => {
+                println!(
+                    "Dragging with {:?} button at ({}, {})",
+                    btn, $mouse_event.column, $mouse_event.row
+                );
+                // If you want, track the last position vs. new position, etc.
+            }
+            // When mouse simply moves (no buttons held)
+            MouseEventKind::Moved => {
+                // This fires frequently; you may or may not want to do something
+                println!(
+                    "Mouse moved to ({}, {})",
+                    $mouse_event.column, $mouse_event.row
+                );
+            }
+            // Scroll wheel
+            MouseEventKind::ScrollDown => {
+                println!(
+                    "Scrolled down at ({}, {})",
+                    $mouse_event.column, $mouse_event.row
+                );
+                // Maybe zoom the camera out or do something
+            }
+            MouseEventKind::ScrollUp => {
+                println!(
+                    "Scrolled up at ({}, {})",
+                    $mouse_event.column, $mouse_event.row
+                );
+                // Maybe zoom the camera in
+            }
+        }
+    };
 }
