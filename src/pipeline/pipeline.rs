@@ -387,6 +387,10 @@ impl<B: Buffer> Pipeline<B> {
                             self.scene.camera.move_right(move_amount);
                         }
                     }
+                    // orbit
+                    minifb::Key::O => {
+                        self.scene.camera.orbit(orbit_amount);
+                    }
                     minifb::Key::Space => {
                         let move_obj = self.states.borrow().move_obj;
                         let current_obj = self.states.borrow().current_obj;
@@ -479,8 +483,10 @@ impl<B: Buffer> Pipeline<B> {
                             // Cycle through the render modes
                             *mode = match *mode {
                                 RenderMode::Solid => RenderMode::Wireframe,
-                                RenderMode::Wireframe => RenderMode::FixedPoint,
-                                RenderMode::FixedPoint => RenderMode::Solid,
+                                RenderMode::Wireframe => RenderMode::Solid,
+                                //RenderMode::FixedPoint => RenderMode::Solid,
+                                _ => RenderMode::Solid,
+
                             };
                             println!("New render mode: {:?}", *mode);
                         }

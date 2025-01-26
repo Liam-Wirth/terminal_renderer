@@ -57,7 +57,7 @@ impl Camera {
             drop(dirty);
 
             // Now take the other locks
-            let view_matrix = Mat4::look_at_rh(self.position, self.target, -Vec3::Y);
+            let view_matrix = Mat4::look_at_rh(self.position, self.target, Vec3::Y);
             let proj_matrix =
                 Mat4::perspective_rh(self.fov, self.aspect_ratio, self.near, self.far);
 
@@ -72,9 +72,9 @@ impl Camera {
             // Update frustum planes
             for (i, sign) in [(0, 1), (0, -1), (1, 1), (1, -1), (2, 1), (2, -1)].iter() {
                 let row = vp.row(3) + vp.row(*i) * (*sign as f32);
-                let normal = Vec3::new(row.x, row.y, row.z);
-                let length = normal.length();
-                planes[i * 2 + if *sign > 0 { 0 } else { 1 }] = row / length;
+                let plane = row;
+                let length = Vec3::new(plane.x, plane.y, plane.z).length();
+                planes[i*2 + if *sign > 0 {0} else {1}] = plane / length;
             }
             drop(planes);
 
@@ -114,11 +114,13 @@ impl Camera {
     // Movement methods
     pub fn move_forward(&mut self, distance: f32) {
         self.position += self.forward() * distance;
+        self.target += self.forward() * distance;
         *self.dirty.lock().unwrap() = true;
     }
 
     pub fn move_backward(&mut self, distance: f32) {
         self.position -= self.forward() * distance;
+        self.target -= self.forward() * distance;
         *self.dirty.lock().unwrap() = true;
     }
 

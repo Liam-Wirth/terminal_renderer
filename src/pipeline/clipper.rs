@@ -122,8 +122,10 @@ impl Clipper {
 
         let normal = edge1.cross(edge2);
 
-        normal.z < 0.0
+        normal.z > 0.0 // I hate that this check being backwards was the ONLY reason clipping
+        // wasn't working, after I already whent ahead and implemented everything else
     }
+
 
     fn clip_against_plane(&self, triangles: Vec<ClipTriangle>, plane: Vec4) -> Vec<ClipTriangle> {
         let mut result = Vec::new();
@@ -164,15 +166,58 @@ impl Clipper {
         plane.x * v.x + plane.y * v.y + plane.z * v.z + plane.w * v.w
     }
 
+    //fn clip_triangle_against_plane(
+    //    &self,
+    //    triangle: ClipTriangle,
+    //    plane: Vec4,
+    //    distances: [f32; 3],
+    //) -> Vec<ClipTriangle> {
+    //    let _ = plane;
+    //    let mut result = Vec::new();
+    //    let mut new_verts = Vec::new();
+    //    // For each edge
+    //    for i in 0..3 {
+    //        let j = (i + 1) % 3;
+
+    //        let v0 = &triangle.vertices[i];
+    //        let v1 = &triangle.vertices[j];
+    //        let d0 = distances[i];
+    //        let d1 = distances[j];
+
+    //        if d0 >= 0.0 {
+    //            new_verts.push(v0.clone());
+    //        }
+
+    //        // If one vertex is inside and one outside, compute intersection
+    //        if (d0 < 0.0) != (d1 < 0.0) {
+    //            let t = d0 / (d0 - d1);
+    //            new_verts.push(v0.lerp(v1, t));
+    //        }
+    //    }
+
+    //    // Form new triangles from the clipped polygon
+    //    for i in 1..new_verts.len() - 1 {
+    //        result.push(ClipTriangle {
+    //            vertices: [
+    //                new_verts[0].clone(),
+    //                new_verts[i].clone(),
+    //                new_verts[i + 1].clone(),
+    //            ],
+    //        });
+    //    }
+
+    //    result
+    //}
+
     fn clip_triangle_against_plane(
         &self,
         triangle: ClipTriangle,
         plane: Vec4,
         distances: [f32; 3],
     ) -> Vec<ClipTriangle> {
+        let _ = plane;
         let mut result = Vec::new();
         let mut new_verts = Vec::new();
-
         // For each edge
         for i in 0..3 {
             let j = (i + 1) % 3;

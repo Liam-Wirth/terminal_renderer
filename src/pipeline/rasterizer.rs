@@ -196,7 +196,8 @@ impl Rasterizer {
             let ndc = Vec2::new(vertices[i].x / vertices[i].w, vertices[i].y / vertices[i].w);
             screen_verts[i] = Vec2::new(
                 (ndc.x + 1.0) * 0.5 * self.width as f32,
-                (ndc.y + 1.0) * 0.5 * self.height as f32,
+                (1.0 - ndc.y ) * 0.5 * self.height as f32, // NOTE: FLIPPED THIS FROM (ndc.y +
+                // 1.0)
             );
         }
         screen_verts
@@ -335,6 +336,7 @@ impl Rasterizer {
         let z1 = clip_verts[1].z / w1;
         let z2 = clip_verts[2].z / w2;
 
+
         for y in bbox_min.y as i32..=bbox_max.y as i32 {
             for x in bbox_min.x as i32..=bbox_max.x as i32 {
                 let p = glam::Vec2::new(x as f32, y as f32);
@@ -349,7 +351,7 @@ impl Rasterizer {
                         // Interpolate z
                         let mut depth = z0 * b0_c + z1 * b1_c + z2 * b2_c; // In [-1, 1] range
                         depth = (depth + 1.0) * 0.5; // In [0, 1] range
-                        depth = depth.clamp(0.1, 1.0);
+                        depth = depth.clamp(0.0, 1.0);
 
                         // Interpolate color
                         let color = crate::core::Color {
@@ -517,7 +519,7 @@ fn barycentric(
 
 ///  Bresenham's line algorithm
 /// https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
-/// 
+///
 /// This function is used to draw lines in the rasterizer
 pub fn bresenham<F>(start: glam::Vec2, end: glam::Vec2, p: crate::core::Pixel, mut plot: F)
 where
