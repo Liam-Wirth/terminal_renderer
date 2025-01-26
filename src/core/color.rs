@@ -124,23 +124,13 @@ impl Color {
     */
     pub fn lerp_u32(start: u32, end: u32, t: f32) -> u32 {
         let inv_t = 1.0 - t;
-        // separate out rgbs:
-        // let sr = (start >> 16) & 0xFF;
-        // let sg = (start >> 8) & 0xFF;
-        // let sb = start & 0xFF;
-        //
-        // let er = (end >> 16) & 0xFF;
-        // let eg = (end >> 8) & 0xFF;
-        // let eb = end & 0xFF;
-
-        // MASKED AS FREAK!!!
         let srb = start & 0xFF00FF;
-        let sg = start & 0x00FF00;
+        let sg = (start >> 8) & 0x00FF00; // Green is in middle 8 bits
 
-        let erb = end & 0x0FF00;
-        let eg = end & 0x00FF00;
+        let erb = end & 0xFF00FF; // Corrected mask
+        let eg = (end >> 8) & 0x00FF00;
 
-        let rb = ((srb as f32) * inv_t + erb as f32 * t) as u32 & 0xFF00FF;
+        let rb = ((srb as f32 * inv_t + erb as f32 * t) as u32) & 0xFF00FF;
         let g = ((sg as f32 * inv_t + eg as f32 * t) as u32) & 0x00FF00;
 
         (rb | g) & 0x00FFFFFF
@@ -173,7 +163,6 @@ impl Color {
     pub const LIME: Color = Color::hex("00FF00");
     pub const AQUA: Color = Color::hex("00FFFF");
     pub const FUCHSIA: Color = Color::hex("FF00FF");
-
 }
 
 impl Default for Color {

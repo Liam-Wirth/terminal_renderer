@@ -19,6 +19,10 @@
 //
 // TODO: Egui for debug console?
 // TODO: Live debug log with egui?
+//
+//
+// FIX: Need to re-implement movement for camera, as the camera crosses the origin, culling needs
+// to be flipped, among other things, as well as movement values (from positive to negative)
 use crossterm::{
     cursor::{Hide, Show},
     event::{self, EnableMouseCapture, Event, KeyCode},
@@ -42,7 +46,7 @@ const HEIGHT: usize = 1080;
 fn main() -> io::Result<()> {
     DEBUG_PIPELINE.store(false, std::sync::atomic::Ordering::Relaxed);
     let camera = Camera::new(
-        Vec3::new(0.0, 0.0, -6.), // Position camera back a bit
+        Vec3::new(0.0, 0.0, 6.), // Position camera back a bit
         Vec3::new(0.0, 0.0, 0.),
         WIDTH as f32 / HEIGHT as f32,
     );
@@ -60,6 +64,13 @@ fn main() -> io::Result<()> {
         .join("assets")
         .join("models")
         .join("newell_teaset/spoon.obj");
+    
+    let teapot = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("newell_teaset/teapot.obj");
+    let mut teapot = Entity::from_obj(teapot.to_str().unwrap());
+
 
     //scene.add_entity(Entity::from_obj(&model_path.to_str().unwrap()));
     //scene.entities[0].mesh.bake_normals_to_colors();
@@ -78,15 +89,16 @@ fn main() -> io::Result<()> {
     //scene.add_entity(Entity::from_obj(&mod3_path.to_str().unwrap()));
     //scene.entities[1].mesh.bake_normals_to_colors();
     //scene.entities[1].mesh.calculate_normals();
-    scene.add_entity(Entity::from_obj_with_scale(mod3_path.to_str().unwrap(), 2.));
-    scene.entities[0].mesh.calculate_normals();
-    scene.entities[0].mesh.bake_normals_to_colors();
+    // transform the affine to spin  the model 180 degrees
+    teapot.transform = glam::Affine3A::from_rotation_y(std::f32::consts::PI);
+    teapot.mesh.bake_normals_to_colors();
+    scene.add_entity(teapot);
 
     // You can choose which one to run
     // let _ = run_win(scene.clone());
     // or
-      run_term(scene)
-    //run_win(scene)
+      //run_term(scene)
+    run_win(scene)
 }
 
 fn run_term(scene: Scene) -> io::Result<()> {
