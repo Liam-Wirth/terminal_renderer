@@ -1,12 +1,30 @@
+use std::default;
+
 use super::{process, Material};
 use crate::core::color::Color;
 use glam::{Vec2, Vec3};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Vertex {
-    pub pos: Vec3,            // Position in model space
-    pub uv: Option<Vec2>,     // Optional texture coordinates
-    pub color: Option<Color>, // Optional vertex color for debugging/flat shading
+    pub pos: Vec3,               // Position in model space
+    pub uv: Option<Vec2>,        // Optional texture coordinates
+    pub color: Option<Color>,    // Optional vertex color for debugging/flat shading
+    pub normal: Option<Vec3>,    // Optional normal vector for per-vertex normals
+    pub tangent: Option<Vec3>,   // Optional tangent vector for normal mapping
+    pub bitangent: Option<Vec3>, // Optional bitangent vector for normal mapping
+}
+
+impl Default for Vertex {
+    fn default() -> Self {
+        Self {
+            pos: Vec3::ZERO,
+            uv: None,
+            color: None,
+            normal: None,
+            tangent: None,
+            bitangent: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -68,7 +86,7 @@ impl Mesh {
                 triangulate: true,
                 single_index: true,
                 ignore_points: true, // Not doing point clouds right now
-                ignore_lines: true, // TODO: Support line segments in the future
+                ignore_lines: true,  // TODO: Support line segments in the future
                 ..Default::default()
             },
         )
@@ -76,19 +94,11 @@ impl Mesh {
 
         let mut mesh = Mesh::new();
 
-        // Load materials first
+        // Load materials first by converting each tobj::Material
+        // using our Material::from_tobj() function.
         let materials = if let Ok(mats) = materials_result {
             mats.into_iter()
-                .map(|mat| {
-                    let mut m = Material::default();
-                    m.name = mat.name;
-                    // Convert diffuse color
-                    if let Some(diffuse) = mat.diffuse {
-                        m.diffuse_color = Color::new(diffuse[0], diffuse[1], diffuse[2]);
-                    }
-                    m.shininess = mat.shininess;
-                    m
-                })
+                .map(Material::from_tobj)
                 .collect::<Vec<_>>()
         } else {
             Vec::new()
@@ -96,27 +106,40 @@ impl Mesh {
 
         mesh.materials = materials;
 
-        // For each model in the OBJ
+        // For each model in the OBJ file...
         for model in models {
             let mesh_data = model.mesh;
 
-            // Create vertices with material colors
+            // Create vertices with material colors and UV coordinates (if available)
             for (i, pos) in mesh_data.positions.chunks(3).enumerate() {
                 let color = if let Some(material_id) = mesh_data.material_id {
-                    // Use material color if available
-                    Some(mesh.materials[material_id].diffuse_color)
+                    // Use the material’s base color (diffuse if available, else ambient)
+                    Some(mesh.materials[material_id].get_base_color())
+                } else {
+                    None
+                };
+
+                let uv = if !mesh_data.texcoords.is_empty() {
+                    // Each UV is stored as two consecutive floats
+                    Some(Vec2::new(
+                        mesh_data.texcoords[i * 2],
+                        mesh_data.texcoords[i * 2 + 1],
+                    ))
                 } else {
                     None
                 };
 
                 mesh.vertices.push(Vertex {
                     pos: Vec3::new(pos[0], pos[1], pos[2]),
-                    uv: None,
+                    uv,
                     color,
+                    normal: None,
+                    tangent: None,
+                    bitangent: None,
                 });
             }
 
-            // Handle normals
+            // Process normals (or compute them if they are missing)
             if !mesh_data.normals.is_empty() {
                 for norm in mesh_data.normals.chunks(3) {
                     mesh.normals.push(Normal {
@@ -127,7 +150,7 @@ impl Mesh {
                 process::compute_normals(&mut mesh);
             }
 
-            // Create triangles with material references
+            // Create triangles and store the material index from the OBJ
             for indices in mesh_data.indices.chunks(3) {
                 mesh.tris.push(Tri {
                     vertices: [
@@ -150,16 +173,19 @@ impl Mesh {
             pos: Vec3::new(-1.0, -1.0, 0.0),
             uv: None,
             color: Color::RED.into(),
+            ..Default::default()
         };
         let v2: Vertex = Vertex {
             pos: Vec3::new(1.0, -1.0, 0.0),
             uv: None,
             color: Color::GREEN.into(),
+            ..Default::default()
         };
         let v3: Vertex = Vertex {
             pos: Vec3::new(0.0, 1.0, 0.0),
             uv: None,
             color: Color::BLUE.into(),
+            ..Default::default()
         };
 
         let tri = Tri {

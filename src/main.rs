@@ -37,7 +37,10 @@ use std::{
     path::PathBuf,
 };
 use terminal_renderer::{
-    core::{Background, Camera, Entity, Environment, Scene}, handle_crossterm_keys, pipeline::{pipeline::Pipeline, FrameBuffer, TermBuffer}, Color, DEBUG_PIPELINE
+    core::{Background, Camera, Entity, Environment, Scene},
+    handle_crossterm_keys,
+    pipeline::{pipeline::Pipeline, FrameBuffer, TermBuffer},
+    Color, DEBUG_PIPELINE,
 };
 
 const WIDTH: usize = 1920;
@@ -51,53 +54,21 @@ fn main() -> io::Result<()> {
         WIDTH as f32 / HEIGHT as f32,
     );
 
-    let mut scene = Scene::new_with_background(
-        camera,
-        Background::Room {
-            size: 20,
-            cell_size: 2.,
-            wall_colors: [Color::RED, Color::GREEN, Color::BLUE, Color::WHITE],
-        },
-    );
+    let mut scene = Scene::new(camera);
 
-    let _model_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let icosphere_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("assets")
         .join("models")
-        .join("newell_teaset/spoon.obj");
-    
-    let teapot = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("models")
-        .join("newell_teaset/teapot.obj");
-    let mut teapot = Entity::from_obj(teapot.to_str().unwrap());
-
-
-    //scene.add_entity(Entity::from_obj(&model_path.to_str().unwrap()));
-    //scene.entities[0].mesh.bake_normals_to_colors();
-    let _mod2_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("models")
-        .join("african_head.obj");
-
-    let mod3_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("models")
-        .join("suzanne.obj");
-
-    //scene.add_entity(Entity::from_obj(&mod2_path.to_str().unwrap()));
-    //scene.entities[1].mesh.bake_normals_to_colors();
-    //scene.add_entity(Entity::from_obj(&mod3_path.to_str().unwrap()));
-    //scene.entities[1].mesh.bake_normals_to_colors();
-    //scene.entities[1].mesh.calculate_normals();
-    // transform the affine to spin  the model 180 degrees
-    teapot.transform = glam::Affine3A::from_rotation_y(std::f32::consts::PI);
-    teapot.mesh.bake_normals_to_colors();
-    scene.add_entity(teapot);
+        .join("icosphere.obj");
+    let mut icosphere = Entity::from_obj(icosphere_path.to_str().unwrap());
+    //teapot.transform = glam::Affine3A::from_rotation_y(std::f32::consts::PI);
+    //teapot.mesh.bake_normals_to_colors();
+    scene.add_entity(icosphere);
 
     // You can choose which one to run
     // let _ = run_win(scene.clone());
     // or
-      //run_term(scene)
+    //run_term(scene)
     run_win(scene)
 }
 
@@ -125,7 +96,7 @@ fn run_term(scene: Scene) -> io::Result<()> {
         // (a) Check for input
         if event::poll(Duration::from_millis(1))? {
             if let Event::Key(key) = event::read()? {
-                if handle_crossterm_keys!(key.code,pipeline.states, pipeline.scene, 1.) {
+                if handle_crossterm_keys!(key.code, pipeline.states, pipeline.scene, 1.) {
                     break 'mainloop;
                 }
             }
@@ -181,9 +152,8 @@ pub fn run_win(scene: Scene) -> io::Result<()> {
             break;
         }
         pipeline.render_frame(Some(&mut window))?;
-        pipeline.window_handle_input(&window);
+        pipeline.window_handle_input(&window, Instant::now());
     }
 
     Ok(())
 }
-

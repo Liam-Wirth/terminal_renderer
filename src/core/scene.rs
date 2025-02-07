@@ -70,216 +70,6 @@ impl Display for Entity {
     }
 }
 
-impl Environment {
-    pub fn new(background: Background) -> Self {
-        Self { background }
-    }
-
-    pub fn get_mesh(&self) -> Option<Mesh> {
-        match &self.background {
-            Background::Void => None,
-            Background::BlenderFloor {
-                size,
-                cell_size,
-                primary_color,
-                secondary_color,
-            } => Some(Self::generate_blender_floor(
-                *size,
-                *cell_size,
-                *primary_color,
-                *secondary_color,
-            )),
-            Background::Room {
-                size,
-                cell_size,
-                wall_colors,
-            } => Some(Self::generate_room(*size, *cell_size, wall_colors)),
-        }
-    }
-
-    // TODO: work on geting materials implemented, after that, re-impliment this function using one singular plane (4 big ass tris) and a checkered texture
-    fn generate_blender_floor(
-        size: i32,
-        cell_size: f32,
-        primary_color: Color,
-        secondary_color: Color,
-    ) -> Mesh {
-        let mut mesh = Mesh::new();
-        let grid_size = size;
-
-        // Generate grid lines
-        for i in -grid_size..=grid_size {
-            // X axis lines
-            mesh.vertices.push(Vertex {
-                pos: Vec3::new(i as f32 * cell_size, 0.0, -grid_size as f32 * cell_size),
-                uv: None,
-                color: Some(primary_color),
-            });
-            mesh.vertices.push(Vertex {
-                pos: Vec3::new(i as f32 * cell_size, 0.0, grid_size as f32 * cell_size),
-                uv: None,
-                color: Some(primary_color),
-            });
-
-            // Z axis lines
-            mesh.vertices.push(Vertex {
-                pos: Vec3::new(-grid_size as f32 * cell_size, 0.0, i as f32 * cell_size),
-                uv: None,
-                color: Some(primary_color),
-            });
-            mesh.vertices.push(Vertex {
-                pos: Vec3::new(grid_size as f32 * cell_size, 0.0, i as f32 * cell_size),
-                uv: None,
-                color: Some(primary_color),
-            });
-        }
-
-        // Add RGB axis indicators
-        // X axis (red)
-        mesh.vertices.extend_from_slice(&[
-            Vertex {
-                pos: Vec3::ZERO,
-                uv: None,
-                color: Some(Color::RED),
-            },
-            Vertex {
-                pos: Vec3::new(grid_size as f32 * cell_size, 0.0, 0.0),
-                uv: None,
-                color: Some(Color::RED),
-            },
-        ]);
-
-        // Y axis (green)
-        mesh.vertices.extend_from_slice(&[
-            Vertex {
-                pos: Vec3::ZERO,
-                uv: None,
-                color: Some(Color::GREEN),
-            },
-            Vertex {
-                pos: Vec3::new(0.0, grid_size as f32 * cell_size, 0.0),
-                uv: None,
-                color: Some(Color::GREEN),
-            },
-        ]);
-
-        // Z axis (blue)
-        mesh.vertices.extend_from_slice(&[
-            Vertex {
-                pos: Vec3::ZERO,
-                uv: None,
-                color: Some(Color::BLUE),
-            },
-            Vertex {
-                pos: Vec3::new(0.0, 0.0, grid_size as f32 * cell_size),
-                uv: None,
-                color: Some(Color::BLUE),
-            },
-        ]);
-
-        // Generate triangles for lines
-        for i in 0..(mesh.vertices.len() / 2) {
-            mesh.tris.push(Tri {
-                vertices: [i * 2, i * 2 + 1, i * 2],
-                normals: None,
-                material: None,
-            });
-        }
-
-        mesh.calculate_normals();
-        mesh
-    }
-
-    fn generate_room(size: i32, cell_size: f32, wall_colors: &[Color; 4]) -> Mesh {
-        let mut mesh = Mesh::new();
-        let room_size = size as f32 * cell_size;
-        let height = room_size * 0.8; // 80% of size for height
-
-        // Floor vertices with checkerboard pattern
-        for i in -size..=size {
-            for j in -size..=size {
-                let x = i as f32 * cell_size;
-                let z = j as f32 * cell_size;
-                let color: Color = if (i + j) % 2 == 0 {
-                    wall_colors[0]
-                } else {
-                    wall_colors[1]
-                };
-
-                mesh.vertices.push(Vertex {
-                    pos: Vec3::new(x, 0.0, z),
-                    uv: None,
-                    color: Some(color),
-                });
-            }
-        }
-
-        // Wall vertices
-        let wall_points = [
-            // Back wall
-            (
-                Vec3::new(-room_size, 0.0, room_size),
-                Vec3::new(room_size, height, room_size),
-                wall_colors[2],
-            ),
-            // Left wall
-            (
-                Vec3::new(-room_size, 0.0, -room_size),
-                Vec3::new(-room_size, height, room_size),
-                wall_colors[3],
-            ),
-            // Right wall
-            (
-                Vec3::new(room_size, 0.0, room_size),
-                Vec3::new(room_size, height, -room_size),
-                wall_colors[3],
-            ),
-        ];
-
-        // Generate wall geometry
-        for (start, end, color) in wall_points.iter() {
-            let vert_start: usize = mesh.vertices.len();
-            mesh.vertices.extend_from_slice(&[
-                Vertex {
-                    pos: *start,
-                    uv: None,
-                    color: Some(*color),
-                },
-                Vertex {
-                    pos: Vec3::new(end.x, start.y, end.z),
-                    uv: None,
-                    color: Some(*color),
-                },
-                Vertex {
-                    pos: *end,
-                    uv: None,
-                    color: Some(*color),
-                },
-                Vertex {
-                    pos: Vec3::new(start.x, end.y, start.z),
-                    uv: None,
-                    color: Some(*color),
-                },
-            ]);
-
-            mesh.tris.extend_from_slice(&[
-                Tri {
-                    vertices: [vert_start, vert_start + 1, vert_start + 2],
-                    normals: None,
-                    material: None,
-                },
-                Tri {
-                    vertices: [vert_start, vert_start + 2, vert_start + 3],
-                    normals: None,
-                    material: None,
-                },
-            ]);
-        }
-
-        mesh.calculate_normals();
-        mesh
-    }
-}
 impl Entity {
     pub fn new(mesh: Mesh, transform: Affine3A, name: String) -> Self {
         Self {
@@ -344,7 +134,6 @@ impl Entity {
 pub struct Scene {
     pub camera: Camera,
     pub entities: Vec<Entity>,
-    pub environment: Environment,
 }
 
 impl Scene {
@@ -352,15 +141,6 @@ impl Scene {
         Self {
             camera,
             entities: Vec::new(),
-            environment: Environment::new(Background::Void),
-        }
-    }
-
-    pub fn new_with_background(camera: Camera, background: Background) -> Self {
-        Self {
-            camera,
-            entities: Vec::new(),
-            environment: Environment::new(background),
         }
     }
 
@@ -385,7 +165,6 @@ impl Default for Scene {
         Self {
             camera: cam,
             entities: Vec::new(),
-            environment: Environment::new(Background::Void),
         }
     }
 }

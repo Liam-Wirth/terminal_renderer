@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::core::{Color, RenderMode, Scene};
 use crate::debug_print;
+use crate::geometry::Material;
 use crate::pipeline::{to_fixed, Fragment, ProcessedGeometry, FP_ONE, FP_SHIFT};
 use glam::{Mat4, Vec2, Vec4};
 use rayon::prelude::*;
@@ -29,11 +30,6 @@ impl Rasterizer {
         let (env_geo, scene_geo): (Vec<_>, Vec<_>) =
             geometry.iter().partition(|geo| geo.entity_id == usize::MAX); // what the hell is that second check?
 
-        // Process environment first (it should be behind everything)
-        let mut env_fragments: Vec<_> = env_geo
-            .par_iter()
-            .flat_map(|geo: &&ProcessedGeometry| self.process_environment_triangles(geo))
-            .collect();
 
         // Then process regular scene geometry
         let scene_fragments: Vec<_> = scene_geo
@@ -45,90 +41,10 @@ impl Rasterizer {
             .collect();
 
         // Combine fragments, environment first
-        frags.append(&mut env_fragments);
+        //frags.append(&mut env_fragments);
         frags.extend(scene_fragments);
 
         debug_print!("Generated {} fragments", frags.len());
-    }
-
-    fn process_environment_triangles(&self, geo: &ProcessedGeometry) -> Vec<Fragment> {
-        let vertices = [
-            geo.vertices[0].position,
-            geo.vertices[1].position,
-            geo.vertices[2].position,
-        ];
-
-        let screen_verts = self.project_to_screen(&vertices);
-        let colors = [
-            geo.vertices[0].color,
-            geo.vertices[1].color,
-            geo.vertices[2].color,
-        ];
-
-        // Use maximum depth for environment to ensure it's behind everything
-        self.rasterize_environment_triangle(screen_verts, colors, &vertices)
-    }
-
-    fn rasterize_environment_triangle(
-        &self,
-        screen_verts: [Vec2; 3],
-        colors: [Color; 3],
-        clip_verts: &[Vec4; 3],
-    ) -> Vec<Fragment> {
-        let mut fragments = Vec::new();
-        let mut bbox_min = Vec2::new(self.width as f32 - 1.0, self.height as f32 - 1.0);
-        let mut bbox_max = Vec2::new(0.0, 0.0);
-
-        for v in &screen_verts {
-            bbox_min.x = bbox_min.x.min(v.x);
-            bbox_min.y = bbox_min.y.min(v.y);
-            bbox_max.x = bbox_max.x.max(v.x);
-            bbox_max.y = bbox_max.y.max(v.y);
-        }
-
-        bbox_min.x = bbox_min.x.max(0.0);
-        bbox_min.y = bbox_min.y.max(0.0);
-        bbox_max.x = bbox_max.x.min((self.width - 1) as f32);
-        bbox_max.y = bbox_max.y.min((self.height - 1) as f32);
-
-        let (v0, v1, v2) = (screen_verts[0], screen_verts[1], screen_verts[2]);
-
-        // Environment-specific depth handling
-        let w0 = clip_verts[0].w;
-        let w1 = clip_verts[1].w;
-        let w2 = clip_verts[2].w;
-
-        for y in bbox_min.y as i32..=bbox_max.y as i32 {
-            for x in bbox_min.x as i32..=bbox_max.x as i32 {
-                let p = Vec2::new(x as f32, y as f32);
-                if let Some((b0, b1, b2)) = barycentric(p, v0, v1, v2) {
-                    if b0 >= 0.0 && b1 >= 0.0 && b2 >= 0.0 {
-                        // Use perspective-correct interpolation for colors
-                        let w = 1.0 / (b0 / w0 + b1 / w1 + b2 / w2);
-                        let b0_c = (b0 / w0) * w;
-                        let b1_c = (b1 / w1) * w;
-                        let b2_c = (b2 / w2) * w;
-
-                        // Environment always uses maximum depth
-                        let depth = 0.99; // Just before the far plane
-
-                        let color = Color {
-                            r: colors[0].r * b0_c + colors[1].r * b1_c + colors[2].r * b2_c,
-                            g: colors[0].g * b0_c + colors[1].g * b1_c + colors[2].g * b2_c,
-                            b: colors[0].b * b0_c + colors[1].b * b1_c + colors[2].b * b2_c,
-                        };
-
-                        fragments.push(Fragment {
-                            screen_pos: p,
-                            depth,
-                            color,
-                        });
-                    }
-                }
-            }
-        }
-
-        fragments
     }
 
     fn process_mesh_triangles(
@@ -146,6 +62,7 @@ impl Rasterizer {
         let render_mode = *mode.lock().unwrap();
 
         let screen_verts = self.project_to_screen(&vertices);
+
         let colors = [
             geo.vertices[0].color,
             geo.vertices[1].color,
@@ -234,6 +151,7 @@ impl Rasterizer {
         }
         fragments
     }
+
     fn draw_line(&self, start: (Vec2, Color), end: (Vec2, Color), fragments: &mut Vec<Fragment>) {
         let mut steep = false;
 
@@ -359,7 +277,6 @@ impl Rasterizer {
                             g: colors[0].g * b0_c + colors[1].g * b1_c + colors[2].g * b2_c,
                             b: colors[0].b * b0_c + colors[1].b * b1_c + colors[2].b * b2_c,
                         };
-
                         fragments.push(crate::pipeline::Fragment {
                             screen_pos: p,
                             depth,
