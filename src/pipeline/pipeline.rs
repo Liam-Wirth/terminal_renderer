@@ -1,7 +1,8 @@
 pub(crate) use std::{cell::RefCell, io};
 
+use crossterm::cursor;
 use glam::{Affine3A, Mat4, Vec4};
-use minifb::Window;
+use minifb::{Key, KeyRepeat, Window};
 
 use crate::{
     core::{Color, RenderMode, Scene},
@@ -21,8 +22,6 @@ pub struct States {
     pub current_obj: usize,
 }
 
-
-
 /// A graphics rendering pipeline that processes 3D geometry into 2D screen output
 ///
 /// The pipeline handles:
@@ -31,17 +30,17 @@ pub struct States {
 /// - Rasterization of triangles to fragments
 /// - Fragment processing and writing to framebuffer
 pub struct Pipeline<B: Buffer> {
-    pub width: usize,  // Screen width in pixels
-    pub height: usize, // Screen height in pixels
-    front_buffer: RefCell<B>, // Currently displayed buffer
-    back_buffer: RefCell<B>,  // Buffer being rendered to
-    pub scene: Scene,         // 3D scene with camera and objects
+    pub width: usize,                          // Screen width in pixels
+    pub height: usize,                         // Screen height in pixels
+    front_buffer: RefCell<B>,                  // Currently displayed buffer
+    back_buffer: RefCell<B>,                   // Buffer being rendered to
+    pub scene: Scene,                          // 3D scene with camera and objects
     geometry: RefCell<Vec<ProcessedGeometry>>, // Transformed geometry ready for rasterization
-    rasterizer: RefCell<Rasterizer>,  // Converts triangles to fragments
-    clipper: RefCell<Clipper>,        // Clips triangles against view frustum
-    fragments: RefCell<Vec<Fragment>>, // Output fragments from rasterization
-    metrics: Metrics,                  // Performance metrics
-    pub states: RefCell<States>,          // Pipeline state flags
+    rasterizer: RefCell<Rasterizer>,           // Converts triangles to fragments
+    clipper: RefCell<Clipper>,                 // Clips triangles against view frustum
+    fragments: RefCell<Vec<Fragment>>,         // Output fragments from rasterization
+    metrics: Metrics,                          // Performance metrics
+    pub states: RefCell<States>,               // Pipeline state flags
 }
 
 impl<B: Buffer> Pipeline<B> {
@@ -94,7 +93,7 @@ impl<B: Buffer> Pipeline<B> {
     }
 
     /// Main render loop function - processes one frame
-    /// 
+    ///
     /// Steps:
     /// 1. Clear back buffer
     /// 2. Process environment geometry
@@ -106,7 +105,6 @@ impl<B: Buffer> Pipeline<B> {
     pub fn render_frame(&self, window: Option<&mut Window>) -> io::Result<()> {
         self.back_buffer.borrow_mut().clear();
 
-        self.process_environment();
         // 1. Process vertices to clip space
         self.process_geometry();
 
@@ -158,34 +156,39 @@ impl<B: Buffer> Pipeline<B> {
 
             // Process each triangle
             for tri in &entity.mesh.tris {
-                // Get material color if available
+                // Get the material’s base color (if available)
                 let material_color = tri
                     .material
-                    .map(|mat_id| entity.mesh.materials[mat_id].diffuse_color)
-                    .unwrap_or(Color::WHITE);
+                    .map(|mat_id| entity.mesh.materials[mat_id].get_base_color());
 
-                // Create clip vertices
+                // For each vertex, if no per-vertex color is provided then use the material's base color (or white)
+                let v0 = &entity.mesh.vertices[tri.vertices[0]];
+                let v1 = &entity.mesh.vertices[tri.vertices[1]];
+                let v2 = &entity.mesh.vertices[tri.vertices[2]];
+
+                let v0_color = v0
+                    .color
+                    .unwrap_or_else(|| material_color.unwrap_or(Color::WHITE));
+                let v1_color = v1
+                    .color
+                    .unwrap_or_else(|| material_color.unwrap_or(Color::WHITE));
+                let v2_color = v2
+                    .color
+                    .unwrap_or_else(|| material_color.unwrap_or(Color::WHITE));
+
+                // Create clip vertices using the vertex positions and chosen colors
                 let clip_verts = [
                     ClipVertex {
-                        position: mvp_matrix
-                            * Vec4::from((entity.mesh.vertices[tri.vertices[0]].pos, 1.0)),
-                        color: entity.mesh.vertices[tri.vertices[0]]
-                            .color
-                            .unwrap_or(material_color), // Use material color if vertex color not present
+                        position: mvp_matrix * Vec4::from((v0.pos, 1.0)),
+                        color: v0_color,
                     },
                     ClipVertex {
-                        position: mvp_matrix
-                            * Vec4::from((entity.mesh.vertices[tri.vertices[1]].pos, 1.0)),
-                        color: entity.mesh.vertices[tri.vertices[1]]
-                            .color
-                            .unwrap_or(material_color), // Use material color if vertex color not present
+                        position: mvp_matrix * Vec4::from((v1.pos, 1.0)),
+                        color: v1_color,
                     },
                     ClipVertex {
-                        position: mvp_matrix
-                            * Vec4::from((entity.mesh.vertices[tri.vertices[2]].pos, 1.0)),
-                        color: entity.mesh.vertices[tri.vertices[2]]
-                            .color
-                            .unwrap_or(material_color), // Use material color if vertex color not present
+                        position: mvp_matrix * Vec4::from((v2.pos, 1.0)),
+                        color: v2_color,
                     },
                 ];
 
@@ -193,15 +196,16 @@ impl<B: Buffer> Pipeline<B> {
                     vertices: clip_verts,
                 };
 
-                // Clip the triangle
+                // Clip the triangle (using the clipper)
                 let clipped_triangles = self.clipper.borrow().clip_triangle(&clip_triangle);
 
-                // Add resulting triangles to geometry buffer
+                // Add resulting triangles to the geometry buffer for rasterization
                 for triangle in clipped_triangles {
                     self.geometry.borrow_mut().push(ProcessedGeometry {
                         transform: mvp_matrix,
                         entity_id: i,
                         vertices: triangle.vertices,
+                        material_id: tri.material,
                     });
                 }
             }
@@ -227,57 +231,6 @@ impl<B: Buffer> Pipeline<B> {
         }
     }
 
-    fn process_environment(&self) {
-        if let Some(env_mesh) = self.scene.environment.get_mesh() {
-            let view_matrix = self.scene.camera.view_matrix();
-            let projection_matrix = self.scene.camera.projection_matrix();
-            let mvp_matrix = projection_matrix * view_matrix; // No model matrix needed for environment
-
-            // Process environment mesh triangles
-            for tri in &env_mesh.tris {
-                let clip_verts = [
-                    ClipVertex {
-                        position: mvp_matrix
-                            * Vec4::from((env_mesh.vertices[tri.vertices[0]].pos, 1.0)),
-                        color: env_mesh.vertices[tri.vertices[0]]
-                            .color
-                            .unwrap_or(Color::WHITE),
-                    },
-                    ClipVertex {
-                        position: mvp_matrix
-                            * Vec4::from((env_mesh.vertices[tri.vertices[1]].pos, 1.0)),
-                        color: env_mesh.vertices[tri.vertices[1]]
-                            .color
-                            .unwrap_or(Color::WHITE),
-                    },
-                    ClipVertex {
-                        position: mvp_matrix
-                            * Vec4::from((env_mesh.vertices[tri.vertices[2]].pos, 1.0)),
-                        color: env_mesh.vertices[tri.vertices[2]]
-                            .color
-                            .unwrap_or(Color::WHITE),
-                    },
-                ];
-
-                let clip_triangle = ClipTriangle {
-                    vertices: clip_verts,
-                };
-
-                // Clip the triangle
-                let clipped_triangles = self.clipper.borrow().clip_triangle(&clip_triangle);
-
-                // Add resulting triangles to geometry buffer
-                for triangle in clipped_triangles {
-                    self.geometry.borrow_mut().push(ProcessedGeometry {
-                        transform: mvp_matrix,
-                        entity_id: usize::MAX, // Special ID for environment
-                        vertices: triangle.vertices,
-                    });
-                }
-            }
-        }
-    }
-
     pub fn swap_buffers(&self) {
         std::mem::swap(
             &mut *self.front_buffer.borrow_mut(),
@@ -295,7 +248,7 @@ impl<B: Buffer> Pipeline<B> {
         &self.back_buffer
     }
 
-    pub fn window_handle_input(&mut self, input: &minifb::Window) {
+    pub fn window_handle_input(&mut self, input: &minifb::Window, last_frame: std::time::Instant) {
         let delta = 0.1;
         let move_speed = 1.0;
         let rotate_speed = 1.0;
@@ -304,43 +257,140 @@ impl<B: Buffer> Pipeline<B> {
         let move_amount = move_speed * delta;
         let rotate_amount = rotate_speed * delta;
 
+        if input.is_key_pressed(minifb::Key::P, KeyRepeat::No) {
+            let current = self.states.borrow().draw_wireframe;
+            self.states.borrow_mut().draw_wireframe = !current;
+            println!("Draw wireframe: {}", !current);
+        }
+        if input.is_key_pressed(minifb::Key::J, KeyRepeat::No) {
+            let cur = self.states.borrow().move_obj;
+            self.states.borrow_mut().move_obj = !cur;
+            println!("Move obj: {}", !cur);
+        }
+        if input.is_key_pressed(minifb::Key::B, KeyRepeat::No) {
+            println!("Re baking the normals of the selected object");
+            let current_obj = self.states.borrow().current_obj;
+            self.scene.entities[current_obj]
+                .mesh
+                .bake_normals_to_colors();
+        }
+        if input.is_key_pressed(minifb::Key::LeftBracket, KeyRepeat::No) {
+            let mut current = self.states.borrow().current_obj;
+            current = current.saturating_sub(1);
+            if current > self.scene.entities.len() - 1 {
+                current = self.scene.entities.len() - 1;
+            }
+            self.states.borrow_mut().current_obj = current;
+            println!("Current object: {}", current);
+        }
+        if input.is_key_pressed(minifb::Key::RightBracket, KeyRepeat::No) {
+            let mut current = self.states.borrow().current_obj;
+            current += 1;
+            if current > self.scene.entities.len() - 1 {
+                current %= self.scene.entities.len();
+            }
+            self.states.borrow_mut().current_obj = current;
+            println!("Current object: {}", current);
+        }
+
+        if input.is_key_pressed(minifb::Key::U, KeyRepeat::No) {
+            if self.states.borrow().move_obj {
+                self.scene.entities[self.states.borrow().current_obj]
+                    .transform
+                    .translation = glam::Vec3::ZERO.into();
+            } else {
+                self.scene.camera.reset();
+            }
+        }
+        if input.is_key_pressed(minifb::Key::Slash, KeyRepeat::No) {
+            // Treat this as a question mark to print out debug info
+            println!("Printing out Matrices:");
+            println!(
+                "{}",
+                format_mat4("Camera View Matrix", &self.scene.camera.view_matrix())
+            );
+            println!(
+                "{}",
+                format_mat4(
+                    "Camera Projection Matrix",
+                    &self.scene.camera.projection_matrix()
+                )
+            );
+            println!(
+                "{}",
+                format_mat4(
+                    "Model Matrix (first entity)",
+                    &Mat4::from(self.scene.entities[0].transform)
+                )
+            );
+            println!(
+                "{}",
+                format_mat4(
+                    "MVP matrix of first entity",
+                    &(self.scene.camera.projection_matrix()
+                        * self.scene.camera.view_matrix()
+                        * Mat4::from(self.scene.entities[0].transform))
+                )
+            );
+        }
+        if input.is_key_pressed(minifb::Key::E, KeyRepeat::No) {
+            println!("Camera Debug Info:");
+            println!("Camera position: {:?}", self.scene.camera.position());
+            println!("Camera target: {:?}\n", self.scene.camera.target());
+
+            println!("{:?}", self.scene.camera.orientation());
+
+            println!("Camera forward: {:?}", self.scene.camera.forward());
+            println!("Camera right: {:?}\n", self.scene.camera.right());
+            println!("Camera up: {:?}\n", self.scene.camera.up());
+
+            println!(
+                "{}",
+                format_mat4("Camera View Matrix", &self.scene.camera.view_matrix())
+            );
+            println!(
+                "{}",
+                format_mat4(
+                    "Camera Projection Matrix",
+                    &self.scene.camera.projection_matrix()
+                )
+            );
+            println!("\n\n");
+        }
+        if input.is_key_pressed(Key::R, KeyRepeat::No) {
+            println!("Updating Render Mode of selected object");
+            // We'll do it cyclicly for now
+            let obj = &self.scene.entities[self.states.borrow().current_obj];
+
+            print!("Selected Object: {:?} -> ", obj.name);
+
+            if let Ok(mut mode) = obj.render_mode().lock() {
+                // Cycle through the render modes
+                *mode = match *mode {
+                    RenderMode::Solid => RenderMode::Wireframe,
+                    RenderMode::Wireframe => RenderMode::Solid,
+                    //RenderMode::FixedPoint => RenderMode::Solid,
+                    _ => RenderMode::Solid,
+                };
+                println!("New render mode: {:?}", *mode);
+            }
+        }
+
+        if input.is_key_pressed(Key::NumPad0, KeyRepeat::No) {
+            let obj = &self.scene.entities[self.states.borrow().current_obj];
+            println!("Material Info of selected object {:?}", obj.name);
+            for (i, mat) in obj.mesh.materials.iter().enumerate() {
+                println!("Material {}: {}", i, mat);
+            }
+        }
+
         // FIX: Update input handling to be less "fast" like if I try and just tap a button it
         // seems to register that I hit it like 4 times (due to fast framerate) need to slow down
         // polling I presume, or handle it using the key_pressed instead of some other thing
+
         if let Some(keys) = Some(input.get_keys()) {
-            for key in keys {
+            for key in keys.iter() {
                 match key {
-                    minifb::Key::P => {
-                        let current = self.states.borrow().draw_wireframe;
-                        self.states.borrow_mut().draw_wireframe = !current;
-                    }
-                    minifb::Key::B => {
-                        let current = self.states.borrow().bake_normals;
-                        self.states.borrow_mut().bake_normals = !current;
-                    }
-                    minifb::Key::J => {
-                        let current = self.states.borrow().move_obj;
-                        self.states.borrow_mut().move_obj = !current;
-                        println!("Move obj: {}", !current);
-                    }
-                    minifb::Key::LeftBracket => {
-                        let mut current = self.states.borrow().current_obj;
-                        current = current.saturating_sub(1);
-                        if current > self.scene.entities.len() - 1 {
-                            current = self.scene.entities.len() - 1;
-                        }
-                        self.states.borrow_mut().current_obj = current;
-                        println!("Current object: {}", current);
-                    }
-                    minifb::Key::RightBracket => {
-                        let mut current = self.states.borrow().current_obj;
-                        current += 1;
-                        if current > self.scene.entities.len() - 1 {
-                            current %= self.scene.entities.len();
-                        }
-                        self.states.borrow_mut().current_obj = current;
-                        println!("Current object: {}", current);
-                    }
                     minifb::Key::W => {
                         let move_obj = self.states.borrow().move_obj;
                         let current_obj = self.states.borrow().current_obj;
@@ -368,16 +418,6 @@ impl<B: Buffer> Pipeline<B> {
                             self.scene.camera.move_right(-move_amount);
                         }
                     }
-                    minifb::Key::U => {
-                        // reset cam or obj
-                        if self.states.borrow().move_obj {
-                            self.scene.entities[self.states.borrow().current_obj]
-                                .transform
-                                .translation = glam::Vec3::ZERO.into();
-                        } else {
-                            self.scene.camera.reset();
-                        }
-                    }
                     minifb::Key::D => {
                         let move_obj = self.states.borrow().move_obj;
                         let current_obj = self.states.borrow().current_obj;
@@ -400,37 +440,6 @@ impl<B: Buffer> Pipeline<B> {
                             self.scene.camera.move_up(move_amount);
                         }
                     }
-                    minifb::Key::Slash => {
-                        // Treat this as a question mark to print out debug info
-                        println!("Printing out Matrices:");
-                        println!(
-                            "{}",
-                            format_mat4("Camera View Matrix", &self.scene.camera.view_matrix())
-                        );
-                        println!(
-                            "{}",
-                            format_mat4(
-                                "Camera Projection Matrix",
-                                &self.scene.camera.projection_matrix()
-                            )
-                        );
-                        println!(
-                            "{}",
-                            format_mat4(
-                                "Model Matrix (first entity)",
-                                &Mat4::from(self.scene.entities[0].transform)
-                            )
-                        );
-                        println!(
-                            "{}",
-                            format_mat4(
-                                "MVP matrix of first entity",
-                                &(self.scene.camera.projection_matrix()
-                                    * self.scene.camera.view_matrix()
-                                    * Mat4::from(self.scene.entities[0].transform))
-                            )
-                        );
-                    }
                     minifb::Key::LeftShift => {
                         let move_obj = self.states.borrow().move_obj;
                         let current_obj = self.states.borrow().current_obj;
@@ -442,61 +451,16 @@ impl<B: Buffer> Pipeline<B> {
                     }
                     minifb::Key::Up => self.scene.camera.rotate(rotate_amount, 0.0),
                     minifb::Key::Down => self.scene.camera.rotate(-rotate_amount, 0.0),
-                    minifb::Key::E => {
-                        println!("Camera Debug Info:");
-                        println!("Camera position: {:?}", self.scene.camera.position());
-                        println!("Camera target: {:?}\n", self.scene.camera.target());
-
-                        println!("{:?}", self.scene.camera.orientation());
-
-                        println!("Camera forward: {:?}", self.scene.camera.forward());
-                        println!("Camera right: {:?}\n", self.scene.camera.right());
-                        println!("Camera up: {:?}\n", self.scene.camera.up());
-
-                        println!(
-                            "{}",
-                            format_mat4("Camera View Matrix", &self.scene.camera.view_matrix())
-                        );
-                        println!(
-                            "{}",
-                            format_mat4(
-                                "Camera Projection Matrix",
-                                &self.scene.camera.projection_matrix()
-                            )
-                        );
-                        println!("\n\n");
-                    }
-
                     minifb::Key::Key0 => {
                         let current_obj = self.states.borrow().current_obj;
                         self.scene.entities[current_obj].transform *=
                             Affine3A::from_rotation_x(0.1);
                     }
-                    minifb::Key::R => {
-                        println!("Updating Render Mode of selected object");
-                        // We'll do it cyclicly for now
-                        let obj = &self.scene.entities[self.states.borrow().current_obj];
-
-                        print!("Selected Object: {:?} -> ", obj.name);
-
-                        if let Ok(mut mode) = obj.render_mode().lock() {
-                            // Cycle through the render modes
-                            *mode = match *mode {
-                                RenderMode::Solid => RenderMode::Wireframe,
-                                RenderMode::Wireframe => RenderMode::Solid,
-                                //RenderMode::FixedPoint => RenderMode::Solid,
-                                _ => RenderMode::Solid,
-
-                            };
-                            println!("New render mode: {:?}", *mode);
-                        }
-                    }
                     _ => {}
                 }
             }
         }
+
+        // getting rid of the big ass match statement? maybe?
     }
 }
-
-
-

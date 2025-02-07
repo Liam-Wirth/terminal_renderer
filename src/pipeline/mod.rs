@@ -23,6 +23,8 @@ pub struct ProcessedGeometry {
     /// Index into the Scene's entity buffer
     pub entity_id: usize,
     pub vertices: [ClipVertex; 3],
+    
+    pub material_id: Option<usize>,
 }
 
 /// **Represents a vertex that has been projected onto screen space**
@@ -48,6 +50,16 @@ pub struct Fragment {
     pub depth: f32,
     /// Color of the fragment
     pub color: Color,
+
+    // index into the mesh's material buffer // NOTE: Below stuff might be unneccessary if we just
+    // use the material buffer index
+
+    //pub ambient: Option<Color>,
+    //pub diffuse: Option<Color>,
+    //pub specular: Option<Color>,
+    //pub shininess: Option<f32>,
+    //pub dissolve: Option<f32>, // Transparency
+
 }
 
 impl Default for Fragment {
