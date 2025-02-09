@@ -56,7 +56,7 @@ impl Color {
     }
 
     /// ONLY FOR INTERNAL USE!!! DO NOT USE OTHERWISE!
-    const fn hex(hex: &str) -> Self {
+    fn hex(hex: &str) -> Self {
         let bytes = hex.as_bytes(); // Convert to bytes for indexing
         let offset = if bytes[0] == b'#' { 1 } else { 0 }; // Handle optional `#`
 
@@ -139,30 +139,126 @@ impl Color {
 
 // Predefined colors
 impl Color {
-    pub const BLACK: Color = Color::hex("000000");
-    pub const LIGHT_GRAY: Color = Color::hex("D3D3D3");
-    pub const DARK_GRAY: Color = Color::hex("363737");
-    pub const GRAY: Color = Color::hex("808080");
-    pub const WHITE: Color = Color::hex("FFFFFF");
-    pub const RED: Color = Color::hex("FF0000");
-    pub const GREEN: Color = Color::hex("00FF00");
-    pub const BLUE: Color = Color::hex("0000FF");
-    pub const YELLOW: Color = Color::hex("FFFF00");
-    pub const CYAN: Color = Color::hex("00FFFF");
-    pub const MAGENTA: Color = Color::hex("FF00FF");
-    pub const ORANGE: Color = Color::hex("FFA500");
-    pub const PURPLE: Color = Color::hex("800080");
-    pub const PINK: Color = Color::hex("FFC0CB");
-    pub const BROWN: Color = Color::hex("A52A2A");
-    pub const GOLD: Color = Color::hex("FFD700");
-    pub const SILVER: Color = Color::hex("C0C0C0");
-    pub const TEAL: Color = Color::hex("008080");
-    pub const NAVY: Color = Color::hex("000080");
-    pub const MAROON: Color = Color::hex("800000");
-    pub const OLIVE: Color = Color::hex("808000");
-    pub const LIME: Color = Color::hex("00FF00");
-    pub const AQUA: Color = Color::hex("00FFFF");
-    pub const FUCHSIA: Color = Color::hex("FF00FF");
+    pub const BLACK: Color = Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+    };
+    pub const LIGHT_GRAY: Color = Color {
+        r: 0.827,
+        g: 0.827,
+        b: 0.827,
+    };
+    pub const DARK_GRAY: Color = Color {
+        r: 0.211,
+        g: 0.215,
+        b: 0.215,
+    };
+    pub const GRAY: Color = Color {
+        r: 0.502,
+        g: 0.502,
+        b: 0.502,
+    };
+    pub const WHITE: Color = Color {
+        r: 1.0,
+        g: 1.0,
+        b: 1.0,
+    };
+    pub const RED: Color = Color {
+        r: 1.0,
+        g: 0.0,
+        b: 0.0,
+    };
+    pub const GREEN: Color = Color {
+        r: 0.0,
+        g: 1.0,
+        b: 0.0,
+    };
+    pub const BLUE: Color = Color {
+        r: 0.0,
+        g: 0.0,
+        b: 1.0,
+    };
+    pub const YELLOW: Color = Color {
+        r: 1.0,
+        g: 1.0,
+        b: 0.0,
+    };
+    pub const CYAN: Color = Color {
+        r: 0.0,
+        g: 1.0,
+        b: 1.0,
+    };
+    pub const MAGENTA: Color = Color {
+        r: 1.0,
+        g: 0.0,
+        b: 1.0,
+    };
+    pub const ORANGE: Color = Color {
+        r: 1.0,
+        g: 0.647,
+        b: 0.0,
+    };
+    pub const PURPLE: Color = Color {
+        r: 0.502,
+        g: 0.0,
+        b: 0.502,
+    };
+    pub const PINK: Color = Color {
+        r: 1.0,
+        g: 0.753,
+        b: 0.796,
+    };
+    pub const BROWN: Color = Color {
+        r: 0.647,
+        g: 0.165,
+        b: 0.165,
+    };
+    pub const GOLD: Color = Color {
+        r: 1.0,
+        g: 0.843,
+        b: 0.0,
+    };
+    pub const SILVER: Color = Color {
+        r: 0.753,
+        g: 0.753,
+        b: 0.753,
+    };
+    pub const TEAL: Color = Color {
+        r: 0.0,
+        g: 0.502,
+        b: 0.502,
+    };
+    pub const NAVY: Color = Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.502,
+    };
+    pub const MAROON: Color = Color {
+        r: 0.502,
+        g: 0.0,
+        b: 0.0,
+    };
+    pub const OLIVE: Color = Color {
+        r: 0.502,
+        g: 0.502,
+        b: 0.0,
+    };
+    pub const LIME: Color = Color {
+        r: 0.0,
+        g: 1.0,
+        b: 0.0,
+    };
+    pub const AQUA: Color = Color {
+        r: 0.0,
+        g: 1.0,
+        b: 1.0,
+    };
+    pub const FUCHSIA: Color = Color {
+        r: 1.0,
+        g: 0.0,
+        b: 1.0,
+    };
 }
 
 impl Default for Color {

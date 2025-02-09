@@ -1,5 +1,6 @@
-use glam::Vec3;
+use crate::core::geometry::Material;
 use crate::core::Color;
+use glam::Vec3;
 
 /// The three kinds of lights we support.
 #[derive(Clone, Debug)]
@@ -50,7 +51,6 @@ pub enum Light {
     },
 }
 
-
 impl Light {
     pub fn default_directional() -> Self {
         Light::Directional {
@@ -90,4 +90,22 @@ impl Default for Light {
     fn default() -> Self {
         Light::default_directional()
     }
+}
+
+pub trait LightingModel {
+    /// Computes the final color for a fragment given the scene’s lighting and material properties.
+    ///
+    /// - `frag_pos`: the world-space position of the fragment.
+    /// - `normal`: the surface normal (should be normalized).
+    /// - `view_dir`: the normalized direction from the fragment to the camera.
+    /// - `lights`: a slice of lights in the scene.
+    /// - `material`: the material properties of the fragment.
+    fn shade(
+        &self,
+        frag_pos: Vec3,
+        normal: Vec3,
+        view_dir: Vec3,
+        lights: &[Light],
+        material: &Material,
+    ) -> Color;
 }
