@@ -147,7 +147,6 @@ pub fn handle_clap_matches(matches: &clap::ArgMatches) -> (DisplayTarget, Option
 /// Macro that expands into a match statement handling various key codes.
 /// It mirrors the logic from your minifb input handling, but for crossterm.
 #[macro_export]
-// TODO: Look into possibly using key_event instead of key_code, might have more flexibility
 macro_rules! handle_crossterm_keys {
     ($key_code:expr, $states:expr, $scene:expr, $move_amount:expr) => {{
         let mut should_break = false;
@@ -193,7 +192,10 @@ macro_rules! handle_crossterm_keys {
                 let move_obj = $states.borrow().move_obj;
                 let current_obj = $states.borrow().current_obj;
                 if move_obj {
-                    $scene.entities[current_obj].transform.translation.z += $move_amount;
+                    let ent = &$scene.entities[current_obj];
+                    let mut t = *ent.transform();
+                    t.translation.z += $move_amount;
+                    $scene.entities[current_obj].set_transform(t);
                 } else {
                     $scene.camera.move_forward($move_amount);
                 }
@@ -202,7 +204,10 @@ macro_rules! handle_crossterm_keys {
                 let move_obj = $states.borrow().move_obj;
                 let current_obj = $states.borrow().current_obj;
                 if move_obj {
-                    $scene.entities[current_obj].transform.translation.z -= $move_amount;
+                    let ent = &$scene.entities[current_obj];
+                    let mut t = *ent.transform();
+                    t.translation.z -= $move_amount;
+                    $scene.entities[current_obj].set_transform(t);
                 } else {
                     $scene.camera.move_forward(-$move_amount);
                 }
@@ -212,7 +217,10 @@ macro_rules! handle_crossterm_keys {
                 let move_obj = $states.borrow().move_obj;
                 let current_obj = $states.borrow().current_obj;
                 if move_obj {
-                    $scene.entities[current_obj].transform.translation.x -= $move_amount;
+                    let ent = &$scene.entities[current_obj];
+                    let mut t = *ent.transform();
+                    t.translation.x -= $move_amount;
+                    $scene.entities[current_obj].set_transform(t);
                 } else {
                     $scene.camera.move_right(-$move_amount);
                 }
@@ -221,7 +229,10 @@ macro_rules! handle_crossterm_keys {
                 let move_obj = $states.borrow().move_obj;
                 let current_obj = $states.borrow().current_obj;
                 if move_obj {
-                    $scene.entities[current_obj].transform.translation.x += $move_amount;
+                    let ent = &$scene.entities[current_obj];
+                    let mut t = *ent.transform();
+                    t.translation.x += $move_amount;
+                    $scene.entities[current_obj].set_transform(t);
                 } else {
                     $scene.camera.move_right($move_amount);
                 }
@@ -229,9 +240,6 @@ macro_rules! handle_crossterm_keys {
             // Reset entity or camera
             KeyCode::Char('u') => {
                 if $states.borrow().move_obj {
-                    $scene.entities[$states.borrow().current_obj]
-                        .transform
-                        .translation = glam::Vec3::ZERO.into();
                 } else {
                     $scene.camera.reset();
                 }
@@ -241,12 +249,14 @@ macro_rules! handle_crossterm_keys {
                 let move_obj = $states.borrow().move_obj;
                 let current_obj = $states.borrow().current_obj;
                 if move_obj {
-                    $scene.entities[current_obj].transform.translation.y += $move_amount;
+                    let ent = &$scene.entities[current_obj];
+                    let mut t = *ent.transform();
+                    t.translation.y += $move_amount;
+                    $scene.entities[current_obj].set_transform(t);
                 } else {
                     $scene.camera.move_up($move_amount);
                 }
             }
-
             KeyCode::Char('q') | KeyCode::Esc | KeyCode::Char('Q') => {
                 should_break = true;
             }

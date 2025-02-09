@@ -21,10 +21,10 @@ impl GameState {
 
     pub fn update(&mut self, delta_time: f32) {
         self.ship.update(delta_time);
-        
+
         // Update ship entity transform
         if let Some(ship_entity) = self.scene.entities.get_mut(0) {
-            ship_entity.transform = self.ship.get_transform();
+            ship_entity.set_transform(self.ship.get_transform());
         }
 
         // Update chase camera if enabled
@@ -36,5 +36,3 @@ impl Default for GameState {
         Self::new()
     }
 }
-
-

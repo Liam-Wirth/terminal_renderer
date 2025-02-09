@@ -13,6 +13,7 @@ pub mod pipeline;
 pub use clipper::ClipTriangle;
 pub use clipper::ClipVertex;
 pub use clipper::Clipper;
+use glam::Vec3;
 
 /// Represents geometry that has been processed through the transformation pipeline
 // TODO: Use clipVertex buffer and store indices here
@@ -23,8 +24,10 @@ pub struct ProcessedGeometry {
     /// Index into the Scene's entity buffer
     pub entity_id: usize,
     pub vertices: [ClipVertex; 3],
-    
+
     pub material_id: Option<usize>,
+
+    pub world_pos: [usize; 3],
 }
 
 /// **Represents a vertex that has been projected onto screen space**
@@ -50,7 +53,6 @@ pub struct Fragment {
     pub depth: f32,
     /// Color of the fragment
     pub color: Color,
-
     // index into the mesh's material buffer // NOTE: Below stuff might be unneccessary if we just
     // use the material buffer index
 
@@ -59,7 +61,6 @@ pub struct Fragment {
     //pub specular: Option<Color>,
     //pub shininess: Option<f32>,
     //pub dissolve: Option<f32>, // Transparency
-
 }
 
 impl Default for Fragment {
@@ -76,8 +77,7 @@ impl Default for Fragment {
     }
 }
 
-
-pub const FP_SHIFT: i32 = 9;  // Adjust this to control precision/wobble
+pub const FP_SHIFT: i32 = 9; // Adjust this to control precision/wobble
 pub const FP_ONE: i32 = 1 << FP_SHIFT;
 #[inline(always)]
 pub fn to_fixed(f: f32) -> i32 {

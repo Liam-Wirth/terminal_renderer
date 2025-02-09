@@ -107,6 +107,7 @@ Articles, Extremely old lecture material, Wikipedia Pages, etc, all of these pla
 - https://github.com/ssloy/tinyrenderer/wiki
 - https://en.wikipedia.org/wiki/Polygon_mesh
 - https://en.wikipedia.org/wiki/Triangle_mesh
+- https://developer.download.nvidia.com/CgTutorial/cg_tutorial_chapter05.html <- lighting. was especially helpful for spotlighting with attenuation/falloff
 
 
 ## Other cool projects! (that ended up helping me out :)
@@ -132,7 +133,6 @@ Depth Testing and Shading (Determine visible surfaces and color them)
 Frame Buffering and Output (Store and render the final image)
 
 This pipeline can be optimized by focusing on the most computationally expensive stages, such as rasterization and shading.
-
 
 
 # New "Pipeline" as it exists in my sick and twisted mind:
