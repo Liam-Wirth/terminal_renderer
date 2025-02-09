@@ -1,4 +1,10 @@
-use std::{cell::RefCell, default, fmt::{self, Display, Formatter}, sync::{Arc, Mutex}};
+use crate::core::light::Light;
+use std::{
+    cell::RefCell,
+    default,
+    fmt::{self, Display, Formatter},
+    sync::{Arc, Mutex},
+};
 
 use crate::core::camera::Camera;
 
@@ -12,7 +18,7 @@ use super::Color;
 pub enum RenderMode {
     Solid,
     Wireframe,
-    FixedPoint
+    FixedPoint,
 }
 
 impl Display for RenderMode {
@@ -35,7 +41,7 @@ impl Default for RenderMode {
 pub struct Entity {
     pub name: String,
     pub mesh: Mesh,
-    pub transform: glam::Affine3A,
+    transform: glam::Affine3A,
     render_mode: Arc<Mutex<RenderMode>>,
 }
 
@@ -76,7 +82,7 @@ impl Entity {
             mesh,
             transform,
             render_mode: Arc::new(Mutex::new(RenderMode::Solid)),
-            name
+            name,
         }
     }
 
@@ -89,8 +95,21 @@ impl Entity {
             mesh,
             transform: Affine3A::IDENTITY,
             render_mode: Arc::new(Mutex::new(RenderMode::Solid)),
-            name
+            name,
         }
+    }
+
+    pub fn transform(&self) -> &Affine3A {
+        &self.transform
+    }
+
+    pub fn set_transform(&mut self, transform: Affine3A) {
+        self.transform = transform;
+        self.mesh.mark_normals_dirty();
+    }
+
+    pub fn update(&self) {
+        self.mesh.update_normals(&self.transform);
     }
 
     pub fn from_obj_with_transform(path: &str, transform: Affine3A) -> Self {
@@ -100,7 +119,7 @@ impl Entity {
             mesh,
             transform,
             render_mode: Arc::new(Mutex::new(RenderMode::Solid)),
-            name
+            name,
         }
     }
 
@@ -112,11 +131,11 @@ impl Entity {
             mesh,
             transform,
             render_mode: Arc::new(Mutex::new(RenderMode::Solid)),
-            name
+            name,
         }
     }
 
-   pub fn set_render_mode(&self, mode: RenderMode) {
+    pub fn set_render_mode(&self, mode: RenderMode) {
         if let Ok(mut current_mode) = self.render_mode.lock() {
             *current_mode = mode;
         }
@@ -125,15 +144,13 @@ impl Entity {
     pub fn render_mode(&self) -> Arc<Mutex<RenderMode>> {
         Arc::clone(&self.render_mode)
     }
-
 }
-
-
 
 #[derive(Clone)]
 pub struct Scene {
     pub camera: Camera,
     pub entities: Vec<Entity>,
+    pub lights: Vec<Light>,
 }
 
 impl Scene {
@@ -141,6 +158,7 @@ impl Scene {
         Self {
             camera,
             entities: Vec::new(),
+            lights: Vec::new(),
         }
     }
 
@@ -152,6 +170,9 @@ impl Scene {
         self.entities[entity].transform *= glam::Affine3A::from_rotation_y(0.03);
         self.entities[entity].transform *= glam::Affine3A::from_rotation_x(0.01);
         self.entities[entity].transform *= glam::Affine3A::from_rotation_z(0.01);
+    }
+    pub fn add_light(&mut self, light: Light) {
+        self.lights.push(light);
     }
 }
 
@@ -165,6 +186,7 @@ impl Default for Scene {
         Self {
             camera: cam,
             entities: Vec::new(),
+            lights: Vec::new(),
         }
     }
 }

@@ -20,6 +20,7 @@ pub struct States {
     pub backface_culling: bool,
     pub move_obj: bool,
     pub current_obj: usize,
+    pub light_mode: crate::core::LightMode,
 }
 
 /// A graphics rendering pipeline that processes 3D geometry into 2D screen output
@@ -88,6 +89,7 @@ impl<B: Buffer> Pipeline<B> {
                 backface_culling: true,
                 move_obj: false,
                 current_obj: 0, // kinda dumb but I'll make it work trust
+                light_mode: crate::core::LightMode::BlinnPhong,
             }),
         }
     }
@@ -98,7 +100,7 @@ impl<B: Buffer> Pipeline<B> {
     /// 1. Clear back buffer
     /// 2. Process environment geometry
     /// 3. Transform vertices to clip space and clip triangles
-    /// 4. Rasterize visible triangles to fragments  
+    /// 4. Rasterize visible triangles to fragments
     /// 5. Process fragments and write to back buffer
     /// 6. Present back buffer to window or output
     /// 7. Swap front and back buffers
@@ -151,7 +153,8 @@ impl<B: Buffer> Pipeline<B> {
         );
 
         for (i, entity) in self.scene.entities.iter().enumerate() {
-            let model_matrix = Mat4::from(entity.transform);
+            entity.update();
+            let model_matrix = Mat4::from(*entity.transform());
             let mvp_matrix = projection_matrix * view_matrix * model_matrix;
 
             // Process each triangle
@@ -206,6 +209,7 @@ impl<B: Buffer> Pipeline<B> {
                         entity_id: i,
                         vertices: triangle.vertices,
                         material_id: tri.material,
+                        world_pos: tri.vertices,
                     });
                 }
             }
@@ -217,6 +221,7 @@ impl<B: Buffer> Pipeline<B> {
             &self.geometry.borrow(),
             &self.scene,
             &mut self.fragments.borrow_mut(),
+            &self.states.borrow().light_mode,
         );
     }
     pub fn process_fragments(&self, fragments: &[Fragment]) {
@@ -295,9 +300,7 @@ impl<B: Buffer> Pipeline<B> {
 
         if input.is_key_pressed(minifb::Key::U, KeyRepeat::No) {
             if self.states.borrow().move_obj {
-                self.scene.entities[self.states.borrow().current_obj]
-                    .transform
-                    .translation = glam::Vec3::ZERO.into();
+                return;
             } else {
                 self.scene.camera.reset();
             }
@@ -320,7 +323,7 @@ impl<B: Buffer> Pipeline<B> {
                 "{}",
                 format_mat4(
                     "Model Matrix (first entity)",
-                    &Mat4::from(self.scene.entities[0].transform)
+                    &Mat4::from(*self.scene.entities[0].transform())
                 )
             );
             println!(
@@ -329,7 +332,7 @@ impl<B: Buffer> Pipeline<B> {
                     "MVP matrix of first entity",
                     &(self.scene.camera.projection_matrix()
                         * self.scene.camera.view_matrix()
-                        * Mat4::from(self.scene.entities[0].transform))
+                        * Mat4::from(*self.scene.entities[0].transform()))
                 )
             );
         }
@@ -395,7 +398,10 @@ impl<B: Buffer> Pipeline<B> {
                         let move_obj = self.states.borrow().move_obj;
                         let current_obj = self.states.borrow().current_obj;
                         if move_obj {
-                            self.scene.entities[current_obj].transform.translation.z += move_amount;
+                            let ent = &self.scene.entities[current_obj];
+                            let mut t = *ent.transform();
+                            t.translation.z += move_amount;
+                            self.scene.entities[current_obj].set_transform(t);
                         } else {
                             self.scene.camera.move_forward(move_amount);
                         }
@@ -404,7 +410,10 @@ impl<B: Buffer> Pipeline<B> {
                         let move_obj = self.states.borrow().move_obj;
                         let current_obj = self.states.borrow().current_obj;
                         if move_obj {
-                            self.scene.entities[current_obj].transform.translation.z -= move_amount;
+                            let ent = &self.scene.entities[current_obj];
+                            let mut t = *ent.transform();
+                            t.translation.z -= move_amount;
+                            self.scene.entities[current_obj].set_transform(t);
                         } else {
                             self.scene.camera.move_forward(-move_amount);
                         }
@@ -413,7 +422,10 @@ impl<B: Buffer> Pipeline<B> {
                         let move_obj = self.states.borrow().move_obj;
                         let current_obj = self.states.borrow().current_obj;
                         if move_obj {
-                            self.scene.entities[current_obj].transform.translation.x -= move_amount;
+                            let ent = &self.scene.entities[current_obj];
+                            let mut t = *ent.transform();
+                            t.translation.x -= move_amount;
+                            self.scene.entities[current_obj].set_transform(t);
                         } else {
                             self.scene.camera.move_right(-move_amount);
                         }
@@ -422,7 +434,10 @@ impl<B: Buffer> Pipeline<B> {
                         let move_obj = self.states.borrow().move_obj;
                         let current_obj = self.states.borrow().current_obj;
                         if move_obj {
-                            self.scene.entities[current_obj].transform.translation.x += move_amount;
+                            let ent = &self.scene.entities[current_obj];
+                            let mut t = *ent.transform();
+                            t.translation.x += move_amount;
+                            self.scene.entities[current_obj].set_transform(t);
                         } else {
                             self.scene.camera.move_right(move_amount);
                         }
@@ -435,7 +450,7 @@ impl<B: Buffer> Pipeline<B> {
                         let move_obj = self.states.borrow().move_obj;
                         let current_obj = self.states.borrow().current_obj;
                         if move_obj {
-                            self.scene.entities[current_obj].transform.translation.y += move_amount;
+                            return;
                         } else {
                             self.scene.camera.move_up(move_amount);
                         }
@@ -444,7 +459,10 @@ impl<B: Buffer> Pipeline<B> {
                         let move_obj = self.states.borrow().move_obj;
                         let current_obj = self.states.borrow().current_obj;
                         if move_obj {
-                            self.scene.entities[current_obj].transform.translation.y -= move_amount;
+                            let ent = &self.scene.entities[current_obj];
+                            let mut t = *ent.transform();
+                            t.translation.y -= move_amount;
+                            self.scene.entities[current_obj].set_transform(t);
                         } else {
                             self.scene.camera.move_up(-move_amount);
                         }
@@ -453,8 +471,10 @@ impl<B: Buffer> Pipeline<B> {
                     minifb::Key::Down => self.scene.camera.rotate(-rotate_amount, 0.0),
                     minifb::Key::Key0 => {
                         let current_obj = self.states.borrow().current_obj;
-                        self.scene.entities[current_obj].transform *=
-                            Affine3A::from_rotation_x(0.1);
+                        let ent = &self.scene.entities[current_obj];
+                        let mut t = *ent.transform();
+                        t *= Affine3A::from_rotation_x(0.1);
+                        self.scene.entities[current_obj].set_transform(t);
                     }
                     _ => {}
                 }

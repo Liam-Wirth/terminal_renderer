@@ -1,11 +1,13 @@
 use std::sync::{Arc, Mutex};
 
-use crate::core::{Color, RenderMode, Scene};
+use crate::core::{Color, LightMode, LightingModel, RenderMode, Scene};
 use crate::debug_print;
 use crate::geometry::Material;
 use crate::pipeline::{to_fixed, Fragment, ProcessedGeometry, FP_ONE, FP_SHIFT};
-use glam::{Mat4, Vec2, Vec4};
+use glam::{Mat4, Vec2, Vec3, Vec4};
 use rayon::prelude::*;
+
+use super::ClipVertex;
 
 pub struct Rasterizer {
     width: usize,
@@ -22,21 +24,24 @@ impl Rasterizer {
         geometry: &[ProcessedGeometry],
         scene: &Scene,
         frags: &mut Vec<Fragment>,
+        light_mode: &crate::core::LightMode,
     ) {
         frags.clear();
         debug_print!("Processing {} geometries", geometry.len());
 
         // Separate environment geometry from regular geometry
-        let (env_geo, scene_geo): (Vec<_>, Vec<_>) =
-            geometry.iter().partition(|geo| geo.entity_id == usize::MAX); // what the hell is that second check?
-
 
         // Then process regular scene geometry
-        let scene_fragments: Vec<_> = scene_geo
+        let scene_fragments: Vec<_> = geometry
             .par_iter()
-            .flat_map(|geo: &&ProcessedGeometry| {
+            .flat_map(|geo: &ProcessedGeometry| {
                 let id = geo.entity_id;
-                self.process_mesh_triangles(geo, scene.entities[id].render_mode())
+                self.process_mesh_triangles(
+                    geo,
+                    scene.entities[id].render_mode(),
+                    light_mode,
+                    &scene,
+                )
             })
             .collect();
 
@@ -51,7 +56,11 @@ impl Rasterizer {
         &self,
         geo: &ProcessedGeometry,
         mode: Arc<Mutex<RenderMode>>,
+        light_mode: &crate::core::LightMode,
+        scene: &Scene,
     ) -> Vec<Fragment> {
+        let lights = &scene.lights;
+        let camera_pos = scene.camera.position();
         let vertices = [
             geo.vertices[0].position,
             geo.vertices[1].position,
@@ -70,10 +79,41 @@ impl Rasterizer {
         ];
 
         // MATCHING RENDER MODE TO DETERMINE HOW TO DRAW
+        // HACK:  This is fucked
+        let world_pos = [
+            scene.entities[geo.entity_id].mesh.vertices[geo.world_pos[0]].pos,
+            scene.entities[geo.entity_id].mesh.vertices[geo.world_pos[1]].pos,
+            scene.entities[geo.entity_id].mesh.vertices[geo.world_pos[2]].pos,
+        ];
+
+        let normals = {
+            let normal_buffer = scene.entities[geo.entity_id].mesh.normals.lock().unwrap();
+            [
+                normal_buffer[geo.world_pos[0]],
+                normal_buffer[geo.world_pos[1]],
+                normal_buffer[geo.world_pos[2]],
+            ]
+        };
+
+        let material = geo
+            .material_id
+            .map(|mat_id| &scene.entities[geo.entity_id].mesh.materials[mat_id]);
 
         match render_mode {
             RenderMode::Solid => {
-                self.rasterize_triangle_barycentric(screen_verts, colors, &vertices)
+                // TODO: cleanup this method signature from hell
+                // self.rasterize_triangle_barycentric(screen_verts, colors, &vertices)
+                self.rasterize_triangle_barycentric(
+                    screen_verts,
+                    colors,
+                    &geo.vertices,
+                    &world_pos,
+                    &normals,
+                    material.unwrap_or(&Material::default()), // TODO: fix this as well. gonna leave all these bugs in cause I just wanna see shading damnit
+                    lights,
+                    light_mode,
+                    camera_pos,
+                )
             }
             RenderMode::FixedPoint => self.rasterize_fixed_point(screen_verts, colors, &vertices),
             RenderMode::Wireframe => self.rasterize_triangle(&screen_verts, &colors),
@@ -113,8 +153,8 @@ impl Rasterizer {
             let ndc = Vec2::new(vertices[i].x / vertices[i].w, vertices[i].y / vertices[i].w);
             screen_verts[i] = Vec2::new(
                 (ndc.x + 1.0) * 0.5 * self.width as f32,
-                (1.0 - ndc.y ) * 0.5 * self.height as f32, // NOTE: FLIPPED THIS FROM (ndc.y +
-                // 1.0)
+                (1.0 - ndc.y) * 0.5 * self.height as f32, // NOTE: FLIPPED THIS FROM (ndc.y +
+                                                          // 1.0)
             );
         }
         screen_verts
@@ -222,14 +262,24 @@ impl Rasterizer {
         &self,
         screen_verts: [glam::Vec2; 3],
         colors: [crate::core::Color; 3],
-        clip_verts: &[Vec4; 3], // Add this parameter
+        clip_verts: &[ClipVertex; 3],
+        world_pos: &[Vec3; 3],
+        normals: &[Vec3; 3], // Will optionally compute face normal dependant on lighting model
+        material: &Material,
+        lights: &[crate::core::Light],
+        light_mode: &crate::core::LightMode,
+        view_pos: Vec3, // Camera Position
     ) -> Vec<crate::pipeline::Fragment> {
         let mut fragments = Vec::new();
 
         // Compute bounding box
         let mut bbox_min = glam::Vec2::new(self.width as f32 - 1.0, self.height as f32 - 1.0);
         let mut bbox_max = glam::Vec2::new(0.0, 0.0);
-
+        let light_model: Box<dyn LightingModel> = match light_mode {
+            crate::core::LightMode::Flat => Box::new(crate::core::FlatShading),
+            crate::core::LightMode::BlinnPhong => Box::new(crate::core::BlinnPhongShading),
+            _ => Box::new(crate::core::BlinnPhongShading),
+        };
         for v in &screen_verts {
             bbox_min.x = bbox_min.x.min(v.x);
             bbox_min.y = bbox_min.y.min(v.y);
@@ -246,14 +296,13 @@ impl Rasterizer {
         let (v0, v1, v2) = (screen_verts[0], screen_verts[1], screen_verts[2]);
 
         // Get z and w values for perspective-correct interpolation
-        let w0 = clip_verts[0].w;
-        let w1 = clip_verts[1].w;
-        let w2 = clip_verts[2].w;
+        let w0 = clip_verts[0].position.w;
+        let w1 = clip_verts[1].position.w;
+        let w2 = clip_verts[2].position.w;
 
-        let z0 = clip_verts[0].z / w0;
-        let z1 = clip_verts[1].z / w1;
-        let z2 = clip_verts[2].z / w2;
-
+        let z0 = clip_verts[0].position.z / w0;
+        let z1 = clip_verts[1].position.z / w1;
+        let z2 = clip_verts[2].position.z / w2;
 
         for y in bbox_min.y as i32..=bbox_max.y as i32 {
             for x in bbox_min.x as i32..=bbox_max.x as i32 {
@@ -266,17 +315,36 @@ impl Rasterizer {
                         let b1_c = (b1 / w1) * w;
                         let b2_c = (b2 / w2) * w;
 
+                        let frag_pos =
+                            world_pos[0] * b0_c + world_pos[1] * b1_c + world_pos[2] * b2_c; // NOTE: MAYBE USE b0, b1, b2 INSTEAD
+                        let view_dir = (view_pos - frag_pos).normalize();
                         // Interpolate z
                         let mut depth = z0 * b0_c + z1 * b1_c + z2 * b2_c; // In [-1, 1] range
                         depth = (depth + 1.0) * 0.5; // In [0, 1] range
                         depth = depth.clamp(0.0, 1.0);
 
                         // Interpolate color
-                        let color = crate::core::Color {
-                            r: colors[0].r * b0_c + colors[1].r * b1_c + colors[2].r * b2_c,
-                            g: colors[0].g * b0_c + colors[1].g * b1_c + colors[2].g * b2_c,
-                            b: colors[0].b * b0_c + colors[1].b * b1_c + colors[2].b * b2_c,
+                        let color = match light_mode {
+                            crate::core::LightMode::None => crate::core::Color {
+                                r: colors[0].r * b0_c + colors[1].r * b1_c + colors[2].r * b2_c,
+                                g: colors[0].g * b0_c + colors[1].g * b1_c + colors[2].g * b2_c,
+                                b: colors[0].b * b0_c + colors[1].b * b1_c + colors[2].b * b2_c,
+                            },
+                            crate::core::LightMode::Flat => {
+                                // need to interpolate face normal
+                                let normal = (normals[0] + normals[1] + normals[2]) / 3.0;
+                                crate::core::FlatShading
+                                    .shade(frag_pos, normal, view_dir, lights, material)
+                            }
+                            crate::core::LightMode::BlinnPhong => {
+                                // Interpolate normal based on barycentric coordinates
+                                let normal =
+                                    normals[0] * b0_c + normals[1] * b1_c + normals[2] * b2_c;
+                                light_model.shade(frag_pos, normal, view_dir, lights, material)
+                            }
+                            _ => crate::core::Color::WHITE,
                         };
+
                         fragments.push(crate::pipeline::Fragment {
                             screen_pos: p,
                             depth,

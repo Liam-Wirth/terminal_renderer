@@ -37,7 +37,7 @@ use std::{
     path::PathBuf,
 };
 use terminal_renderer::{
-    core::{Background, Camera, Entity, Environment, Scene},
+    core::{Background, Camera, Entity, Environment, Light, Scene},
     handle_crossterm_keys,
     pipeline::{pipeline::Pipeline, FrameBuffer, TermBuffer},
     Color, DEBUG_PIPELINE,
@@ -55,20 +55,30 @@ fn main() -> io::Result<()> {
     );
 
     let mut scene = Scene::new(camera);
+    scene.add_light(Light::Directional {
+        direction: Vec3::new(0.0, 0., 5.0).normalize(),
+        color: Color::WHITE,
+        intensity: 1.0,
+    });
 
     let icosphere_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("assets")
         .join("models")
         .join("icosphere.obj");
+    let monkey_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("suzanne.obj");
     let mut icosphere = Entity::from_obj(icosphere_path.to_str().unwrap());
     //teapot.transform = glam::Affine3A::from_rotation_y(std::f32::consts::PI);
     //teapot.mesh.bake_normals_to_colors();
+    icosphere.mesh.bake_normals_to_colors();
     scene.add_entity(icosphere);
 
     // You can choose which one to run
     // let _ = run_win(scene.clone());
     // or
-    //run_term(scene)
+    // run_term(scene)
     run_win(scene)
 }
 
