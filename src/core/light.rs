@@ -52,6 +52,49 @@ pub enum Light {
 }
 
 impl Light {
+    pub fn dir_above(color: Color, intensity: f32) -> Self {
+        Light::Directional {
+            direction: Vec3::new(0.0, -1.0, 0.0),
+            color,
+            intensity,
+        }
+    }
+
+    pub fn dir_below(color: Color, intensity: f32) -> Self {
+        Light::Directional {
+            direction: Vec3::new(0.0, 1.0, 0.0),
+            color,
+            intensity,
+        }
+    }
+    pub fn dir_infront(color: Color, intensity: f32) -> Self {
+        Light::Directional {
+            direction: Vec3::new(0.0, 0.0, -1.0),
+            color,
+            intensity,
+        }
+    }
+    pub fn dir_behind(color: Color, intensity: f32) -> Self {
+        Light::Directional {
+            direction: Vec3::new(0.0, 0.0, 1.0),
+            color,
+            intensity,
+        }
+    }
+    pub fn dir_right(color: Color, intensity: f32) -> Self {
+        Light::Directional {
+            direction: Vec3::new(1.0, 0.0, 0.0),
+            color,
+            intensity,
+        }
+    }
+    pub fn dir_left(color: Color, intensity: f32) -> Self {
+        Light::Directional {
+            direction: Vec3::new(-1.0, 0.0, 0.0),
+            color,
+            intensity,
+        }
+    }
     pub fn default_directional() -> Self {
         Light::Directional {
             direction: Vec3::new(0.0, -1.0, 0.0),
@@ -219,13 +262,16 @@ impl LightingModel for BlinnPhongShading {
         lights: &[Light],
         material: &Material,
     ) -> Color {
-        let mut final_color = Color::new(0.0, 0.0, 0.0);
-
-        // Get material properties
+        // Get material properties (with defaults)
         let ambient = material.ambient.unwrap_or(Color::new(0.2, 0.2, 0.2));
         let diffuse = material.diffuse.unwrap_or(Color::WHITE);
         let specular = material.specular.unwrap_or(Color::WHITE);
         let shininess = material.shininess.unwrap_or(32.0);
+
+        // Initialize separate accumulators
+        let mut ambient_acc = Color::new(0.0, 0.0, 0.0);
+        let mut diffuse_acc = Color::new(0.0, 0.0, 0.0);
+        let mut specular_acc = Color::new(0.0, 0.0, 0.0);
 
         for light in lights {
             match light {
@@ -234,33 +280,62 @@ impl LightingModel for BlinnPhongShading {
                     color,
                     intensity,
                 } => {
-                    // Ambient
-                    final_color.r += ambient.r * color.r;
-                    final_color.g += ambient.g * color.g;
-                    final_color.b += ambient.b * color.b;
+                    // --- Ambient Contribution ---
+                    let ambient_term = Color::new(
+                        ambient.r * color.r,
+                        ambient.g * color.g,
+                        ambient.b * color.b,
+                    );
+                    ambient_acc.r += ambient_term.r;
+                    ambient_acc.g += ambient_term.g;
+                    ambient_acc.b += ambient_term.b;
 
-                    // Diffuse
-                    let light_dir = -direction.normalize();
-                    let diff = normal.dot(light_dir).max(0.0);
+                    // --- Diffuse Contribution ---
+                    let light_dir = direction.normalize();
+                    let diff_factor = normal.dot(light_dir).max(0.0);
+                    let diffuse_term = Color::new(
+                        diffuse.r * color.r * diff_factor * intensity,
+                        diffuse.g * color.g * diff_factor * intensity,
+                        diffuse.b * color.b * diff_factor * intensity,
+                    );
+                    diffuse_acc.r += diffuse_term.r;
+                    diffuse_acc.g += diffuse_term.g;
+                    diffuse_acc.b += diffuse_term.b;
 
-                    final_color.r += diffuse.r * color.r * diff * intensity;
-                    final_color.g += diffuse.g * color.g * diff * intensity;
-                    final_color.b += diffuse.b * color.b * diff * intensity;
-
-                    // Specular
+                    // --- Specular Contribution ---
                     let halfway_dir = (light_dir + view_dir).normalize();
-                    let spec = normal.dot(halfway_dir).max(0.0).powf(shininess);
-
-                    final_color.r += specular.r * color.r * spec * intensity;
-                    final_color.g += specular.g * color.g * spec * intensity;
-                    final_color.b += specular.b * color.b * spec * intensity;
+                    let spec_factor = normal.dot(halfway_dir).max(0.0).powf(shininess);
+                    let specular_term = Color::new(
+                        specular.r * color.r * spec_factor * intensity,
+                        specular.g * color.g * spec_factor * intensity,
+                        specular.b * color.b * spec_factor * intensity,
+                    );
+                    specular_acc.r += specular_term.r;
+                    specular_acc.g += specular_term.g;
+                    specular_acc.b += specular_term.b;
                 }
+                // (Handle Point and Spot lights similarly.)
                 _ => {}
             }
-            final_color.r = final_color.r.clamp(0.0, 1.0);
-            final_color.g = final_color.g.clamp(0.0, 1.0);
-            final_color.b = final_color.b.clamp(0.0, 1.0);
         }
-        final_color
+
+        // Option 1: Clamp each accumulator separately then sum
+        ambient_acc.r = ambient_acc.r.clamp(0.0, 1.0);
+        ambient_acc.g = ambient_acc.g.clamp(0.0, 1.0);
+        ambient_acc.b = ambient_acc.b.clamp(0.0, 1.0);
+
+        diffuse_acc.r = diffuse_acc.r.clamp(0.0, 1.0);
+        diffuse_acc.g = diffuse_acc.g.clamp(0.0, 1.0);
+        diffuse_acc.b = diffuse_acc.b.clamp(0.0, 1.0);
+
+        specular_acc.r = specular_acc.r.clamp(0.0, 1.0);
+        specular_acc.g = specular_acc.g.clamp(0.0, 1.0);
+        specular_acc.b = specular_acc.b.clamp(0.0, 1.0);
+
+        let final_r = (ambient_acc.r + diffuse_acc.r + specular_acc.r).clamp(0.0, 1.0);
+        let final_g = (ambient_acc.g + diffuse_acc.g + specular_acc.g).clamp(0.0, 1.0);
+        let final_b = (ambient_acc.b + diffuse_acc.b + specular_acc.b).clamp(0.0, 1.0);
+
+        Color::new(final_r, final_g, final_b)
     }
 }

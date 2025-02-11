@@ -247,7 +247,8 @@ impl Rasterizer {
                 fragments.push(Fragment {
                     screen_pos: pos,
                     depth: 0.0, // TODO: Implement proper depth calculation
-                    color,
+                    albedo: color,
+                    normal: Vec3::ZERO,
                 });
             }
 
@@ -330,27 +331,12 @@ impl Rasterizer {
                         // Interpolate color
 
                         let diff = material.diffuse.unwrap_or(crate::core::Color::WHITE);
-                        let color = match light_mode {
-                            crate::core::LightMode::None => diff,
-                            crate::core::LightMode::Flat => {
-                                // need to interpolate face normal
-                                // let normal = (normals[0] + normals[1] + normals[2]) / 3.0;
-                                crate::core::FlatShading
-                                    .shade(frag_pos, normal, view_dir, lights, material)
-                            }
-                            crate::core::LightMode::BlinnPhong => {
-                                // Interpolate normal based on barycentric coordinates
-                                // let normal =
-                                //     normals[0] * b0_c + normals[1] * b1_c + normals[2] * b2_c;
-                                light_model.shade(frag_pos, normal, view_dir, lights, material)
-                            }
-                            _ => crate::core::Color::WHITE,
-                        };
 
                         fragments.push(crate::pipeline::Fragment {
                             screen_pos: p,
                             depth,
-                            color,
+                            albedo: diff,
+                            normal,
                         });
                     }
                 }
@@ -461,7 +447,8 @@ impl Rasterizer {
                         line_fragments.push(Fragment {
                             screen_pos: glam::Vec2::new(x as f32, y as f32),
                             depth,
-                            color: Color { r, g, b },
+                            albedo: Color { r, g, b },
+                            normal: Vec3::ZERO,
                         });
                     }
                 }

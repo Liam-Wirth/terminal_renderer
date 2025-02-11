@@ -51,8 +51,10 @@ pub struct Fragment {
     pub screen_pos: Vec2,
     /// Depth value for z-buffer calculations
     pub depth: f32,
-    /// Color of the fragment
-    pub color: Color,
+    /// Color of the fragment (Diffuse, before lighting pass)
+    pub albedo: Color,
+
+    pub normal: Vec3,
     // index into the mesh's material buffer // NOTE: Below stuff might be unneccessary if we just
     // use the material buffer index
 
@@ -72,7 +74,8 @@ impl Default for Fragment {
         Self {
             screen_pos: Vec2::ZERO,
             depth: f32::INFINITY,
-            color: Color::WHITE,
+            albedo: Color::WHITE,
+            normal: Vec3::ZERO,
         }
     }
 }

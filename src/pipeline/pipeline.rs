@@ -228,7 +228,7 @@ impl<B: Buffer> Pipeline<B> {
     pub fn process_fragments(&self, fragments: &[Fragment]) {
         let mut buffer = self.back_buffer.borrow_mut();
         for fragment in fragments {
-            let pixel = B::create_pixel(fragment.color);
+            let pixel = B::create_pixel(fragment.albedo);
             let pos = (
                 fragment.screen_pos.x as usize,
                 fragment.screen_pos.y as usize,
