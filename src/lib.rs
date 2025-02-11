@@ -76,8 +76,7 @@ impl Display for Metrics {
     }
 }
 
-pub static DEBUG_PIPELINE: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
+pub static DEBUG_PIPELINE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 // Helper macro for debug printing
 #[macro_export]

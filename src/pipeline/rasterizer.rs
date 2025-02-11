@@ -94,10 +94,12 @@ impl Rasterizer {
                 normal_buffer[geo.world_pos[2]],
             ]
         };
-
-        let material = geo
-            .material_id
-            .map(|mat_id| &scene.entities[geo.entity_id].mesh.materials[mat_id]);
+        let material = match geo.material_id {
+            Some(mat_id) if mat_id < scene.entities[geo.entity_id].mesh.materials.len() => {
+                &scene.entities[geo.entity_id].mesh.materials[mat_id]
+            }
+            _ => &Material::default(),
+        };
 
         match render_mode {
             RenderMode::Solid => {
@@ -105,11 +107,10 @@ impl Rasterizer {
                 // self.rasterize_triangle_barycentric(screen_verts, colors, &vertices)
                 self.rasterize_triangle_barycentric(
                     screen_verts,
-                    colors,
                     &geo.vertices,
                     &world_pos,
                     &normals,
-                    material.unwrap_or(&Material::default()), // TODO: fix this as well. gonna leave all these bugs in cause I just wanna see shading damnit
+                    material, // TODO: fix this as well. gonna leave all these bugs in cause I just wanna see shading damnit
                     lights,
                     light_mode,
                     camera_pos,
@@ -246,7 +247,8 @@ impl Rasterizer {
                 fragments.push(Fragment {
                     screen_pos: pos,
                     depth: 0.0, // TODO: Implement proper depth calculation
-                    color,
+                    albedo: color,
+                    normal: Vec3::ZERO,
                 });
             }
 
@@ -261,7 +263,6 @@ impl Rasterizer {
     fn rasterize_triangle_barycentric(
         &self,
         screen_verts: [glam::Vec2; 3],
-        colors: [crate::core::Color; 3],
         clip_verts: &[ClipVertex; 3],
         world_pos: &[Vec3; 3],
         normals: &[Vec3; 3], // Will optionally compute face normal dependant on lighting model
@@ -323,32 +324,19 @@ impl Rasterizer {
                         depth = (depth + 1.0) * 0.5; // In [0, 1] range
                         depth = depth.clamp(0.0, 1.0);
 
+                        let interp_normal =
+                            normals[0] * b0_c + normals[1] * b1_c + normals[2] * b2_c; // this is important I've learned
+                        let normal = interp_normal.normalize(); // Get it back into 0-1 range
+
                         // Interpolate color
-                        let color = match light_mode {
-                            crate::core::LightMode::None => crate::core::Color {
-                                r: colors[0].r * b0_c + colors[1].r * b1_c + colors[2].r * b2_c,
-                                g: colors[0].g * b0_c + colors[1].g * b1_c + colors[2].g * b2_c,
-                                b: colors[0].b * b0_c + colors[1].b * b1_c + colors[2].b * b2_c,
-                            },
-                            crate::core::LightMode::Flat => {
-                                // need to interpolate face normal
-                                let normal = (normals[0] + normals[1] + normals[2]) / 3.0;
-                                crate::core::FlatShading
-                                    .shade(frag_pos, normal, view_dir, lights, material)
-                            }
-                            crate::core::LightMode::BlinnPhong => {
-                                // Interpolate normal based on barycentric coordinates
-                                let normal =
-                                    normals[0] * b0_c + normals[1] * b1_c + normals[2] * b2_c;
-                                light_model.shade(frag_pos, normal, view_dir, lights, material)
-                            }
-                            _ => crate::core::Color::WHITE,
-                        };
+
+                        let diff = material.diffuse.unwrap_or(crate::core::Color::WHITE);
 
                         fragments.push(crate::pipeline::Fragment {
                             screen_pos: p,
                             depth,
-                            color,
+                            albedo: diff,
+                            normal,
                         });
                     }
                 }
@@ -459,7 +447,8 @@ impl Rasterizer {
                         line_fragments.push(Fragment {
                             screen_pos: glam::Vec2::new(x as f32, y as f32),
                             depth,
-                            color: Color { r, g, b },
+                            albedo: Color { r, g, b },
+                            normal: Vec3::ZERO,
                         });
                     }
                 }

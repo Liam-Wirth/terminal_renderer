@@ -55,11 +55,8 @@ fn main() -> io::Result<()> {
     );
 
     let mut scene = Scene::new(camera);
-    scene.add_light(Light::Directional {
-        direction: Vec3::new(0.0, 0., 5.0).normalize(),
-        color: Color::WHITE,
-        intensity: 1.0,
-    });
+    scene.add_light(Light::dir_below(Color::WHITE, 1.));
+    // scene.add_light(Light::dir_below(Color::YELLOW, 0.25));
 
     let icosphere_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("assets")
@@ -69,16 +66,44 @@ fn main() -> io::Result<()> {
         .join("assets")
         .join("models")
         .join("suzanne.obj");
-    let mut icosphere = Entity::from_obj(icosphere_path.to_str().unwrap());
-    //teapot.transform = glam::Affine3A::from_rotation_y(std::f32::consts::PI);
-    //teapot.mesh.bake_normals_to_colors();
-    icosphere.mesh.bake_normals_to_colors();
-    scene.add_entity(icosphere);
+    let penguin_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("Penguin.obj");
+    let solids_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("solids.obj");
+    let teapot = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("newell_teaset")
+        .join("teapot.obj");
+
+    let platonics = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("platonics");
+
+    let suzy = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("suzy.obj"); // FUCK big problems here
+                           // let mut penguin = Entity::from_obj(penguin_path.to_str().unwrap());
+                           // let mut icosphere = Entity::from_obj(icosphere_path.to_str().unwrap());
+                           // let mut monkey = Entity::from_obj(monkey_path.to_str().unwrap());
+                           // let mut solids = Entity::from_obj(solids_path.to_str().unwrap());
+                           // let mut teapot = Entity::from_obj(teapot.to_str().unwrap());
+
+    let mut dodec = Entity::from_obj(platonics.join("dodec.obj").to_str().unwrap());
+    let mut ico = Entity::from_obj(platonics.join("ico.obj").to_str().unwrap());
+    scene.add_entity(ico);
+
+    //scene.add_entity(hexa);
 
     // You can choose which one to run
-    // let _ = run_win(scene.clone());
     // or
-    // run_term(scene)
+    //run_term(scene)
     run_win(scene)
 }
 

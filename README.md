@@ -46,13 +46,14 @@ graph LR
 
 
 # TODO
-- [ ] Decouple Rendering logic from the terminal output
+- [x] Decouple Rendering logic from the terminal output
 - [ ] Better document code, Rust is very much self-documenting, but it's good to explain things as I go as well
 - [ ] Beautify the links as markdown links for the "Links I looked at section"
 - [ ] migrate to possibly just using the mesh with tobj?
 - [ ] OR Finalize mesh struct, implementing materials
 - [ ] Lighting
 - [ ] Shadows
+- [ ] Figure out version numbers
 
 ## TODO: Clipping
 - [ ] Bounding boxes for entities/meshes
@@ -108,6 +109,11 @@ Articles, Extremely old lecture material, Wikipedia Pages, etc, all of these pla
 - https://en.wikipedia.org/wiki/Polygon_mesh
 - https://en.wikipedia.org/wiki/Triangle_mesh
 - https://developer.download.nvidia.com/CgTutorial/cg_tutorial_chapter05.html <- lighting. was especially helpful for spotlighting with attenuation/falloff
+- https://docs.mcneel.com/rhino/mac/help/en-us/commands/weld.htm
+- https://en.wikipedia.org/wiki/Vertex_normal
+- https://stackoverflow.com/questions/14290365/how-to-merge-adjacent-coplanar-faces-on-a-mesh
+- https://stackoverflow.com/questions/2667748/how-do-i-combine-complex-polygons
+
 
 
 ## Other cool projects! (that ended up helping me out :)
