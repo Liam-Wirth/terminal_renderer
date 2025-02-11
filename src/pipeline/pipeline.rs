@@ -163,6 +163,7 @@ impl<B: Buffer> Pipeline<B> {
                 let material_color = tri
                     .material
                     .map(|mat_id| entity.mesh.materials[mat_id].get_base_color());
+                // println!("MATERIAL COLOR: {:?}", material_color);
 
                 // For each vertex, if no per-vertex color is provided then use the material's base color (or white)
                 let v0 = &entity.mesh.vertices[tri.vertices[0]];
