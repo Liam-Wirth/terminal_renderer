@@ -46,13 +46,14 @@ graph LR
 
 
 # TODO
-- [ ] Decouple Rendering logic from the terminal output
+- [x] Decouple Rendering logic from the terminal output
 - [ ] Better document code, Rust is very much self-documenting, but it's good to explain things as I go as well
 - [ ] Beautify the links as markdown links for the "Links I looked at section"
 - [ ] migrate to possibly just using the mesh with tobj?
 - [ ] OR Finalize mesh struct, implementing materials
 - [ ] Lighting
 - [ ] Shadows
+- [ ] Figure out version numbers
 
 ## TODO: Clipping
 - [ ] Bounding boxes for entities/meshes
