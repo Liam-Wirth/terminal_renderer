@@ -56,7 +56,7 @@ fn main() -> io::Result<()> {
 
     let mut scene = Scene::new(camera);
     scene.add_light(Light::Directional {
-        direction: Vec3::new(0.0, 0., 5.0).normalize(),
+        direction: Vec3::new(0.0, 1., -5.0).normalize(),
         color: Color::WHITE,
         intensity: 1.0,
     });
@@ -69,11 +69,33 @@ fn main() -> io::Result<()> {
         .join("assets")
         .join("models")
         .join("suzanne.obj");
+    let penguin_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("Penguin.obj");
+    let solids_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("solids.obj");
+    let teapot = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("newell_teaset")
+        .join("teapot.obj");
+
+    let platonics = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("models")
+        .join("platonics");
+    // let mut penguin = Entity::from_obj(penguin_path.to_str().unwrap());
     let mut icosphere = Entity::from_obj(icosphere_path.to_str().unwrap());
-    //teapot.transform = glam::Affine3A::from_rotation_y(std::f32::consts::PI);
-    //teapot.mesh.bake_normals_to_colors();
-    icosphere.mesh.bake_normals_to_colors();
-    scene.add_entity(icosphere);
+    // let mut monkey = Entity::from_obj(monkey_path.to_str().unwrap());
+    // let mut solids = Entity::from_obj(solids_path.to_str().unwrap());
+    // let mut teapot = Entity::from_obj(teapot.to_str().unwrap());
+
+    let mut dodec = Entity::from_obj(platonics.join("dodec.obj").to_str().unwrap());
+
+    scene.add_entity(dodec);
 
     // You can choose which one to run
     // let _ = run_win(scene.clone());
