@@ -111,8 +111,7 @@ impl Rasterizer {
                     &world_pos,
                     &normals,
                     material, // TODO: fix this as well. gonna leave all these bugs in cause I just wanna see shading damnit
-                    lights,
-                    light_mode,
+                    Some((geo.entity_id, geo.material_id.unwrap())),
                     camera_pos,
                 )
             }
@@ -244,11 +243,13 @@ impl Rasterizer {
                 && pos.y >= 0.0
                 && pos.y < self.height as f32
             {
+                // NOTE: Might need to find a way to override here. Probably best move is on wireframe toggle disable any lighting
                 fragments.push(Fragment {
                     screen_pos: pos,
                     depth: 0.0, // TODO: Implement proper depth calculation
                     albedo: color,
                     normal: Vec3::ZERO,
+                    ..Default::default()
                 });
             }
 
@@ -265,10 +266,9 @@ impl Rasterizer {
         screen_verts: [glam::Vec2; 3],
         clip_verts: &[ClipVertex; 3],
         world_pos: &[Vec3; 3],
-        normals: &[Vec3; 3], // Will optionally compute face normal dependant on lighting model
+        normals: &[Vec3; 3], // Will optionally compute face normal dependent on lighting model
         material: &Material,
-        lights: &[crate::core::Light],
-        light_mode: &crate::core::LightMode,
+        mat_id: Option<(usize, usize)>,
         view_pos: Vec3, // Camera Position
     ) -> Vec<crate::pipeline::Fragment> {
         let mut fragments = Vec::new();
@@ -276,11 +276,6 @@ impl Rasterizer {
         // Compute bounding box
         let mut bbox_min = glam::Vec2::new(self.width as f32 - 1.0, self.height as f32 - 1.0);
         let mut bbox_max = glam::Vec2::new(0.0, 0.0);
-        let light_model: Box<dyn LightingModel> = match light_mode {
-            crate::core::LightMode::Flat => Box::new(crate::core::FlatShading),
-            crate::core::LightMode::BlinnPhong => Box::new(crate::core::BlinnPhongShading),
-            _ => Box::new(crate::core::BlinnPhongShading),
-        };
         for v in &screen_verts {
             bbox_min.x = bbox_min.x.min(v.x);
             bbox_min.y = bbox_min.y.min(v.y);
@@ -318,8 +313,7 @@ impl Rasterizer {
 
                         let frag_pos =
                             world_pos[0] * b0_c + world_pos[1] * b1_c + world_pos[2] * b2_c; // NOTE: MAYBE USE b0, b1, b2 INSTEAD
-                        let view_dir = (view_pos - frag_pos).normalize();
-                        // Interpolate z
+                                                                                             // Interpolate z
                         let mut depth = z0 * b0_c + z1 * b1_c + z2 * b2_c; // In [-1, 1] range
                         depth = (depth + 1.0) * 0.5; // In [0, 1] range
                         depth = depth.clamp(0.0, 1.0);
@@ -337,6 +331,10 @@ impl Rasterizer {
                             depth,
                             albedo: diff,
                             normal,
+                            specular: material.specular.unwrap_or(crate::core::Color::WHITE),
+                            shininess: material.shininess.unwrap_or(0.),
+                            dissolve: material.dissolve.unwrap_or(0.),
+                            mat_id: mat_id,
                         });
                     }
                 }
@@ -449,6 +447,7 @@ impl Rasterizer {
                             depth,
                             albedo: Color { r, g, b },
                             normal: Vec3::ZERO,
+                            ..Default::default()
                         });
                     }
                 }

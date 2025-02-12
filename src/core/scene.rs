@@ -99,6 +99,21 @@ impl Entity {
         }
     }
 
+    pub fn from_obj_set(path: &str) -> Vec<Self> {
+        let meshes = Mesh::from_obj_to_set(path);
+        let mut out = Vec::new();
+
+        for (_, mesh) in meshes {
+            out.push(Self {
+                name: mesh.name.clone(),
+                mesh,
+                transform: Affine3A::IDENTITY,
+                render_mode: Arc::new(Mutex::new(RenderMode::Solid)),
+            })
+        }
+        out
+    }
+
     pub fn transform(&self) -> &Affine3A {
         &self.transform
     }

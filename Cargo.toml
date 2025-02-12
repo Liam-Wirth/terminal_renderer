@@ -19,3 +19,7 @@ tobj = "4.0.2"
 
 [lib]
 
+
+[profile.release]
+debug = true
+

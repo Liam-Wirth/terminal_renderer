@@ -1,4 +1,3 @@
-
 use std::fmt::{Display, Formatter};
 
 use crate::core::color::Color;
@@ -62,13 +61,16 @@ impl Material {
             .or(self.ambient)
             .unwrap_or(Color::WHITE)
     }
-
 }
 
 impl Display for Material {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         // TODO: Better pretty printing here
-        write!(f, "Material, Name: {}, \n Diffuse: {:?}", self.name, self.diffuse)
+        write!(
+            f,
+            "Material, Name: {}, \n Diffuse: {:?}",
+            self.name, self.diffuse
+        )
     }
 }
 
@@ -76,12 +78,12 @@ impl Default for Material {
     fn default() -> Self {
         Self {
             name: "Default".to_string(),
-            ambient: Some(Color::new(0.2, 0.2, 0.2)),
-            diffuse: Some(Color::WHITE),
-            specular: Some(Color::new(0.8, 0.8, 0.8)),
-            shininess: Some(32.0),
-            dissolve: Some(1.0),
-            optical_density: Some(1.0),
+            ambient: None,
+            diffuse: None,
+            specular: None,
+            shininess: None,
+            dissolve: None,
+            optical_density: None,
             ambient_texture: None,
             diffuse_texture: None,
             specular_texture: None,
@@ -89,7 +91,7 @@ impl Default for Material {
             shininess_texture: None,
             dissolve_texture: None,
             illumination_model: Some(2), // Blinn-Phong by default
-            //unknown_params: HashMap::new(),
+                                         //unknown_params: HashMap::new(),
         }
     }
 }
