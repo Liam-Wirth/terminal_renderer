@@ -2,3 +2,10 @@ newmtl FrontColor
 Ka 0.000000 0.000000 0.000000
 Kd 1.000000 1.000000 1.000000
 Ks 0.330000 0.330000 0.330000
+Ns 900
+
+newmtl CeramicPot
+Ka 0.000000 0.000000 0.000000
+Kd 0.9 0.9 0.9       # A near-white diffuse color typical of ceramics.
+                       Ks 1.0 1.0       1.0       # Strong specular reflection.
+                                        Ns 300                           # A higher specular exponent for a tight, glossy highlight.

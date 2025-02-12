@@ -30,6 +30,7 @@ use crossterm::{
     terminal::{self, disable_raw_mode, enable_raw_mode, Clear, ClearType},
 };
 use glam::Vec3;
+use log::warn;
 use minifb::{Key, Scale, Window, WindowOptions};
 use std::time::{Duration, Instant};
 use std::{
@@ -49,14 +50,18 @@ const HEIGHT: usize = 1080;
 fn main() -> io::Result<()> {
     DEBUG_PIPELINE.store(false, std::sync::atomic::Ordering::Relaxed);
     let camera = Camera::new(
-        Vec3::new(0.0, 0.0, 6.), // Position camera back a bit
-        Vec3::new(0.0, 0.0, 0.),
+        Vec3::new(0.0, 2.0, 6.), // Position camera back a bit
+        Vec3::new(0.0, 2.0, 0.),
         WIDTH as f32 / HEIGHT as f32,
     );
 
     let mut scene = Scene::new(camera);
-    scene.add_light(Light::dir_below(Color::WHITE, 1.));
-    // scene.add_light(Light::dir_below(Color::YELLOW, 0.25));
+    let mut point = Light::easy_point(Vec3::new(0., 03., 4.)); // FIX: All lighting calculations are backwards
+    let mut point2 = Light::easy_point(Vec3::new(3., -1., 0.)); // FIX: All lighting calculations are backwards
+    point2.color = Color::from_hex("#6bcaf2").unwrap();
+
+    scene.add_light(point);
+    scene.add_light(point2);
 
     let icosphere_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("assets")
@@ -90,14 +95,19 @@ fn main() -> io::Result<()> {
         .join("models")
         .join("suzy.obj"); // FUCK big problems here
                            // let mut penguin = Entity::from_obj(penguin_path.to_str().unwrap());
-                           // let mut icosphere = Entity::from_obj(icosphere_path.to_str().unwrap());
-                           // let mut monkey = Entity::from_obj(monkey_path.to_str().unwrap());
-                           // let mut solids = Entity::from_obj(solids_path.to_str().unwrap());
-                           // let mut teapot = Entity::from_obj(teapot.to_str().unwrap());
+    let mut icosphere = Entity::from_obj_set(icosphere_path.to_str().unwrap());
+    // let mut monkey = Entity::from_obj(monkey_path.to_str().unwrap());
+    // let mut solids = Entity::from_obj(solids_path.to_str().unwrap());
+    let mut teapot = Entity::from_obj_set(teapot.to_str().unwrap());
 
-    let mut dodec = Entity::from_obj(platonics.join("dodec.obj").to_str().unwrap());
-    let mut ico = Entity::from_obj(platonics.join("ico.obj").to_str().unwrap());
-    scene.add_entity(ico);
+    //let mut dodec = Entity::from_obj(platonics.join("dodec.obj").to_str().unwrap());
+    //let mut ico = Entity::from_obj(platonics.join("ico.obj").to_str().unwrap());
+    // for ent in icosphere.iter() {
+    //     scene.add_entity(ent.clone());
+    // }
+    for ent in teapot.iter() {
+        scene.add_entity(ent.clone());
+    }
 
     //scene.add_entity(hexa);
 
