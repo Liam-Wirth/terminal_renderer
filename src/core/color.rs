@@ -1,9 +1,15 @@
-#[derive(Debug, Clone, Copy, PartialEq)]
+use log::warn;
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+
+// TODO: In the future would be cool to look into SIMD stuff for this, possibly like vectorized accumulation of colors etc
+#[derive(Debug, Clone, Copy)]
 pub struct Color {
     pub r: f32, // Red component (0.0 - 1.0)
     pub g: f32, // Green component (0.0 - 1.0)
     pub b: f32, // Blue component (0.0 - 1.0)
 }
+
+// NOTE: Might be better to not have it be clamped so it's clear whats being done idk
 
 impl Color {
     /// Create a new color with RGB components normalized.
@@ -94,14 +100,31 @@ impl Color {
         (r << 16) | (g << 8) | b
     }
 
-    pub fn lerp(&self, end: &Color, t: f32) -> Color {
-        Color {
-            r: self.r + (end.r - self.r) * t,
-            g: self.g + (end.g - self.g) * t,
-            b: self.b + (end.b - self.b) * t,
+    pub fn lerp(self, end: &Color, t: f32) -> Color {
+        self * (1.0 - t) + *end * t
+    }
+
+    /// Produces new version of self that is clamped from 0 to 1
+    pub fn clamped(&self) -> Color {
+        let r = self.r.clamp(0., 1.);
+        let g = self.g.clamp(0., 1.);
+        let b = self.b.clamp(0., 1.);
+        Color { r, g, b }
+    }
+    pub fn clamp(&mut self) {
+        self.r = self.r.clamp(0., 1.);
+        self.g = self.g.clamp(0., 1.);
+        self.b = self.b.clamp(0., 1.);
+    }
+
+    pub fn accumulate(&mut self, colors: &[Color]) {
+        for color in colors {
+            Color::add_assign(self, *color);
         }
     }
+
     // I whent overboard on optimizations here
+
     // fast af boiiiii
     // this works cause:
     /*
@@ -138,6 +161,185 @@ impl Color {
 }
 
 // Predefined colors
+
+impl Default for Color {
+    fn default() -> Self {
+        Color::WHITE // Default to white color
+    }
+}
+
+impl From<(f32, f32, f32)> for Color {
+    fn from(t: (f32, f32, f32)) -> Self {
+        Self {
+            r: t.0,
+            g: t.1,
+            b: t.2,
+        }
+    }
+}
+
+impl From<(f32)> for Color {
+    fn from(t: (f32)) -> Self {
+        Self { r: t, g: t, b: t }.clamped()
+    }
+}
+
+impl From<(u8, u8, u8)> for Color {
+    fn from(t: (u8, u8, u8)) -> Self {
+        Self {
+            r: (t.0 as f32) / 255.,
+            g: (t.1 as f32) / 255.,
+            b: (t.2 as f32) / 255.,
+        }
+    }
+}
+
+impl Neg for Color {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        Self {
+            r: 1.0 - self.r,
+            g: 1.0 - self.g,
+            b: 1.0 - self.b,
+        }
+    }
+}
+
+impl Add for Color {
+    type Output = Color;
+    fn add(self, rhs: Color) -> Color {
+        Self {
+            r: self.r + rhs.r,
+            g: self.g + rhs.g,
+            b: self.b + rhs.b,
+        }
+        .clamped() // Cause 0-1
+    }
+}
+
+impl AddAssign for Color {
+    fn add_assign(&mut self, rhs: Color) {
+        self.r += rhs.r;
+        self.g += rhs.g;
+        self.b += rhs.b;
+        self.clamp()
+    }
+}
+
+impl Sub for Color {
+    type Output = Color;
+    fn sub(self, rhs: Color) -> Color {
+        Self {
+            r: self.r - rhs.r,
+            g: self.g - rhs.g,
+            b: self.b - rhs.b,
+        }
+        .clamped()
+    }
+}
+
+impl SubAssign for Color {
+    fn sub_assign(&mut self, rhs: Color) {
+        self.r -= rhs.r;
+        self.g -= rhs.g;
+        self.b -= rhs.b;
+        self.clamp()
+    }
+}
+
+impl Div<f32> for Color {
+    type Output = Self;
+
+    fn div(self, scalar: f32) -> Self {
+        Self {
+            r: self.r / scalar,
+            g: self.g / scalar,
+            b: self.b / scalar,
+        }
+    }
+}
+
+impl DivAssign<f32> for Color {
+    fn div_assign(&mut self, scalar: f32) {
+        self.r /= scalar;
+        self.g /= scalar;
+        self.b /= scalar;
+    }
+}
+
+impl Div for Color {
+    type Output = Self;
+
+    fn div(self, other: Self) -> Self {
+        Self {
+            r: self.r / other.r,
+            g: self.g / other.g,
+            b: self.b / other.b,
+        }
+    }
+}
+
+impl DivAssign for Color {
+    fn div_assign(&mut self, other: Self) {
+        self.r /= other.r;
+        self.g /= other.g;
+        self.b /= other.b;
+    }
+}
+
+impl Mul<f32> for Color {
+    type Output = Self;
+    fn mul(self, scalar: f32) -> Self {
+        Self {
+            r: self.r * scalar,
+            g: self.g * scalar,
+            b: self.b * scalar,
+        }
+        .clamped()
+    }
+}
+impl MulAssign<f32> for Color {
+    fn mul_assign(&mut self, scalar: f32) {
+        self.r *= scalar;
+        self.g *= scalar;
+        self.b *= scalar;
+        self.clamp();
+    }
+}
+impl PartialEq for Color {
+    fn eq(&self, other: &Self) -> bool {
+        (self.r - other.r).abs() < f32::EPSILON
+            && (self.g - other.g).abs() < f32::EPSILON
+            && (self.b - other.b).abs() < f32::EPSILON
+    }
+}
+
+impl Mul<&Color> for Color {
+    type Output = Color;
+
+    fn mul(self, rhs: &Color) -> Color {
+        Self {
+            r: self.r * rhs.r,
+            g: self.g * rhs.g,
+            b: self.b * rhs.b,
+        }
+        .clamped() // Clamping to keep values within valid range
+    }
+}
+
+impl Mul<Color> for Color {
+    type Output = Color;
+    fn mul(self, rhs: Color) -> Color {
+        Self {
+            r: self.r * rhs.r,
+            g: self.g * rhs.g,
+            b: self.b * rhs.b,
+        }
+        .clamped()
+    }
+}
+
 impl Color {
     pub const BLACK: Color = Color {
         r: 0.0,
@@ -260,13 +462,6 @@ impl Color {
         b: 1.0,
     };
 }
-
-impl Default for Color {
-    fn default() -> Self {
-        Color::WHITE // Default to white color
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

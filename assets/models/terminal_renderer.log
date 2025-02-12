@@ -1,1 +1,0 @@
-17:44:50 [ERROR] Panic occurred: PanicHookInfo { payload: Any { .. }, location: Location { file: "src/core/geometry/mesh.rs", line: 292, col: 10 }, can_unwind: true, force_no_backtrace: false }

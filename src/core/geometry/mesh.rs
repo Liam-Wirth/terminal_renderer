@@ -34,6 +34,7 @@ pub struct Tri {
 
 #[derive(Debug, Clone)]
 pub struct Mesh {
+    pub name: String,
     pub vertices: Vec<Vertex>,          // Vertex buffer
     pub normals: Arc<Mutex<Vec<Vec3>>>, // Normal buffer
     pub tris: Vec<Tri>,                 // Triangles
@@ -66,6 +67,7 @@ impl Mesh {
             materials: Vec::new(),
             normals_dirty: Arc::new(Mutex::new(true)),
             welded: Arc::new(Mutex::new(false)),
+            name: String::from(""),
         }
     }
 
@@ -150,6 +152,7 @@ impl Mesh {
 
         // Load materials
         let materials = if let Ok(mats) = materials_result {
+            about_mats(mats.clone(), models.clone());
             mats.into_iter()
                 .map(Material::from_tobj)
                 .collect::<Vec<_>>()
@@ -161,6 +164,7 @@ impl Mesh {
         // Process each model
         for model in models {
             let mesh_data = model.mesh;
+            outmesh.name = model.name;
 
             // Create vertices
             for (i, pos) in mesh_data.positions.chunks(3).enumerate() {
@@ -172,7 +176,7 @@ impl Mesh {
                 } else {
                     None
                 };
-
+                // tobj does some silly stuff with face reading and I need to agregate stuff together in my rasterizer, so we are going to merge objects whom all have the same name into the same mesh (duh)
                 outmesh.vertices.push(Vertex {
                     pos: Vec3::new(pos[0], pos[1], pos[2]),
                     uv,
@@ -262,6 +266,108 @@ impl Mesh {
         self.mark_normals_dirty();
         true
     }
+
+    pub fn from_obj_to_set(path: &str) -> HashMap<String, Mesh> {
+        let (models, materials_result) = tobj::load_obj(
+            path,
+            &tobj::LoadOptions {
+                triangulate: true,
+                single_index: true,
+                ..Default::default()
+            },
+        )
+        .expect("Failed to load OBJ file");
+
+        let mut meshes: HashMap<String, Mesh> = HashMap::new();
+
+        // Load materials
+        let materials = if let Ok(mats) = materials_result {
+            mats.into_iter()
+                .map(Material::from_tobj)
+                .collect::<Vec<_>>()
+        } else {
+            vec![Material::default()]
+        };
+
+        // Process each model
+        for model in models {
+            let mesh_data = model.mesh;
+            let mesh_name = model.name.clone();
+
+            // Get or create the corresponding Mesh
+            let mesh = meshes.entry(mesh_name.clone()).or_insert_with(Mesh::new);
+
+            let base_vertex_index = mesh.vertices.len();
+
+            // Create vertices
+            for (i, pos) in mesh_data.positions.chunks(3).enumerate() {
+                let uv = if !mesh_data.texcoords.is_empty() {
+                    Some(Vec2::new(
+                        mesh_data.texcoords[i * 2],
+                        mesh_data.texcoords[i * 2 + 1],
+                    ))
+                } else {
+                    None
+                };
+
+                mesh.vertices.push(Vertex {
+                    pos: Vec3::new(pos[0], pos[1], pos[2]),
+                    uv,
+                    color: None,
+                    tangent: None,
+                    bitangent: None,
+                });
+            }
+
+            // Load or compute normals
+            if !mesh_data.normals.is_empty() {
+                let mut normals = mesh.normals.lock().unwrap();
+                *normals = mesh_data
+                    .normals
+                    .chunks(3)
+                    .map(|n| Vec3::new(n[0], n[1], n[2]).normalize())
+                    .collect();
+            } else {
+                mesh.mark_normals_dirty();
+            }
+
+            // Create triangles with proper material assignment
+            for (face_idx, indices) in mesh_data.indices.chunks(3).enumerate() {
+                let material_id = if let Some(material_ids) = &mesh_data.material_id {
+                    Some(*material_ids)
+                } else {
+                    None
+                };
+
+                mesh.tris.push(Tri {
+                    vertices: [
+                        base_vertex_index + indices[0] as usize,
+                        base_vertex_index + indices[1] as usize,
+                        base_vertex_index + indices[2] as usize,
+                    ],
+                    material: material_id,
+                });
+            }
+
+            // Store materials
+            mesh.materials = materials.clone();
+        }
+
+        // Weld vertices in each mesh
+        for (name, mesh) in meshes.iter_mut() {
+            if mesh.needs_weld(0.0001) {
+                println!(
+                    "Welding Mesh '{}' with {} vertices",
+                    name,
+                    mesh.vertices.len()
+                );
+                mesh.weld_vertices(0.0001);
+                println!("After welding, new vertex count: {}", mesh.vertices.len());
+            }
+        }
+
+        meshes
+    }
     pub fn needs_weld(&self, position_epsilon: f32) -> bool {
         if self.vertices.is_empty() {
             return false;
@@ -307,5 +413,98 @@ impl Mesh {
         mesh.update_normals(&Affine3A::IDENTITY);
 
         mesh
+    }
+}
+
+// Debug function copied form the TOBJ Documentation, using this to try and figure out why I'm not getting colors loaded right. Stuff might be getting dumped in the "Unexpected Things" HashMap
+fn about_mats(materials: Vec<tobj::Material>, models: Vec<tobj::Model>) {
+    // Materials might report a separate loading error if the MTL file wasn't found.
+    // If you don't need the materials, you can generate a default here and use that
+    // instead.
+    println!("# of models: {}", models.len());
+    println!("# of materials: {}", materials.len());
+
+    for (i, m) in models.iter().enumerate() {
+        let mesh = &m.mesh;
+
+        println!("model[{}].name = \'{}\'", i, m.name);
+        println!("model[{}].mesh.material_id = {:?}", i, mesh.material_id);
+
+        println!(
+            "Size of model[{}].face_arities: {}",
+            i,
+            mesh.face_arities.len()
+        );
+
+        let mut next_face = 0;
+        for f in 0..mesh.face_arities.len() {
+            let end = next_face + mesh.face_arities[f] as usize;
+            let face_indices: Vec<_> = mesh.indices[next_face..end].iter().collect();
+            println!("    face[{}] = {:?}", f, face_indices);
+            next_face = end;
+        }
+
+        // Normals and texture coordinates are also loaded, but not printed in this example
+        println!("model[{}].vertices: {}", i, mesh.positions.len() / 3);
+
+        assert!(mesh.positions.len() % 3 == 0);
+        for v in 0..mesh.positions.len() / 3 {
+            println!(
+                "    v[{}] = ({}, {}, {})",
+                v,
+                mesh.positions[3 * v],
+                mesh.positions[3 * v + 1],
+                mesh.positions[3 * v + 2]
+            );
+        }
+    }
+
+    for (i, m) in materials.iter().enumerate() {
+        println!("material[{}].name = \'{}\'", i, m.name);
+        if let Some(ambient) = m.ambient {
+            println!(
+                "    material.Ka = ({}, {}, {})",
+                ambient[0], ambient[1], ambient[2]
+            );
+        }
+        if let Some(diffuse) = m.diffuse {
+            println!(
+                "    material.Kd = ({}, {}, {})",
+                diffuse[0], diffuse[1], diffuse[2]
+            );
+        }
+        if let Some(specular) = m.specular {
+            println!(
+                "    material.Ks = ({}, {}, {})",
+                specular[0], specular[1], specular[2]
+            );
+        }
+        if let Some(shininess) = m.shininess {
+            println!("    material.Ns = {}", shininess);
+        }
+        if let Some(dissolve) = m.dissolve {
+            println!("    material.d = {}", dissolve);
+        }
+        if let Some(ambient_texture) = &m.ambient_texture {
+            println!("    material.map_Ka = {}", ambient_texture);
+        }
+        if let Some(diffuse_texture) = &m.diffuse_texture {
+            println!("    material.map_Kd = {}", diffuse_texture);
+        }
+        if let Some(specular_texture) = &m.specular_texture {
+            println!("    material.map_Ks = {}", specular_texture);
+        }
+        if let Some(shininess_texture) = &m.shininess_texture {
+            println!("    material.map_Ns = {}", shininess_texture);
+        }
+        if let Some(normal_texture) = &m.normal_texture {
+            println!("    material.map_Bump = {}", normal_texture);
+        }
+        if let Some(dissolve_texture) = &m.dissolve_texture {
+            println!("    material.map_d = {}", dissolve_texture);
+        }
+        for (k, v) in &m.unknown_param {
+            println!("    material.{} = {}", k, v);
+        }
     }
 }

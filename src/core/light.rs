@@ -1,28 +1,18 @@
 use crate::core::geometry::Material;
 use crate::core::Color;
 use glam::Vec3;
+use std::ops::Mul;
 
-/// The three kinds of lights we support.
+/// The lights I'll support (can be extended in the future)
 #[derive(Clone, Debug)]
-pub enum Light {
+pub enum LightType {
     /// A directional light has a constant direction and does not attenuate with distance.
-    Directional {
-        /// The direction of the light (the vector the light travels along).
-        /// (For example, (0, -1, 0) for light coming from above.)
-        direction: Vec3,
-        /// The light’s color.
-        color: Color,
-        /// A scalar multiplier for the light’s strength.
-        intensity: f32,
-    },
-    /// A point light emits light in all directions from a given position.
+    /// The direction of the light (the vector the light travels along).
+    /// (For example, (0, -1, 0) for light coming from above.)
+    Directional(Vec3),
     Point {
         /// The position of the light in world space.
         position: Vec3,
-        /// The light’s color.
-        color: Color,
-        /// A scalar multiplier for the light’s strength.
-        intensity: f32,
         /// Constant attenuation factor.
         constant: f32,
         /// Linear attenuation factor.
@@ -30,16 +20,11 @@ pub enum Light {
         /// Quadratic attenuation factor.
         quadratic: f32,
     },
-    /// A spot light emits light in a cone.
     Spot {
         /// The position of the light.
         position: Vec3,
         /// The direction the spot light is pointing.
         direction: Vec3,
-        /// The light’s color.
-        color: Color,
-        /// A scalar multiplier for the light’s strength.
-        intensity: f32,
         /// The cosine of the inner cutoff angle (full intensity within this cone).
         inner_cutoff: f32,
         /// The cosine of the outer cutoff angle (beyond this cone, the light is off).
@@ -51,80 +36,151 @@ pub enum Light {
     },
 }
 
+#[derive(Clone, Debug)]
+pub struct Light {
+    pub light_type: LightType,
+    pub color: Color,
+    /// A scalar multiplier for the light’s strength. (clamped 0. -> 1.)
+    pub intensity: f32,
+}
+
 impl Light {
     pub fn dir_above(color: Color, intensity: f32) -> Self {
-        Light::Directional {
-            direction: Vec3::new(0.0, -1.0, 0.0),
+        Light {
+            light_type: LightType::Directional(Vec3::new(0.0, -1.0, 0.0)),
             color,
             intensity,
         }
     }
 
     pub fn dir_below(color: Color, intensity: f32) -> Self {
-        Light::Directional {
-            direction: Vec3::new(0.0, 1.0, 0.0),
+        Light {
+            light_type: LightType::Directional(Vec3::new(0.0, 1.0, 0.0)),
             color,
             intensity,
         }
     }
     pub fn dir_infront(color: Color, intensity: f32) -> Self {
-        Light::Directional {
-            direction: Vec3::new(0.0, 0.0, -1.0),
+        Light {
+            light_type: LightType::Directional(Vec3::new(0.0, 0.0, -1.0)),
             color,
             intensity,
         }
     }
     pub fn dir_behind(color: Color, intensity: f32) -> Self {
-        Light::Directional {
-            direction: Vec3::new(0.0, 0.0, 1.0),
+        Light {
+            light_type: LightType::Directional(Vec3::new(0.0, 0.0, 1.0)),
             color,
             intensity,
         }
     }
     pub fn dir_right(color: Color, intensity: f32) -> Self {
-        Light::Directional {
-            direction: Vec3::new(1.0, 0.0, 0.0),
+        Light {
+            light_type: LightType::Directional(Vec3::new(1.0, 0.0, 0.0)),
             color,
             intensity,
         }
     }
     pub fn dir_left(color: Color, intensity: f32) -> Self {
-        Light::Directional {
-            direction: Vec3::new(-1.0, 0.0, 0.0),
+        Light {
+            light_type: LightType::Directional(Vec3::new(-1.0, 0.0, 0.0)),
             color,
             intensity,
         }
     }
     pub fn default_directional() -> Self {
-        Light::Directional {
-            direction: Vec3::new(0.0, -1.0, 0.0),
+        Light {
+            light_type: LightType::Directional(Vec3::new(0.0, -1.0, 0.0)),
             color: Color::WHITE,
             intensity: 1.0,
         }
     }
 
     pub fn default_point() -> Self {
-        Light::Point {
-            position: Vec3::new(0.0, 0.0, 0.0),
+        Light {
+            light_type: LightType::Point {
+                position: Vec3::new(0.0, 0.0, 0.0),
+                constant: 1.0,
+                linear: 0.09,
+                quadratic: 0.032,
+            },
             color: Color::WHITE,
             intensity: 1.0,
-            constant: 1.0,
-            linear: 0.09,
-            quadratic: 0.032,
+        }
+    }
+    pub fn point(position: Vec3, constant: f32, linear: f32, quadratic: f32) -> Self {
+        Light {
+            light_type: LightType::Point {
+                position,
+                constant,
+                linear,
+                quadratic,
+            },
+            color: Color::WHITE,
+            intensity: 1.0,
         }
     }
 
-    pub fn default_spot() -> Self {
-        Light::Spot {
-            position: Vec3::new(0.0, 0.0, 0.0),
-            direction: Vec3::new(0.0, -1.0, 0.0),
+    pub fn easy_point(position: Vec3) -> Self {
+        Light {
+            light_type: LightType::Point {
+                position,
+                constant: 1.0,
+                linear: 0.009,
+                quadratic: 0.032,
+            },
             color: Color::WHITE,
             intensity: 1.0,
-            inner_cutoff: 0.9,
-            outer_cutoff: 0.85,
-            constant: 1.0,
-            linear: 0.09,
-            quadratic: 0.032,
+        }
+    }
+
+    pub fn change_color(&mut self, color: Color) {
+        self.color = color;
+    }
+
+    pub fn default_spot() -> Self {
+        Light {
+            light_type: LightType::Spot {
+                position: Vec3::new(0.0, 0.0, 0.0),
+                direction: Vec3::new(0.0, -1.0, 0.0),
+                inner_cutoff: 0.9,
+                outer_cutoff: 0.85,
+                constant: 1.0,
+                linear: 0.09,
+                quadratic: 0.032,
+            },
+            color: Color::WHITE,
+            intensity: 1.0,
+        }
+    }
+    pub fn spot(position: Vec3, direction: Vec3, inner_cutoff: f32, outer_cutoff: f32) -> Self {
+        Light {
+            light_type: LightType::Spot {
+                position,
+                direction,
+                inner_cutoff,
+                outer_cutoff,
+                constant: 1.0,
+                linear: 0.08,
+                quadratic: 0.032,
+            },
+            color: Color::WHITE,
+            intensity: 1.0,
+        }
+    }
+    pub fn spot_with_pos(position: Vec3, direction: Vec3) -> Self {
+        Light {
+            light_type: LightType::Spot {
+                position,
+                direction,
+                inner_cutoff: 0.9,
+                outer_cutoff: 0.85,
+                constant: 1.0,
+                linear: 0.08,
+                quadratic: 0.032,
+            },
+            color: Color::WHITE,
+            intensity: 1.0,
         }
     }
 }
@@ -136,119 +192,129 @@ impl Default for Light {
 }
 
 pub trait LightingModel {
-    /// Computes the final color for a fragment given the scene’s lighting and material properties.
+    /// Computes the final color for a pixel given the GBuffer data and scene lighting.
     ///
+    /// - `albedo`: The albedo color from the GBuffer.
+    /// - `normal`: The world-space normal from the GBuffer.
+    /// - `specular_color`: The specular color from the GBuffer.
+    /// - `shininess`: The shininess value from the GBuffer.
     /// - `frag_pos`: the world-space position of the fragment.
-    /// - `normal`: the surface normal (should be normalized).
     /// - `view_dir`: the normalized direction from the fragment to the camera.
     /// - `lights`: a slice of lights in the scene.
-    /// - `material`: the material properties of the fragment.
+    /// - `material`: material properties (can be defaulted or fetched from GBuffer indices if material IDs are stored).
     fn shade(
         &self,
-        frag_pos: Vec3,
+        albedo: Color,
         normal: Vec3,
+        specular_color: Color,
+        shininess: f32,
+        frag_pos: Vec3,
         view_dir: Vec3,
         lights: &[Light],
-        material: &Material,
+        material: Option<&Material>, // Still keeping material for potential complex materials
     ) -> Color;
 }
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum LightMode {
     Flat,
     BlinnPhong,
     None,
 }
 pub struct FlatShading;
+
 impl LightingModel for FlatShading {
     fn shade(
         &self,
-        frag_pos: Vec3,
+        albedo: Color,
         normal: Vec3,
-        _view_dir: Vec3, // Unused in a flat shading model
+        _specular_color: Color, // Not used in flat shading
+        _shininess: f32,        // Not used in flat shading
+        frag_pos: Vec3,
+        _view_dir: Vec3, // Unused in flat shading
         lights: &[Light],
-        material: &Material,
+        material: Option<&Material>,
     ) -> Color {
-        let mut final_color = Color::new(0.0, 0.0, 0.0);
+        let mut final_color = Color::BLACK;
 
         // Get material properties
-        let ambient = material.ambient.unwrap_or(Color::new(0.2, 0.2, 0.2));
-        let diffuse = material.diffuse.unwrap_or(Color::WHITE);
+        let mut ambient = Color::WHITE;
+        let mut diffuse = Color::WHITE;
+        if let Some(&ref material) = material {
+            ambient = material.ambient.unwrap_or_default();
+            diffuse = material.diffuse.unwrap_or(albedo);
+        } else {
+            ambient = Color::DARK_GRAY;
+            diffuse = albedo;
+        }
 
         for light in lights {
-            match light {
-                Light::Directional {
-                    direction,
-                    color,
-                    intensity,
-                } => {
-                    // Ambient
-                    final_color.r += ambient.r * color.r;
-                    final_color.g += ambient.g * color.g;
-                    final_color.b += ambient.b * color.b;
+            // Accumulate ambient component - it's constant for flat shading typically
+            final_color += ambient * light.color * light.intensity; // Ambient is affected by light color & intensity
 
-                    // Diffuse
+            match light.light_type {
+                LightType::Directional(direction) => {
+                    // Diffuse only for directional light
                     let light_dir = -direction.normalize();
-                    let diff = normal.dot(light_dir).max(0.0);
-
-                    final_color.r += diffuse.r * color.r * diff * intensity;
-                    final_color.g += diffuse.g * color.g * diff * intensity;
-                    final_color.b += diffuse.b * color.b * diff * intensity;
+                    let diff_factor = normal.dot(light_dir).max(0.0);
+                    final_color += diffuse * light.color * diff_factor * light.intensity;
                 }
-                Light::Point {
+                LightType::Point {
                     position,
-                    color,
-                    intensity,
                     constant,
                     linear,
                     quadratic,
                 } => {
-                    // Ambient
-                    final_color.r += ambient.r * color.r;
-                    final_color.g += ambient.g * color.g;
-                    final_color.b += ambient.b * color.b;
-
-                    // Calculate attenuation
-                    let light_dir = (*position - frag_pos).normalize();
-                    let distance = (*position - frag_pos).length();
-                    let attenuation =
-                        1.0 / (constant + linear * distance + quadratic * distance * distance);
-
-                    // Diffuse
-                    let diff = normal.dot(light_dir).max(0.0);
-
-                    final_color.r += diffuse.r * color.r * diff * intensity * attenuation;
-                    final_color.g += diffuse.g * color.g * diff * intensity * attenuation;
-                    final_color.b += diffuse.b * color.b * diff * intensity * attenuation;
+                    // Diffuse for point light
+                    let light_vec = position - frag_pos;
+                    let light_dir = light_vec.normalize();
+                    let distance = light_vec.length();
+                    let attenuation = 1.0
+                        / (constant + linear * distance + quadratic * distance * distance).max(1.0); // Ensure no divide by zero
+                    let diff_factor = normal.dot(light_dir).max(0.0);
+                    final_color +=
+                        diffuse * light.color * diff_factor * attenuation * light.intensity;
                 }
-
-                Light::Spot {
+                LightType::Spot {
                     position,
                     direction,
-                    color,
-                    intensity,
                     inner_cutoff,
                     outer_cutoff,
                     constant,
                     linear,
                     quadratic,
                 } => {
-                    // determine the ambient lighting
-                    final_color.r += ambient.r * color.r;
-                    final_color.g += ambient.g * color.g;
-                    final_color.b += ambient.b * color.b;
+                    let light_vec = position - frag_pos;
+                    let light_dir = light_vec.normalize();
+                    let distance = light_vec.length();
+                    let attenuation = 1.0
+                        / (constant + linear * distance + quadratic * distance * distance).max(1.0);
 
-                    todo!();
-                    // NOTE: https://developer.download.nvidia.com/CgTutorial/cg_tutorial_chapter05.html
+                    let spot_dir = (-direction).normalize(); // Spotlight direction
+                    let spot_factor = light_dir.dot(spot_dir);
+
+                    if spot_factor > outer_cutoff {
+                        // In spotlight cone
+                        let intensity_factor = if spot_factor >= inner_cutoff {
+                            1.0 // Full intensity
+                        } else {
+                            // Smooth falloff
+                            let smooth_factor =
+                                (spot_factor - outer_cutoff) / (inner_cutoff - outer_cutoff);
+                            smooth_factor.clamp(0.0, 1.0) // Ensure it's within [0, 1]
+                        };
+                        let diff_factor = normal.dot(light_dir).max(0.0);
+                        final_color += diffuse
+                            * light.color
+                            * intensity_factor
+                            * diff_factor
+                            * attenuation
+                            * light.intensity;
+                    }
                 }
-                _ => {}
             }
         }
-
-        // Clamp colors to [0,1]
-        final_color.r = final_color.r.clamp(0.0, 1.0);
-        final_color.g = final_color.g.clamp(0.0, 1.0);
-        final_color.b = final_color.b.clamp(0.0, 1.0);
-
-        final_color
+        final_color.clamped()
     }
 }
 
@@ -256,86 +322,114 @@ pub struct BlinnPhongShading;
 impl LightingModel for BlinnPhongShading {
     fn shade(
         &self,
-        frag_pos: Vec3,
+        albedo: Color,
         normal: Vec3,
+        specular_color: Color,
+        shininess: f32,
+        frag_pos: Vec3,
         view_dir: Vec3,
         lights: &[Light],
-        material: &Material,
+        material: Option<&Material>,
     ) -> Color {
-        // Get material properties (with defaults)
-        let ambient = material.ambient.unwrap_or(Color::new(0.2, 0.2, 0.2));
-        let diffuse = material.diffuse.unwrap_or(Color::WHITE);
-        let specular = material.specular.unwrap_or(Color::WHITE);
-        let shininess = material.shininess.unwrap_or(32.0);
-
-        // Initialize separate accumulators
-        let mut ambient_acc = Color::new(0.0, 0.0, 0.0);
-        let mut diffuse_acc = Color::new(0.0, 0.0, 0.0);
-        let mut specular_acc = Color::new(0.0, 0.0, 0.0);
+        let mut final_color: Color = (0.0, 0.0, 0.0).into();
+        let mut ambient = Color::DARK_GRAY;
+        let mut diffuse = albedo;
+        let mut specular = specular_color;
+        if let Some(&ref material) = material {
+            ambient = material.ambient.unwrap_or(Color::DARK_GRAY); // Default ambient
+            diffuse = material.diffuse.unwrap_or(albedo); // Default to albedo from GBuffer
+            specular = material.specular.unwrap_or(specular_color); // Default to specular from GBufferaterial properties from GBuffer or Material - prefer GBuffer
+        }
+        // Shininess is already from GBuffer input
 
         for light in lights {
-            match light {
-                Light::Directional {
-                    direction,
-                    color,
-                    intensity,
-                } => {
-                    // --- Ambient Contribution ---
-                    let ambient_term = Color::new(
-                        ambient.r * color.r,
-                        ambient.g * color.g,
-                        ambient.b * color.b,
-                    );
-                    ambient_acc.r += ambient_term.r;
-                    ambient_acc.g += ambient_term.g;
-                    ambient_acc.b += ambient_term.b;
+            // Accumulate ambient component
+            final_color += ambient * light.color * light.intensity; // Ambient unaffected by light type usually
 
-                    // --- Diffuse Contribution ---
-                    let light_dir = direction.normalize();
+            match light.light_type {
+                LightType::Directional(direction) => {
+                    let light_dir = -direction.normalize(); // Direction to fragment from light source (opposite of light direction)
+
+                    // Diffuse
                     let diff_factor = normal.dot(light_dir).max(0.0);
-                    let diffuse_term = Color::new(
-                        diffuse.r * color.r * diff_factor * intensity,
-                        diffuse.g * color.g * diff_factor * intensity,
-                        diffuse.b * color.b * diff_factor * intensity,
-                    );
-                    diffuse_acc.r += diffuse_term.r;
-                    diffuse_acc.g += diffuse_term.g;
-                    diffuse_acc.b += diffuse_term.b;
+                    let diffuse_contrib = diffuse * light.color * diff_factor;
 
-                    // --- Specular Contribution ---
+                    // Specular - Blinn-Phong
+                    let halfway_dir = (light_dir + view_dir).normalize(); // Halfway vector between light and view
+                    let spec_factor = normal.dot(halfway_dir).max(0.0).powf(shininess);
+                    let specular_contrib = specular * light.color * spec_factor;
+
+                    final_color += (diffuse_contrib + specular_contrib) * light.intensity;
+                }
+                LightType::Point {
+                    position,
+                    constant,
+                    linear,
+                    quadratic,
+                } => {
+                    let light_vec = position - frag_pos;
+                    let light_dir = light_vec.normalize();
+                    let distance = light_vec.length();
+                    let attenuation = 1.0
+                        / (constant + linear * distance + quadratic * distance * distance).max(1.0);
+
+                    // Diffuse
+                    let diff_factor = normal.dot(light_dir).max(0.0);
+                    let diffuse_contrib = diffuse * light.color * diff_factor;
+
+                    // Specular - Blinn-Phong
                     let halfway_dir = (light_dir + view_dir).normalize();
                     let spec_factor = normal.dot(halfway_dir).max(0.0).powf(shininess);
-                    let specular_term = Color::new(
-                        specular.r * color.r * spec_factor * intensity,
-                        specular.g * color.g * spec_factor * intensity,
-                        specular.b * color.b * spec_factor * intensity,
-                    );
-                    specular_acc.r += specular_term.r;
-                    specular_acc.g += specular_term.g;
-                    specular_acc.b += specular_term.b;
+                    let specular_contrib = specular * light.color * spec_factor;
+
+                    final_color +=
+                        (diffuse_contrib + specular_contrib) * attenuation * light.intensity;
                 }
-                // (Handle Point and Spot lights similarly.)
-                _ => {}
+                LightType::Spot {
+                    position,
+                    direction,
+                    inner_cutoff,
+                    outer_cutoff,
+                    constant,
+                    linear,
+                    quadratic,
+                } => {
+                    let light_vec = position - frag_pos;
+                    let light_dir = light_vec.normalize();
+                    let distance = light_vec.length();
+                    let attenuation = 1.0
+                        / (constant + linear * distance + quadratic * distance * distance).max(1.0);
+
+                    let spot_dir = (-direction).normalize();
+                    let spot_factor = light_dir.dot(spot_dir);
+
+                    if spot_factor > outer_cutoff {
+                        let intensity_factor = if spot_factor >= inner_cutoff {
+                            1.0
+                        } else {
+                            let smooth_factor =
+                                (spot_factor - outer_cutoff) / (inner_cutoff - outer_cutoff);
+                            smooth_factor.clamp(0.0, 1.0)
+                        };
+
+                        // Diffuse
+                        let diff_factor = normal.dot(light_dir).max(0.0);
+                        let diffuse_contrib = diffuse * light.color * diff_factor;
+
+                        // Specular - Blinn-Phong
+                        let halfway_dir = (light_dir + view_dir).normalize();
+                        let spec_factor = normal.dot(halfway_dir).max(0.0).powf(shininess);
+                        let specular_contrib = specular * light.color * spec_factor;
+
+                        final_color += (diffuse_contrib + specular_contrib)
+                            * intensity_factor
+                            * attenuation
+                            * light.intensity;
+                    }
+                }
             }
         }
 
-        // Option 1: Clamp each accumulator separately then sum
-        ambient_acc.r = ambient_acc.r.clamp(0.0, 1.0);
-        ambient_acc.g = ambient_acc.g.clamp(0.0, 1.0);
-        ambient_acc.b = ambient_acc.b.clamp(0.0, 1.0);
-
-        diffuse_acc.r = diffuse_acc.r.clamp(0.0, 1.0);
-        diffuse_acc.g = diffuse_acc.g.clamp(0.0, 1.0);
-        diffuse_acc.b = diffuse_acc.b.clamp(0.0, 1.0);
-
-        specular_acc.r = specular_acc.r.clamp(0.0, 1.0);
-        specular_acc.g = specular_acc.g.clamp(0.0, 1.0);
-        specular_acc.b = specular_acc.b.clamp(0.0, 1.0);
-
-        let final_r = (ambient_acc.r + diffuse_acc.r + specular_acc.r).clamp(0.0, 1.0);
-        let final_g = (ambient_acc.g + diffuse_acc.g + specular_acc.g).clamp(0.0, 1.0);
-        let final_b = (ambient_acc.b + diffuse_acc.b + specular_acc.b).clamp(0.0, 1.0);
-
-        Color::new(final_r, final_g, final_b)
+        final_color.clamped()
     }
 }

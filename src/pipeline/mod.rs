@@ -30,6 +30,41 @@ pub struct ProcessedGeometry {
     pub world_pos: [usize; 3],
 }
 
+pub struct GBuffer {
+    pub albedo: Vec<Color>,   // Albedo (color)
+    pub normal: Vec<Vec3>,    // Normal map
+    pub depth: Vec<f32>,      // Depth
+    pub specular: Vec<Color>, // Specular color
+    pub shininess: Vec<f32>,  // Shininess (for reflections)
+    pub dissolve: Vec<f32>,   // Dissolve value
+    pub matid: Vec<Option<(usize, usize)>>, // First is entity id, second is material id
+                              //pub fragid: Vec<Option<usize>>, // mat id // HACK: // TODO: I will eventually figure out what place I passed the material and actually needed it, until then, fuck it lol
+}
+
+impl GBuffer {
+    pub fn new(size: usize) -> GBuffer {
+        Self {
+            albedo: vec![Color::BLACK; size],
+            normal: vec![Vec3::ZERO; size],
+            depth: vec![f32::INFINITY; size],
+            specular: vec![Color::BLACK; size],
+            shininess: vec![0.0; size],
+            dissolve: vec![0.0; size],
+            matid: vec![None; size],
+        }
+    }
+    // clears and resets things to the default values they had
+    pub fn clear(&mut self) {
+        self.albedo.fill(Color::BLACK);
+        self.normal.fill(Vec3::ZERO);
+        self.depth.fill(f32::INFINITY);
+        self.specular.fill(Color::BLACK);
+        self.shininess.fill(f32::NEG_INFINITY);
+        self.dissolve.fill(f32::NEG_INFINITY);
+        self.matid.fill(None);
+    }
+}
+
 /// **Represents a vertex that has been projected onto screen space**
 #[derive(Debug, Clone, Copy)]
 pub struct ProjectedVertex {
@@ -40,6 +75,7 @@ pub struct ProjectedVertex {
     /// Color of the vertex
     pub color: Color,
 }
+
 /// ***A Pixel To Be***
 ///
 /// Represents a potential pixel in the graphics pipeline before final rasterization
@@ -53,16 +89,18 @@ pub struct Fragment {
     pub depth: f32,
     /// Color of the fragment (Diffuse, before lighting pass)
     pub albedo: Color,
-
+    /// Surface Normal
     pub normal: Vec3,
-    // index into the mesh's material buffer // NOTE: Below stuff might be unneccessary if we just
-    // use the material buffer index
+    /// Specular Color
+    pub specular: Color,
+    /// Shininess
+    pub shininess: f32,
+    /// Dissolve
+    pub dissolve: f32, // (Might be useless though because I dont think I have an alpha channel)
 
-    //pub ambient: Option<Color>,
-    //pub diffuse: Option<Color>,
-    //pub specular: Option<Color>,
-    //pub shininess: Option<f32>,
-    //pub dissolve: Option<f32>, // Transparency
+    pub mat_id: Option<(usize, usize)>, // first is entity id, second is mat id
+
+                                        // what about emissives tho
 }
 
 impl Default for Fragment {
@@ -76,6 +114,10 @@ impl Default for Fragment {
             depth: f32::INFINITY,
             albedo: Color::WHITE,
             normal: Vec3::ZERO,
+            specular: Color::WHITE,
+            shininess: 0.,
+            dissolve: 0.,
+            mat_id: None,
         }
     }
 }

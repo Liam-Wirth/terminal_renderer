@@ -74,7 +74,7 @@ impl Camera {
                 let row = vp.row(3) + vp.row(*i) * (*sign as f32);
                 let plane = row;
                 let length = Vec3::new(plane.x, plane.y, plane.z).length();
-                planes[i*2 + if *sign > 0 {0} else {1}] = plane / length;
+                planes[i * 2 + if *sign > 0 { 0 } else { 1 }] = plane / length;
             }
             drop(planes);
 
@@ -148,12 +148,12 @@ impl Camera {
         *self.dirty.lock().unwrap() = true;
     }
 
-    pub fn rotate(&mut self, pitch: f32, yaw: f32) {
-        let pitch_rotation = Quat::from_axis_angle(self.right(), pitch);
-        let yaw_rotation = Quat::from_axis_angle(Vec3::Y, yaw);
-        self.orientation = yaw_rotation * pitch_rotation * self.orientation;
-        *self.dirty.lock().unwrap() = true;
-    }
+    //pub fn rotate(&mut self, pitch: f32, yaw: f32) {
+    //    let pitch_rotation = Quat::from_axis_angle(self.right(), pitch);
+    //    let yaw_rotation = Quat::from_axis_angle(Vec3::Y, yaw);
+    //    self.orientation = yaw_rotation * pitch_rotation * self.orientation;
+    //    *self.dirty.lock().unwrap() = true;
+    //}
 
     pub fn orbit(&mut self, angle: f32) {
         let radius = self.position.length();
@@ -187,19 +187,58 @@ impl Camera {
     }
 
     pub fn forward(&self) -> Vec3 {
-        (self.target - self.position).normalize()
+        //        (self.target - self.position).normalize()
+        self.orientation * Vec3::Z // Moving to this because the camera is first person/free moving
     }
 
     pub fn right(&self) -> Vec3 {
-        self.forward().cross(-Vec3::Y).normalize()
+        //self.forward().cross(-Vec3::Y).normalize()
+        self.orientation * Vec3::X
     }
 
     pub fn up(&self) -> Vec3 {
         self.orientation * -Vec3::Y
     }
 
-    pub fn pitch(&self) -> f32 {
-        self.forward().dot(Vec3::Y).asin()
+    // pub fn pitch(&self) -> f32 {
+    //self.forward().dot(Vec3::Y).asin()
+    //}
+    /// Rotate the camera by a combined pitch (rotation about the right vector)
+    /// and yaw (rotation about the global Y axis).
+    pub fn rotate(&mut self, pitch: f32, yaw: f32) {
+        // Rotate around the camera’s local right axis for pitch.
+        let pitch_rot = Quat::from_axis_angle(self.right(), pitch);
+        // Rotate around the global Y axis for yaw.
+        let yaw_rot = Quat::from_axis_angle(Vec3::Y, yaw);
+        // The order of multiplication matters!
+        self.orientation = yaw_rot * pitch_rot * self.orientation;
+        // Update the target based on the new forward direction.
+        self.target = self.position + self.forward();
+        *self.dirty.lock().unwrap() = true;
+    }
+
+    /// Rotate the camera by a pitch angle (rotation about the camera’s right vector).
+    pub fn pitch(&mut self, angle: f32) {
+        let pitch_rot = Quat::from_axis_angle(self.right(), angle);
+        self.orientation = pitch_rot * self.orientation;
+        self.target = self.position + self.forward();
+        *self.dirty.lock().unwrap() = true;
+    }
+
+    /// Rotate the camera by a yaw angle (rotation about the global Y axis).
+    pub fn yaw(&mut self, angle: f32) {
+        let yaw_rot = Quat::from_axis_angle(Vec3::Y, angle);
+        self.orientation = yaw_rot * self.orientation;
+        self.target = self.position + self.forward();
+        *self.dirty.lock().unwrap() = true;
+    }
+
+    /// Rotate the camera by a roll angle (rotation about the camera’s forward axis).
+    pub fn roll(&mut self, angle: f32) {
+        let roll_rot = Quat::from_axis_angle(self.forward(), angle);
+        self.orientation = roll_rot * self.orientation;
+        self.target = self.position + self.forward();
+        *self.dirty.lock().unwrap() = true;
     }
 
     pub fn orbital_angle(&self) -> f32 {
