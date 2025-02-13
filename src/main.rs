@@ -105,7 +105,13 @@ fn main() -> io::Result<()> {
     // for ent in icosphere.iter() {
     //     scene.add_entity(ent.clone());
     // }
-    for ent in teapot.iter() {
+    //for ent in teapot.iter() {
+    //    // TODO: need to find a way to merge entities, might also
+    //    // be better to have a hash set for storing members of the scene.
+    //    scene.add_entity(ent.clone());
+    //}
+    let mut penguin = Entity::from_obj_set(penguin_path.to_str().unwrap());
+    for ent in penguin.iter() {
         scene.add_entity(ent.clone());
     }
 
@@ -113,8 +119,8 @@ fn main() -> io::Result<()> {
 
     // You can choose which one to run
     // or
-    //run_term(scene)
-    run_win(scene)
+    run_term(scene)
+    //run_win(scene)
 }
 
 fn run_term(scene: Scene) -> io::Result<()> {
@@ -141,8 +147,8 @@ fn run_term(scene: Scene) -> io::Result<()> {
         // (a) Check for input
         if event::poll(Duration::from_millis(1))? {
             if let Event::Key(key) = event::read()? {
-                if handle_crossterm_keys!(key.code, pipeline.states, pipeline.scene, 1.) {
-                    break 'mainloop;
+                if pipeline.handle_crossterm_input(crossterm::event::Event::Key(key), last_frame) {
+                    break;
                 }
             }
         }
