@@ -356,7 +356,9 @@ impl LightingModel for BlinnPhongShading {
 
                     // Specular - Blinn-Phong
                     let halfway_dir = (light_dir + view_dir).normalize(); // Halfway vector between light and view
-                    let spec_factor = normal.dot(halfway_dir).max(0.0).powf(shininess);
+                                                                          //let spec_factor = normal.dot(halfway_dir).max(0.0).powf(shininess); <-- this might have caused problems?
+                    let spec_factor =
+                        (normal.dot(halfway_dir).max(0.0) * diff_factor).powf(shininess);
                     let specular_contrib = specular * light.color * spec_factor;
 
                     final_color += (diffuse_contrib + specular_contrib) * light.intensity;
@@ -379,7 +381,9 @@ impl LightingModel for BlinnPhongShading {
 
                     // Specular - Blinn-Phong
                     let halfway_dir = (light_dir + view_dir).normalize();
-                    let spec_factor = normal.dot(halfway_dir).max(0.0).powf(shininess);
+                    //let spec_factor = normal.dot(halfway_dir).max(0.0).powf(shininess);
+                    let spec_factor: f32 =
+                        (normal.dot(halfway_dir).max(0.0) * diff_factor).powf(shininess);
                     let specular_contrib = specular * light.color * spec_factor;
 
                     final_color +=
@@ -418,7 +422,9 @@ impl LightingModel for BlinnPhongShading {
 
                         // Specular - Blinn-Phong
                         let halfway_dir = (light_dir + view_dir).normalize();
-                        let spec_factor = normal.dot(halfway_dir).max(0.0).powf(shininess);
+                        //   let spec_factor = normal.dot(halfway_dir).max(0.0).powf(shininess);
+                        let spec_factor =
+                            (normal.dot(halfway_dir).max(0.0) * diff_factor).powf(shininess);
                         let specular_contrib = specular * light.color * spec_factor;
 
                         final_color += (diffuse_contrib + specular_contrib)

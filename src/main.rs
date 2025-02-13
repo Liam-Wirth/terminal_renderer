@@ -41,7 +41,7 @@ use terminal_renderer::{
     core::{Background, Camera, Entity, Environment, Light, Scene},
     handle_crossterm_keys,
     pipeline::{pipeline::Pipeline, FrameBuffer, TermBuffer},
-    Color, DEBUG_PIPELINE,
+    Color, DEBUG_PIPELINE, TINY_DIMENSIONS,
 };
 
 const WIDTH: usize = 1920;
@@ -190,6 +190,22 @@ pub fn run_win(scene: Scene) -> io::Result<()> {
         },
     )
     .expect("Unable to open window");
+    #[cfg(debug_assertions)] // In debug mode (just running like plain cargo r, it will be a lower
+    // resolution)
+    {
+        let (w, h) = TINY_DIMENSIONS;
+        window = Window::new(
+            "TerminalRasterizer - (DEBUG VERSION)",
+            w,
+            h,
+            WindowOptions {
+                resize: false,
+                scale: Scale::X4,
+                ..WindowOptions::default()
+            },
+        )
+        .expect("Unable to open window :(")
+    }
 
     let mut pipeline = Pipeline::<FrameBuffer>::new(WIDTH, HEIGHT, scene);
     while window.is_open() {

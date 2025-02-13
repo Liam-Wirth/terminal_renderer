@@ -38,15 +38,16 @@ pub struct States {
 pub struct Pipeline<B: Buffer> {
     pub width: usize,                          // Screen width in pixels
     pub height: usize,                         // Screen height in pixels
+    pub scene: Scene,                          // 3D scene with camera and objects
+    pub states: RefCell<States>,               // Pipeline state flags
+    pub scale_factor: usize,                   // Scale factor, 2 means render at half resolution
     front_buffer: RefCell<B>,                  // Currently displayed buffer
     back_buffer: RefCell<B>,                   // Buffer being rendered to
-    pub scene: Scene,                          // 3D scene with camera and objects
     geometry: RefCell<Vec<ProcessedGeometry>>, // Transformed geometry ready for rasterization
     rasterizer: RefCell<Rasterizer>,           // Converts triangles to fragments
     clipper: RefCell<Clipper>,                 // Clips triangles against view frustum
     fragments: RefCell<Vec<Fragment>>,         // Output fragments from rasterization
     metrics: Metrics,                          // Performance metrics
-    pub states: RefCell<States>,               // Pipeline state flags
     gbuffer: RefCell<GBuffer>,                 // Pre-Lighting pass buffer of fragments
 }
 
@@ -101,7 +102,13 @@ impl<B: Buffer> Pipeline<B> {
                 is_mouse_pan_enabled: false,
             }),
             gbuffer: RefCell::new(GBuffer::new(width * height)),
+            scale_factor: 1,
         }
+    }
+    pub fn new_with_scale(width: usize, height: usize, scene: Scene, scale_factor: usize) -> Self {
+        let width = width / scale_factor;
+        let height = height / scale_factor;
+        Self::new(width, height, scene)
     }
 
     /// Main render loop function - processes one frame
