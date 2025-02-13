@@ -36,17 +36,10 @@ impl Rasterizer {
             .par_iter()
             .flat_map(|geo: &ProcessedGeometry| {
                 let id = geo.entity_id;
-                self.process_mesh_triangles(
-                    geo,
-                    scene.entities[id].render_mode(),
-                    light_mode,
-                    &scene,
-                )
+                self.process_mesh_triangles(geo, scene.entities[id].render_mode(), &scene)
             })
             .collect();
 
-        // Combine fragments, environment first
-        //frags.append(&mut env_fragments);
         frags.extend(scene_fragments);
 
         debug_print!("Generated {} fragments", frags.len());
@@ -56,11 +49,8 @@ impl Rasterizer {
         &self,
         geo: &ProcessedGeometry,
         mode: Arc<Mutex<RenderMode>>,
-        light_mode: &crate::core::LightMode,
         scene: &Scene,
     ) -> Vec<Fragment> {
-        let lights = &scene.lights;
-        let camera_pos = scene.camera.position();
         let vertices = [
             geo.vertices[0].position,
             geo.vertices[1].position,
@@ -105,14 +95,13 @@ impl Rasterizer {
             RenderMode::Solid => {
                 // TODO: cleanup this method signature from hell
                 // self.rasterize_triangle_barycentric(screen_verts, colors, &vertices)
-                self.rasterize_triangle_barycentric(
+                self.rasterize_triangle_barycentric_2(
                     screen_verts,
                     &geo.vertices,
                     &world_pos,
                     &normals,
                     material, // TODO: fix this as well. gonna leave all these bugs in cause I just wanna see shading damnit
                     Some((geo.entity_id, geo.material_id.unwrap())),
-                    camera_pos,
                 )
             }
             RenderMode::FixedPoint => self.rasterize_fixed_point(screen_verts, colors, &vertices),
@@ -261,6 +250,106 @@ impl Rasterizer {
         }
     }
 
+    // Writing it as a new function temporarily to A-B Compare and see if there is a noticeable difference
+
+    // OPT: This function does generate a new fragment buffer on every run, in a future refactor pass a mutable reference to the old fragment buffer, and edit in place
+    // FIXME: Clean up function signature, wayyyy to many arguments
+    // TODO: write a test to compare runtimes of this and the original function
+    fn rasterize_triangle_barycentric_2(
+        &self,
+        screen_verts: [glam::Vec2; 3],
+        clip_verts: &[ClipVertex; 3],
+        world_pos: &[Vec3; 3],
+        normals: &[Vec3; 3],
+        material: &Material,
+        mat_id: Option<(usize, usize)>,
+    ) -> Vec<Fragment> {
+        let mut frags = Vec::new();
+        let mut bbox_min = Vec2::new(self.width as f32 - 1.0, self.height as f32 - 1.0);
+        let mut bbox_max = Vec2::new(0.0, 0.0);
+        for v in &screen_verts {
+            bbox_min = bbox_min.min(*v);
+            bbox_max = bbox_max.max(*v);
+        }
+        // Clamp bounding box to screen
+        bbox_min = bbox_min.max(Vec2::ZERO);
+        bbox_max = Vec2::new(
+            bbox_max.x.min((self.width - 1) as f32),
+            bbox_max.y.min((self.height - 1) as f32),
+        );
+        let (v0, v1, v2) = (screen_verts[0], screen_verts[1], screen_verts[2]);
+
+        //precompute perspective correction factors (w)
+        let w0 = clip_verts[0].position.w;
+        let w1 = clip_verts[1].position.w;
+        let w2 = clip_verts[2].position.w;
+
+        // precompute their inverses for perspective correction
+        let inv_w0 = 1.0 / w0;
+        let inv_w1 = 1.0 / w1;
+        let inv_w2 = 1.0 / w2;
+
+        // precompute z/w for depth interp
+        let z0 = clip_verts[0].position.z * inv_w0;
+        let z1 = clip_verts[1].position.z * inv_w1;
+        let z2 = clip_verts[2].position.z * inv_w2;
+
+        // precompute attribute/w for perspective correction
+        let norm0 = normals[0] * inv_w0;
+        let norm1 = normals[1] * inv_w1;
+        let norm2 = normals[2] * inv_w2;
+
+        let pos0 = world_pos[0] * inv_w0;
+        let pos1 = world_pos[1] * inv_w1;
+        let pos2 = world_pos[2] * inv_w2;
+
+        // scan bounding box
+        for y in bbox_min.y as i32..=bbox_max.y as i32 {
+            for x in bbox_min.x as i32..=bbox_max.x as i32 {
+                let p = Vec2::new(x as f32, y as f32);
+                if let Some((b0, b1, b2)) = barycentric(p, v0, v1, v2) {
+                    if b0 >= 0.0 && b1 >= 0.0 && b2 >= 0. {
+                        let persp_w = 1.0 / (b0 * inv_w0 + b1 * inv_w1 + b2 * inv_w2);
+
+                        let b0_c = (b0 * inv_w0) * persp_w;
+                        let b1_c = (b1 * inv_w1) * persp_w;
+                        let b2_c = (b2 * inv_w2) * persp_w;
+
+                        //depth interpolation
+                        let mut depth = z0 * b0_c + z1 * b1_c + z2 * b2_c;
+                        depth = (depth + 1.0) * 0.5; // In [0, 1] range
+                        depth = depth.clamp(0.0, 1.0); // dunno why tbh
+
+                        // world pos interpolation
+
+                        let world_pos = (pos0 * b0_c + pos1 * b1_c + pos2 * b2_c) * persp_w;
+
+                        //interp normalize normal
+                        let normal = (norm0 * b0_c + norm1 * b1_c + norm2 * b2_c) * persp_w;
+                        let normal = normal.normalize();
+
+                        //get material properties
+                        let albedo = material.diffuse.unwrap_or(Color::WHITE); // TODO: Would be kinda funny to have a default purple/black checkerboard for missing textures like valve games do
+                        let specular = material.specular.unwrap_or(Color::WHITE);
+                        let shininess = material.shininess.unwrap_or(0.0);
+
+                        frags.push(Fragment {
+                            screen_pos: p,
+                            depth,
+                            albedo,
+                            normal,
+                            specular,
+                            shininess,
+                            dissolve: material.dissolve.unwrap_or(1.0),
+                            mat_id,
+                        });
+                    }
+                }
+            }
+        }
+        frags
+    }
+
     fn rasterize_triangle_barycentric(
         &self,
         screen_verts: [glam::Vec2; 3],
@@ -311,9 +400,7 @@ impl Rasterizer {
                         let b1_c = (b1 / w1) * w;
                         let b2_c = (b2 / w2) * w;
 
-                        let frag_pos =
-                            world_pos[0] * b0_c + world_pos[1] * b1_c + world_pos[2] * b2_c; // NOTE: MAYBE USE b0, b1, b2 INSTEAD
-                                                                                             // Interpolate z
+                        // Interpolate z
                         let mut depth = z0 * b0_c + z1 * b1_c + z2 * b2_c; // In [-1, 1] range
                         depth = (depth + 1.0) * 0.5; // In [0, 1] range
                         depth = depth.clamp(0.0, 1.0);

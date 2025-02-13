@@ -4,6 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+pub const TINY_DIMENSIONS: (usize, usize) = (320, 256);
 use clap::{Arg, Command};
 
 pub mod core;
@@ -143,8 +144,7 @@ pub fn handle_clap_matches(matches: &clap::ArgMatches) -> (DisplayTarget, Option
     (DisplayTarget::Terminal, None)
 }
 
-/// Macro that expands into a match statement handling various key codes.
-/// It mirrors the logic from your minifb input handling, but for crossterm.
+/// TODO: un-macro this
 #[macro_export]
 macro_rules! handle_crossterm_keys {
     ($key_code:expr, $states:expr, $scene:expr, $move_amount:expr) => {{

@@ -5,12 +5,17 @@ use glam::{Affine3A, Vec2, Vec3};
 use std::sync::{Arc, Mutex};
 
 use std::collections::HashMap;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Vertex {
-    pub pos: Vec3,               // Position in model space
-    pub uv: Option<Vec2>,        // Optional texture coordinates
-    pub color: Option<Color>,    // Optional vertex color for debugging/flat shading
-    pub tangent: Option<Vec3>,   // Optional tangent vector for normal mapping
+    pub pos: Vec3,
+    // Position in model space
+    pub uv: Option<Vec2>,
+    // Optional texture coordinates
+    pub color: Option<Color>,
+    // Optional vertex color for debugging/flat shading
+    pub tangent: Option<Vec3>,
+    // Optional tangent vector for normal mapping
     pub bitangent: Option<Vec3>, // Optional bitangent vector for normal mapping
 }
 
@@ -28,17 +33,22 @@ impl Default for Vertex {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Tri {
-    pub vertices: [usize; 3],    // Indices into the vertex buffer
+    pub vertices: [usize; 3],
+    // Indices into the vertex buffer
     pub material: Option<usize>, // Material ID
 }
 
 #[derive(Debug, Clone)]
 pub struct Mesh {
     pub name: String,
-    pub vertices: Vec<Vertex>,          // Vertex buffer
-    pub normals: Arc<Mutex<Vec<Vec3>>>, // Normal buffer
-    pub tris: Vec<Tri>,                 // Triangles
-    pub materials: Vec<Material>,       // Materials if available
+    pub vertices: Vec<Vertex>,
+    // Vertex buffer
+    pub normals: Arc<Mutex<Vec<Vec3>>>,
+    // Normal buffer
+    pub tris: Vec<Tri>,
+    // Triangles
+    pub materials: Vec<Material>,
+    // Materials if available
     normals_dirty: Arc<Mutex<bool>>,
     welded: Arc<Mutex<bool>>,
 }
@@ -58,6 +68,12 @@ impl PositionKey {
         PositionKey(x, y, z)
     }
 }
+impl Default for Mesh {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Mesh {
     pub fn new() -> Self {
         Self {
@@ -78,43 +94,126 @@ impl Mesh {
     pub fn update_normals(&self, transform: &Affine3A) {
         let mut dirty = self.normals_dirty.lock().unwrap();
         if *dirty {
-            self.recalculate_normals(transform);
+            self.sloppy_recalculate_normals(transform);
             *dirty = false;
         }
     }
 
-    fn recalculate_normals(&self, transform: &Affine3A) {
+    fn sloppy_recalculate_normals(&self, transform: &Affine3A) {
         // get the normal buffer
         let mut normals = self.normals.lock().unwrap();
         normals.resize(self.vertices.len(), Vec3::ZERO);
         // Calculate the normal transformation matrix
         let normal_matrix = transform.matrix3.inverse().transpose();
 
-        // For each triangle
+        // first I need to calculate in model space:
         for tri in &self.tris {
-            // Get transformed vertices in world space
-            let v0 = transform.transform_point3(self.vertices[tri.vertices[0]].pos);
-            let v1 = transform.transform_point3(self.vertices[tri.vertices[1]].pos);
-            let v2 = transform.transform_point3(self.vertices[tri.vertices[2]].pos);
+            let v0 = self.vertices[tri.vertices[0]].pos;
+            let v1 = self.vertices[tri.vertices[1]].pos;
+            let v2 = self.vertices[tri.vertices[2]].pos;
 
-            // Calculate face normal in world space
-            let normal = (v1 - v0).cross(v2 - v0).normalize();
+            // Face normal in model space
+            let model_norm = (v1 - v0).cross(v2 - v0).normalize();
 
-            // Transform the normal
-            let transformed_normal = (normal_matrix * normal).normalize();
+            // THEN transform face normal to world space using the normal matrix
+            let world_norm = (normal_matrix * model_norm).normalize();
 
-            // Add the normal contribution to each vertex
+            // Accumulate transformed normals
             for &vertex_idx in &tri.vertices {
-                normals[vertex_idx] += transformed_normal;
+                normals[vertex_idx] += world_norm;
             }
+        }
+
+        // normalize all vertex normals
+        for normal in normals.iter_mut() {
+            if normal.length_squared() > 0.0 {
+                *normal = normal.normalize();
+            }
+        }
+    }
+
+    /// http://www.bytehazard.com/articles/vertnorm.html
+    ///
+    /*
+    To follow the above article, I'm doing the following:
+    For Each Triangle:
+      Compute the two edge vectors of the triangle:
+        E1 = Vertex1 - Vertex0
+        E2 = Vertex2 - Vertex0
+      obtain cross product:
+      n = e1.cross(e2)
+
+      obtain the triangles area and then it's normalized facet normal (the vector which is perpendicular to the triangle)
+      if n.length() == 0.0 {continue;} degen tri
+        area = n.length() * 0.5
+        face_normal = n / n.length();
+      use the normal matrix to transform that to world space
+
+     2. For each vertex in the triangle compute the corner angle, and then multiply the faces normal by the corner angle and add it to the vertex normal
+        n
+     */
+    fn better_recalculate_normals(&self, transform: &Affine3A) {
+        let mut normals = self.normals.lock().unwrap();
+        normals.resize(self.vertices.len(), Vec3::ZERO);
+        let normal_matrix = transform.matrix3.inverse().transpose();
+
+        for tri in &self.tris {
+            let idx0 = tri.vertices[0];
+            let idx1: usize = tri.vertices[1];
+            let idx2 = tri.vertices[2];
+
+            let v0: Vec3 = self.vertices[idx0].pos;
+            let v1 = self.vertices[idx1].pos;
+            let v2 = self.vertices[idx2].pos;
+
+            // Compute the edge vectors
+            let e0 = v1 - v0;
+            let e1 = v2 - v0;
+            let e2 = v0 - v1;
+            let e3 = v2 - v1;
+            let e4 = v0 - v2;
+            let e5 = v1 - v2;
+
+            let cross = e0.cross(e1);
+            let n = cross.length();
+            if n == 0.0 {
+                continue;
+            }
+            let area = n * 0.5;
+
+            let face_normal_model = cross / n; // in model space
+            let face_normal_world = (normal_matrix * face_normal_model).normalize();
+
+            // Now step two, calculating the corner angles (angles of the triangle)
+            let ang0 = Self::angle_between(&e0, &e1);
+            let ang1 = Self::angle_between(&e2, &e3);
+            let ang2 = Self::angle_between(&e4, &e5);
+
+            // Obviously these should sum up to 180 degrees
+
+            // accumulate the weighted normal for each vertex
+            normals[idx0] += face_normal_world * area * ang0;
+            normals[idx1] += face_normal_world * area * ang1;
+            normals[idx2] += face_normal_world * area * ang2;
         }
 
         // Normalize all vertex normals
-        for i in 0..normals.len() {
-            if normals[i].length_squared() > 0.0 {
-                normals[i] = normals[i].normalize();
+        for normal in normals.iter_mut() {
+            if normal.length_squared() > 0.0 {
+                *normal = normal.normalize();
             }
         }
+    }
+
+    // https://math.stackexchange.com/questions/974178/how-to-calculate-the-angle-between-2-vectors-in-3d-space-given-a-preset-function
+    fn angle_between(v1: &Vec3, v2: &Vec3) -> f32 {
+        // magnitude of v1 * v2
+        let mag = v1.length() * v2.length();
+        if mag == 0.0 {
+            return 0.0;
+        }
+        let dot = (v1.dot(*v2) / mag).clamp(-1., 1.); // The clamp is for floating point issues
+        dot.acos() // the formula provides the cosine of the angle we are looking for , so we need to take the arccosine of it to get the angle
     }
 
     #[deprecated(
@@ -217,13 +316,48 @@ impl Mesh {
                 });
             }
         }
-        if outmesh.needs_weld(0.0001) {
+        if outmesh.needs_weld(0.001) {
             println!("Welding the Mesh!!! {:?}", outmesh.vertices.len());
-            outmesh.weld_vertices(0.0001);
+            outmesh.weld_vertices(0.001);
             println!("After Welding new len is {:?}", outmesh.vertices.len());
         }
+        outmesh.sloppy_recalculate_normals(&Affine3A::IDENTITY);
+        outmesh.print_shared_edges();
 
         outmesh
+    }
+
+    fn build_edge_map(&self) -> HashMap<(usize, usize), Vec<usize>> {
+        let mut edge_map = HashMap::new();
+        for tri in &self.tris {
+            for i in 0..3 {
+                let i0 = tri.vertices[i];
+                let i1 = tri.vertices[(i + 1) % 3];
+                let edge = (i0.min(i1), i0.max(i1));
+                edge_map.entry(edge).or_insert_with(Vec::new).push(i0);
+                edge_map.entry(edge).or_insert_with(Vec::new).push(i1);
+            }
+        }
+        edge_map
+    }
+
+    fn print_shared_edges(&self) {
+        let edge_map = self.build_edge_map();
+        for (edge, tri_indices) in edge_map {
+            if tri_indices.len() > 1 {
+                println!("Edge {:?} is shared by triangles {:?}", edge, tri_indices);
+                // Retrieve the normals at the vertices for this edge.
+                let n0 = self.normals.lock().unwrap()[edge.0];
+                let n1 = self.normals.lock().unwrap()[edge.1];
+                println!(
+                    "Vertex {} normal: {:?}, Vertex {} normal: {:?}",
+                    edge.0, n0, edge.1, n1
+                );
+                // You could also compute the dot product between n0 and n1:
+                let similarity = n0.dot(n1);
+                println!("Similarity (dot product) of normals: {:.3}", similarity);
+            }
+        }
     }
 
     pub fn weld_vertices(&mut self, position_epsilon: f32) -> bool {
@@ -355,14 +489,17 @@ impl Mesh {
 
         // Weld vertices in each mesh
         for (name, mesh) in meshes.iter_mut() {
-            if mesh.needs_weld(0.0001) {
+            if mesh.needs_weld(0.001) {
                 println!(
                     "Welding Mesh '{}' with {} vertices",
                     name,
                     mesh.vertices.len()
                 );
-                mesh.weld_vertices(0.0001);
+                mesh.weld_vertices(0.001);
                 println!("After welding, new vertex count: {}", mesh.vertices.len());
+                mesh.sloppy_recalculate_normals(&Affine3A::IDENTITY);
+
+                mesh.print_shared_edges();
             }
         }
 
