@@ -1,6 +1,12 @@
+use std::time::Instant;
 pub(crate) use std::{cell::RefCell, io};
 
 use crossterm::cursor;
+use crossterm::event;
+use crossterm::event::Event;
+use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
+use crossterm::event::MouseEventKind;
 use glam::{Affine3A, Mat4, Vec2, Vec4};
 use minifb::{Key, KeyRepeat, MouseButton, MouseMode, Window};
 
@@ -688,5 +694,389 @@ impl<B: Buffer> Pipeline<B> {
         }
 
         // getting rid of the big ass match statement? maybe?
+    }
+        pub fn handle_crossterm_input(&mut self, event: Event, _last_frame: Instant) -> bool {
+        // Constants (adjust as needed)
+        let delta = 0.1;
+        let move_speed = 1.0;
+        let rotate_speed = 1.0;
+        let orbit_speed = 1.0;
+        let orbit_amount = orbit_speed * delta;
+        let move_amount = move_speed * delta;
+        let rotate_amount = rotate_speed * delta;
+
+        // This flag will be set true if the user presses the exit key.
+        let mut should_break = false;
+
+        match event {
+            event::Event::Key(KeyEvent { code, modifiers, .. }) => {
+                match code {
+                    // Toggle wireframe
+                    KeyCode::Char('p') => {
+                        let current = self.states.borrow().draw_wireframe;
+                        self.states.borrow_mut().draw_wireframe = !current;
+                        println!("Draw wireframe: {}", !current);
+                    }
+                    // Toggle move_obj
+                    KeyCode::Char('j') => {
+                        let cur = self.states.borrow().move_obj;
+                        self.states.borrow_mut().move_obj = !cur;
+                        println!("Move obj: {}", !cur);
+                    }
+                    // Decrement current object index
+                    KeyCode::Char('[') => {
+                        let mut current = self.states.borrow().current_obj;
+                        current = current.saturating_sub(1);
+                        if current > self.scene.entities.len() - 1 {
+                            current = self.scene.entities.len() - 1;
+                        }
+                        self.states.borrow_mut().current_obj = current;
+                        //println!("Current object: {}", current);
+                    }
+                    // Increment current object index
+                    KeyCode::Char(']') => {
+                        let mut current = self.states.borrow().current_obj;
+                        current += 1;
+                        if current > self.scene.entities.len() - 1 {
+                            current %= self.scene.entities.len();
+                        }
+                        self.states.borrow_mut().current_obj = current;
+                        //println!("Current object: {}", current);
+                    }
+                    // Reset camera (if not moving an object)
+                    KeyCode::Char('u') => {
+                        if self.states.borrow().move_obj {
+                            // do nothing
+                        } else {
+                            self.scene.camera.reset();
+                        }
+                    }
+                    // Print matrices debug info
+                    KeyCode::Char('/') => {
+                        //println!("Printing out Matrices:");
+                        //println!(
+                        //    "{}",
+                        //    format_mat4("Camera View Matrix", &self.scene.camera.view_matrix())
+                        //);
+                        //println!(
+                        //    "{}",
+                        //    format_mat4(
+                        //        "Camera Projection Matrix",
+                        //        &self.scene.camera.projection_matrix()
+                        //    )
+                        //);
+                        //println!(
+                        //    "{}",
+                        //    format_mat4(
+                        //        "Model Matrix (first entity)",
+                        //        &Mat4::from(*self.scene.entities[0].transform())
+                        //    )
+                        //);
+                        //println!(
+                        //    "{}",
+                        //    format_mat4(
+                        //        "MVP matrix of first entity",
+                        //        &(self.scene.camera.projection_matrix()
+                        //            * self.scene.camera.view_matrix()
+                        //            * Mat4::from(*self.scene.entities[0].transform()))
+                        //    )
+                        //);
+                    }
+                    // Print camera debug info
+                    KeyCode::Char('e') => {
+                        println!("Camera Debug Info:");
+                        println!("Camera position: {:?}", self.scene.camera.position());
+                        println!("Camera target: {:?}\n", self.scene.camera.target());
+
+                        println!("{:?}", self.scene.camera.orientation());
+
+                        println!("Camera forward: {:?}", self.scene.camera.forward());
+                        println!("Camera right: {:?}\n", self.scene.camera.right());
+                        println!("Camera up: {:?}\n", self.scene.camera.up());
+
+                        println!(
+                            "{}",
+                            format_mat4("Camera View Matrix", &self.scene.camera.view_matrix())
+                        );
+                        println!(
+                            "{}",
+                            format_mat4(
+                                "Camera Projection Matrix",
+                                &self.scene.camera.projection_matrix()
+                            )
+                        );
+                        println!("\n\n");
+                    }
+                    // Cycle render mode on selected object
+                    KeyCode::Char('r') => {
+                        println!("Updating Render Mode of selected object");
+                        let obj = &self.scene.entities[self.states.borrow().current_obj];
+                        print!("Selected Object: {:?} -> ", obj.name);
+                        if let Ok(mut mode) = obj.render_mode().lock() {
+                            *mode = match *mode {
+                                RenderMode::Solid => RenderMode::Wireframe,
+                                RenderMode::Wireframe => RenderMode::Solid,
+                                _ => RenderMode::Solid,
+                            };
+                            println!("New render mode: {:?}", *mode);
+                        }
+                    }
+                    // Rotate all entities (example for key '0')
+                    KeyCode::Char('0') => {
+                        for entity in &mut self.scene.entities {
+                            let mut t = *entity.transform();
+                            t *= Affine3A::from_rotation_x(0.1);
+                            entity.set_transform(t);
+                        }
+                    }
+                    // Rotate all entities (example for key '1')
+                    KeyCode::Char('1') => {
+                        for entity in &mut self.scene.entities {
+                            let mut t = *entity.transform();
+                            t *= Affine3A::from_rotation_x(0.05);
+                            t *= Affine3A::from_rotation_y(0.1);
+                            t *= Affine3A::from_rotation_z(0.07);
+                            entity.set_transform(t);
+                        }
+                    }
+                    // Movement and object translation keys
+                    KeyCode::Char('w') => {
+                        let move_obj = self.states.borrow().move_obj;
+                        let current_obj = self.states.borrow().current_obj;
+                        if move_obj {
+                            let ent = &self.scene.entities[current_obj];
+                            let mut t = *ent.transform();
+                            t.translation.z += move_amount;
+                            self.scene.entities[current_obj].set_transform(t);
+                        } else {
+                            self.scene.camera.move_forward(move_amount);
+                        }
+                    }
+                    KeyCode::Char('s') => {
+                        let move_obj = self.states.borrow().move_obj;
+                        let current_obj = self.states.borrow().current_obj;
+                        if move_obj {
+                            let ent = &self.scene.entities[current_obj];
+                            let mut t = *ent.transform();
+                            t.translation.z -= move_amount;
+                            self.scene.entities[current_obj].set_transform(t);
+                        } else {
+                            self.scene.camera.move_forward(-move_amount);
+                        }
+                    }
+                    KeyCode::Char('a') => {
+                        let move_obj = self.states.borrow().move_obj;
+                        let current_obj = self.states.borrow().current_obj;
+                        if move_obj {
+                            let ent = &self.scene.entities[current_obj];
+                            let mut t = *ent.transform();
+                            t.translation.x -= move_amount;
+                            self.scene.entities[current_obj].set_transform(t);
+                        } else {
+                            self.scene.camera.move_right(-move_amount);
+                        }
+                    }
+                    KeyCode::Char('d') => {
+                        let move_obj = self.states.borrow().move_obj;
+                        let current_obj = self.states.borrow().current_obj;
+                        if move_obj {
+                            let ent = &self.scene.entities[current_obj];
+                            let mut t = *ent.transform();
+                            t.translation.x += move_amount;
+                            self.scene.entities[current_obj].set_transform(t);
+                        } else {
+                            self.scene.camera.move_right(move_amount);
+                        }
+                    }
+                    // Orbit the camera
+                    KeyCode::Char('o') => {
+                        self.scene.camera.orbit(orbit_amount);
+                    }
+                    // Use SPACE for upward movement. If SHIFT is held, move downward.
+                    KeyCode::Char(' ') => {
+                        if modifiers.contains(event::KeyModifiers::SHIFT) {
+                            // SHIFT+SPACE: move down
+                            let move_obj = self.states.borrow().move_obj;
+                            let current_obj = self.states.borrow().current_obj;
+                            if move_obj {
+                                let ent = &self.scene.entities[current_obj];
+                                let mut t = *ent.transform();
+                                t.translation.y -= move_amount;
+                                self.scene.entities[current_obj].set_transform(t);
+                            } else {
+                                self.scene.camera.move_up(-move_amount);
+                            }
+                        } else {
+                            // SPACE: move up
+                            let move_obj = self.states.borrow().move_obj;
+                            let current_obj = self.states.borrow().current_obj;
+                            if move_obj {
+                                let ent = &self.scene.entities[current_obj];
+                                let mut t = *ent.transform();
+                                t.translation.y += move_amount;
+                                self.scene.entities[current_obj].set_transform(t);
+                            } else {
+                                self.scene.camera.move_up(move_amount);
+                            }
+                        }
+                    }
+                    // Rotate the camera with the arrow keys
+                    KeyCode::Up => {
+                        self.scene.camera.rotate(rotate_amount, 0.0);
+                    }
+                    KeyCode::Down => {
+                        self.scene.camera.rotate(-rotate_amount, 0.0);
+                    }
+                    // Exit on Esc or q (or Q)
+                      KeyCode::Esc
+                    | KeyCode::Char('q')
+                    | KeyCode::Char('Q') => {
+                        should_break = true;
+                    }
+                    _ => {}
+                }
+            }
+            crossterm::event::Event::Mouse(mouse_event) => {
+                match mouse_event.kind {
+                    // On mouse button down events...
+                    MouseEventKind::Down(btn) => {
+                        match btn {
+                            crossterm::event::MouseButton::Left => {
+                                if !self.states.borrow().is_mouse_pan_enabled {
+                                    self.states.borrow_mut().is_mouse_pan_enabled = true;
+                                    self.states.borrow_mut().last_mouse_pos =
+                                        Some((mouse_event.column.into(), mouse_event.row.into()));
+                                }
+                                println!(
+                                    "Left click at ({}, {})",
+                                    mouse_event.column, mouse_event.row
+                                );
+                            }
+                            crossterm::event::MouseButton::Right => {
+                                if !self.states.borrow().is_mouse_look_enabled {
+                                    self.states.borrow_mut().is_mouse_look_enabled = true;
+                                    self.states.borrow_mut().last_mouse_pos =
+                                        Some((mouse_event.column.into(), mouse_event.row.into()));
+                                }
+                                println!(
+                                    "Right click at ({}, {})",
+                                    mouse_event.column, mouse_event.row
+                                );
+                            }
+                            crossterm::event::MouseButton::Middle => {
+                                println!(
+                                    "Middle click at ({}, {})",
+                                    mouse_event.column, mouse_event.row
+                                );
+                            }
+                            _ => {}
+                        }
+                    }
+                    // On mouse button up events...
+                    MouseEventKind::Up(btn) => {
+                        match btn {
+                            crossterm::event::MouseButton::Left => {
+                                self.states.borrow_mut().is_mouse_pan_enabled = false;
+                                self.states.borrow_mut().last_mouse_pos = None;
+                                //println!("Left button released");
+                            }
+                            crossterm::event::MouseButton::Right => {
+                                self.states.borrow_mut().is_mouse_look_enabled = false;
+                                self.states.borrow_mut().last_mouse_pos = None;
+                                //println!("Right button released");
+                            }
+                            crossterm::event::MouseButton::Middle => {
+                            }
+                            _ => {}
+                        }
+                    }
+                    // On dragging events, update the camera or entity rotations accordingly.
+                    MouseEventKind::Drag(btn) => {
+                        match btn {
+                            crossterm::event::MouseButton::Left => {
+                                if self.states.borrow().is_mouse_pan_enabled {
+                                    if let Some(last_pos) =
+                                        self.states.borrow_mut().last_mouse_pos.take()
+                                    {
+                                        let current_pos = (mouse_event.column, mouse_event.row);
+                                        let current_mouse =
+                                            Vec2::new(current_pos.0 as f32, current_pos.1 as f32);
+                                        let last_mouse =
+                                            Vec2::new(last_pos.0 as f32, last_pos.1 as f32);
+                                        let mouse_delta = current_mouse - last_mouse;
+                                        for ent in self.scene.entities.iter_mut() {
+                                            let mut t = *ent.transform();
+                                            t *= Affine3A::from_rotation_y(
+                                                mouse_delta.x * rotate_speed * 0.005,
+                                            );
+                                            t *= Affine3A::from_rotation_x(
+                                                mouse_delta.y * rotate_speed * 0.005,
+                                            );
+                                            ent.set_transform(t);
+                                        }
+                                            let (a, b) = current_pos;
+                                            
+                                        self.states.borrow_mut().last_mouse_pos = Some((a.into(), b.into()));
+                                    } else {
+                                        self.states.borrow_mut().last_mouse_pos =
+                                            Some((mouse_event.column.into(), mouse_event.row.into()));
+                                    }
+                                }
+                            }
+                            crossterm::event::MouseButton::Right => {
+                                if self.states.borrow().is_mouse_look_enabled {
+                                    if let Some(last_pos) =
+                                        self.states.borrow_mut().last_mouse_pos.take()
+                                    {
+                                        let current_pos = (mouse_event.column, mouse_event.row);
+                                        let current_mouse =
+                                            Vec2::new(current_pos.0 as f32, current_pos.1 as f32);
+                                        let last_mouse =
+                                            Vec2::new(last_pos.0 as f32, last_pos.1 as f32);
+                                        let mouse_delta = current_mouse - last_mouse;
+                                        self.scene.camera.yaw(mouse_delta.x * rotate_speed * 0.005);
+                                        self.scene.camera.pitch(mouse_delta.y * rotate_speed * 0.005);
+                                        let (a,b) = current_pos;
+                                        self.states.borrow_mut().last_mouse_pos =
+                                            Some((a.into(), b.into()));
+                                    } else {
+                                        self.states.borrow_mut().last_mouse_pos =
+                                            Some((mouse_event.column.into(), mouse_event.row.into()));
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                        //println!(
+                        //    "Dragging with {:?} button at ({}, {})",
+                        //    btn, mouse_event.column, mouse_event.row
+                        //);
+                    }
+                    MouseEventKind::Moved => {
+                        //println!(
+                        //    "Mouse moved to ({}, {})",
+                        //    mouse_event.column, mouse_event.row
+                        //);
+                    }
+                    MouseEventKind::ScrollUp => {
+                        //println!(
+                        //    "Scrolled up at ({}, {})",
+                        //    mouse_event.column, mouse_event.row
+                        //);
+                        // Optionally implement zoom in
+                    }
+                    MouseEventKind::ScrollDown => {
+                        //println!(
+                        //    "Scrolled down at ({}, {})",
+                        //    mouse_event.column, mouse_event.row
+                        //);
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+
+        should_break
     }
 }
