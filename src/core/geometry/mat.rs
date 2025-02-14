@@ -29,7 +29,7 @@ pub struct Material {
 
 impl Material {
     pub fn from_tobj(mat: tobj::Material) -> Self {
-        Self {
+        let out = Self {
             name: mat.name,
 
             // Convert [f32; 3] arrays to our Color type
@@ -51,7 +51,8 @@ impl Material {
 
             illumination_model: mat.illumination_model,
             //unknown_params: mat.unknown_param.to_ha
-        }
+        };
+        out
     }
 
     pub fn get_base_color(&self) -> Color {
@@ -91,7 +92,7 @@ impl Default for Material {
             shininess_texture: None,
             dissolve_texture: None,
             illumination_model: Some(2), // Blinn-Phong by default
-                                         //unknown_params: HashMap::new(),
+            //unknown_params: HashMap::new(),
         }
     }
 }

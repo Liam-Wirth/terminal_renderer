@@ -1,7 +1,6 @@
 use crate::core::geometry::Material;
 use crate::core::Color;
 use glam::Vec3;
-use std::ops::Mul;
 
 /// The lights I'll support (can be extended in the future)
 #[derive(Clone, Debug)]
@@ -183,11 +182,52 @@ impl Light {
             intensity: 1.0,
         }
     }
+    pub fn is_directional(&self) -> bool {
+        matches!(self.light_type, LightType::Directional(_))
+    }
+    pub fn is_point(&self) -> bool {
+        matches!(self.light_type, LightType::Point { .. })
+    }
+    pub fn is_spot(&self) -> bool {
+        matches!(self.light_type, LightType::Spot { .. })
+    }
+    pub fn get_position(&self) -> Vec3 {
+        match self.light_type {
+            LightType::Directional(_) => Vec3::ZERO,
+            LightType::Point { position, .. } => position,
+            LightType::Spot { position, .. } => position,
+        }
+    }
+    pub fn set_position(&mut self, pos: Vec3) {
+        match self.light_type {
+            LightType::Directional(_) => {}
+            LightType::Point {
+                ref mut position, ..
+            } => *position = pos,
+            LightType::Spot {
+                ref mut position, ..
+            } => *position = pos,
+        }
+    }
 }
 
 impl Default for Light {
     fn default() -> Self {
         Light::default_directional()
+    }
+}
+
+impl Light {
+    pub fn orbit(&mut self, center: Vec3, radius: f32, speed: f32, delta: f32) {
+        if let LightType::Point {
+            ref mut position, ..
+        } = self.light_type
+        {
+            let current_angle = (position.z - center.z).atan2(position.x - center.x);
+            let new_angle = current_angle + speed * delta;
+            position.x = center.x + radius * new_angle.cos();
+            position.z = center.z + radius * new_angle.sin();
+        }
     }
 }
 

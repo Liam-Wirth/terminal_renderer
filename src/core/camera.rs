@@ -156,10 +156,14 @@ impl Camera {
     //}
 
     pub fn orbit(&mut self, angle: f32) {
-        let radius = self.position.length();
-        let new_x = radius * angle.cos();
-        let new_z = radius * angle.sin();
-        self.position = Vec3::new(new_x, self.position.y, new_z);
+        let current_angle = self.position.z.atan2(self.position.x);
+        let new_angle = current_angle + angle;
+        let radius = (self.position.x * self.position.x + self.position.z * self.position.z).sqrt();
+
+        self.position.x = radius * new_angle.cos();
+        self.position.z = radius * new_angle.sin();
+
+        // Update direction and orientation
         let direction = (-self.position).normalize();
         self.orientation = Quat::from_rotation_arc(Vec3::Z, direction);
         *self.dirty.lock().unwrap() = true;

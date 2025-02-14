@@ -1,4 +1,3 @@
-use log::warn;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 // TODO: In the future would be cool to look into SIMD stuff for this, possibly like vectorized accumulation of colors etc
@@ -178,8 +177,8 @@ impl From<(f32, f32, f32)> for Color {
     }
 }
 
-impl From<(f32)> for Color {
-    fn from(t: (f32)) -> Self {
+impl From<f32> for Color {
+    fn from(t: f32) -> Self {
         Self { r: t, g: t, b: t }.clamped()
     }
 }
