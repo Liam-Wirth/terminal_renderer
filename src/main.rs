@@ -105,15 +105,15 @@ fn main() -> io::Result<()> {
     // for ent in icosphere.iter() {
     //     scene.add_entity(ent.clone());
     // }
-    //for ent in teapot.iter() {
-    //    // TODO: need to find a way to merge entities, might also
-    //    // be better to have a hash set for storing members of the scene.
-    //    scene.add_entity(ent.clone());
-    //}
-    let mut penguin = Entity::from_obj_set(penguin_path.to_str().unwrap());
-    for ent in penguin.iter() {
+    for ent in teapot.iter() {
+        // TODO: need to find a way to merge entities, might also
+        // be better to have a hash set for storing members of the scene.
         scene.add_entity(ent.clone());
     }
+    // let mut penguin = Entity::from_obj_set(penguin_path.to_str().unwrap());
+    // for ent in penguin.iter() {
+    //     scene.add_entity(ent.clone());
+    // }
 
     //scene.add_entity(hexa);
 
