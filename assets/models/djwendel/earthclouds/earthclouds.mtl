@@ -1,0 +1,11 @@
+# 3ds Max Wavefront OBJ Exporter v0.94b - (c)2007 guruware
+# File Created: 04.12.2008 17:33:32
+
+newmtl EarthCloudsMTL
+illum 2
+Kd 0.698039 0.698039 0.698039
+Ka 0.086275 0.086275 0.086275
+Ks 0.541176 0.541176 0.541176
+Ke 0.000000 0.000000 0.000000
+Ns 59.999999
+map_Kd Earth_clouds_2048x1024.jpg

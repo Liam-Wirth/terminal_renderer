@@ -24,7 +24,6 @@ impl Rasterizer {
         geometry: &[ProcessedGeometry],
         scene: &Scene,
         frags: &mut Vec<Fragment>,
-        light_mode: &crate::core::LightMode,
     ) {
         frags.clear();
         debug_print!("Processing {} geometries", geometry.len());

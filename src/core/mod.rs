@@ -30,3 +30,4 @@ pub use light::FlatShading;
 pub use light::Light;
 pub use light::LightMode;
 pub use light::LightingModel;
+pub use light::LightType;

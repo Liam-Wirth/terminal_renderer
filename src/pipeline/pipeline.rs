@@ -7,12 +7,14 @@ use crossterm::event::Event;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
 use crossterm::event::MouseEventKind;
+use glam::Vec3;
 use glam::{Affine3A, Mat4, Vec2, Vec4};
 use minifb::{Key, KeyRepeat, MouseButton, MouseMode, Window};
 
 use super::{
     buffer::Buffer, rasterizer::Rasterizer, Clipper, Fragment, GBuffer, ProcessedGeometry,
 };
+use crate::core::LightType;
 use crate::core::{BlinnPhongShading, FlatShading, Light, LightMode, LightingModel};
 use crate::{
     core::{Color, RenderMode, Scene},
@@ -32,6 +34,7 @@ pub struct States {
     pub is_mouse_look_enabled: bool,
     pub is_mouse_pan_enabled: bool,
     pub last_mouse_pos: Option<(f32, f32)>,
+    pub draw_light_marker: bool,
 }
 
 /// A graphics rendering pipeline that processes 3D geometry into 2D screen output
@@ -106,6 +109,7 @@ impl<B: Buffer> Pipeline<B> {
                 is_mouse_look_enabled: false,
                 last_mouse_pos: None,
                 is_mouse_pan_enabled: false,
+                draw_light_marker: false,
             }),
             gbuffer: RefCell::new(GBuffer::new(width * height)),
             scale_factor: 1,
@@ -249,7 +253,6 @@ impl<B: Buffer> Pipeline<B> {
             &self.geometry.borrow(),
             &self.scene,
             &mut self.fragments.borrow_mut(),
-            &self.states.borrow().light_mode,
         );
     }
     pub fn process_fragments(&self, fragments: &[Fragment]) {
@@ -372,6 +375,27 @@ impl<B: Buffer> Pipeline<B> {
                 self.back_buffer
                     .borrow_mut()
                     .set_pixel((x, y), &gbuffer.depth[idx], pixel)
+            }
+        }
+    }
+
+    // TODO: This
+    fn draw_light_markers(&self) {
+        if !self.states.borrow().draw_light_marker {
+            return;
+        }
+        let view_proj = self.scene.camera.view_matrix() * self.scene.camera.projection_matrix();
+        let mut buff = self.back_buffer.borrow_mut();
+
+        for light in &self.scene.lights {
+            match &light.light_type {
+                &LightType::Point { position, .. } => {}
+                &LightType::Directional(direction) => {}
+                &LightType::Spot {
+                    position,
+                    direction,
+                    ..
+                } => {}
             }
         }
     }
@@ -645,6 +669,9 @@ impl<B: Buffer> Pipeline<B> {
                     minifb::Key::O => {
                         self.scene.camera.orbit(orbit_amount);
                     }
+                    minifb::Key::Key3 => {
+                       self.scene.lights[0].orbit(Vec3::ZERO, 5.0, 0.01, 0.0001);
+                    }
                     minifb::Key::Space => {
                         let move_obj = self.states.borrow().move_obj;
                         let current_obj = self.states.borrow().current_obj;
@@ -695,7 +722,7 @@ impl<B: Buffer> Pipeline<B> {
 
         // getting rid of the big ass match statement? maybe?
     }
-        pub fn handle_crossterm_input(&mut self, event: Event, _last_frame: Instant) -> bool {
+    pub fn handle_crossterm_input(&mut self, event: Event, _last_frame: Instant) -> bool {
         // Constants (adjust as needed)
         let delta = 0.1;
         let move_speed = 1.0;
@@ -709,7 +736,9 @@ impl<B: Buffer> Pipeline<B> {
         let mut should_break = false;
 
         match event {
-            event::Event::Key(KeyEvent { code, modifiers, .. }) => {
+            event::Event::Key(KeyEvent {
+                code, modifiers, ..
+            }) => {
                 match code {
                     // Toggle wireframe
                     KeyCode::Char('p') => {
@@ -888,6 +917,11 @@ impl<B: Buffer> Pipeline<B> {
                             self.scene.camera.move_right(move_amount);
                         }
                     }
+                    // Orbit the first light in the light array around the origin
+                    KeyCode::Char('3') => {
+                        let mut light = self.scene.lights[0].clone();
+                        light.orbit(Vec3::ZERO, 5.0, 0.1, 0.1);
+                    }
                     // Orbit the camera
                     KeyCode::Char('o') => {
                         self.scene.camera.orbit(orbit_amount);
@@ -928,9 +962,7 @@ impl<B: Buffer> Pipeline<B> {
                         self.scene.camera.rotate(-rotate_amount, 0.0);
                     }
                     // Exit on Esc or q (or Q)
-                      KeyCode::Esc
-                    | KeyCode::Char('q')
-                    | KeyCode::Char('Q') => {
+                    KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
                         should_break = true;
                     }
                     _ => {}
@@ -939,39 +971,37 @@ impl<B: Buffer> Pipeline<B> {
             crossterm::event::Event::Mouse(mouse_event) => {
                 match mouse_event.kind {
                     // On mouse button down events...
-                    MouseEventKind::Down(btn) => {
-                        match btn {
-                            crossterm::event::MouseButton::Left => {
-                                if !self.states.borrow().is_mouse_pan_enabled {
-                                    self.states.borrow_mut().is_mouse_pan_enabled = true;
-                                    self.states.borrow_mut().last_mouse_pos =
-                                        Some((mouse_event.column.into(), mouse_event.row.into()));
-                                }
-                                println!(
-                                    "Left click at ({}, {})",
-                                    mouse_event.column, mouse_event.row
-                                );
+                    MouseEventKind::Down(btn) => match btn {
+                        crossterm::event::MouseButton::Left => {
+                            if !self.states.borrow().is_mouse_pan_enabled {
+                                self.states.borrow_mut().is_mouse_pan_enabled = true;
+                                self.states.borrow_mut().last_mouse_pos =
+                                    Some((mouse_event.column.into(), mouse_event.row.into()));
                             }
-                            crossterm::event::MouseButton::Right => {
-                                if !self.states.borrow().is_mouse_look_enabled {
-                                    self.states.borrow_mut().is_mouse_look_enabled = true;
-                                    self.states.borrow_mut().last_mouse_pos =
-                                        Some((mouse_event.column.into(), mouse_event.row.into()));
-                                }
-                                println!(
-                                    "Right click at ({}, {})",
-                                    mouse_event.column, mouse_event.row
-                                );
-                            }
-                            crossterm::event::MouseButton::Middle => {
-                                println!(
-                                    "Middle click at ({}, {})",
-                                    mouse_event.column, mouse_event.row
-                                );
-                            }
-                            _ => {}
+                            println!(
+                                "Left click at ({}, {})",
+                                mouse_event.column, mouse_event.row
+                            );
                         }
-                    }
+                        crossterm::event::MouseButton::Right => {
+                            if !self.states.borrow().is_mouse_look_enabled {
+                                self.states.borrow_mut().is_mouse_look_enabled = true;
+                                self.states.borrow_mut().last_mouse_pos =
+                                    Some((mouse_event.column.into(), mouse_event.row.into()));
+                            }
+                            println!(
+                                "Right click at ({}, {})",
+                                mouse_event.column, mouse_event.row
+                            );
+                        }
+                        crossterm::event::MouseButton::Middle => {
+                            println!(
+                                "Middle click at ({}, {})",
+                                mouse_event.column, mouse_event.row
+                            );
+                        }
+                        _ => {}
+                    },
                     // On mouse button up events...
                     MouseEventKind::Up(btn) => {
                         match btn {
@@ -985,8 +1015,7 @@ impl<B: Buffer> Pipeline<B> {
                                 self.states.borrow_mut().last_mouse_pos = None;
                                 //println!("Right button released");
                             }
-                            crossterm::event::MouseButton::Middle => {
-                            }
+                            crossterm::event::MouseButton::Middle => {}
                             _ => {}
                         }
                     }
@@ -1014,12 +1043,15 @@ impl<B: Buffer> Pipeline<B> {
                                             );
                                             ent.set_transform(t);
                                         }
-                                            let (a, b) = current_pos;
-                                            
-                                        self.states.borrow_mut().last_mouse_pos = Some((a.into(), b.into()));
-                                    } else {
+                                        let (a, b) = current_pos;
+
                                         self.states.borrow_mut().last_mouse_pos =
-                                            Some((mouse_event.column.into(), mouse_event.row.into()));
+                                            Some((a.into(), b.into()));
+                                    } else {
+                                        self.states.borrow_mut().last_mouse_pos = Some((
+                                            mouse_event.column.into(),
+                                            mouse_event.row.into(),
+                                        ));
                                     }
                                 }
                             }
@@ -1035,13 +1067,17 @@ impl<B: Buffer> Pipeline<B> {
                                             Vec2::new(last_pos.0 as f32, last_pos.1 as f32);
                                         let mouse_delta = current_mouse - last_mouse;
                                         self.scene.camera.yaw(mouse_delta.x * rotate_speed * 0.005);
-                                        self.scene.camera.pitch(mouse_delta.y * rotate_speed * 0.005);
-                                        let (a,b) = current_pos;
+                                        self.scene
+                                            .camera
+                                            .pitch(mouse_delta.y * rotate_speed * 0.005);
+                                        let (a, b) = current_pos;
                                         self.states.borrow_mut().last_mouse_pos =
                                             Some((a.into(), b.into()));
                                     } else {
-                                        self.states.borrow_mut().last_mouse_pos =
-                                            Some((mouse_event.column.into(), mouse_event.row.into()));
+                                        self.states.borrow_mut().last_mouse_pos = Some((
+                                            mouse_event.column.into(),
+                                            mouse_event.row.into(),
+                                        ));
                                     }
                                 }
                             }
