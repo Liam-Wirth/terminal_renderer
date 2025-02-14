@@ -1,8 +1,7 @@
 use crate::core::light::Light;
 use std::{
-    cell::RefCell,
-    default,
     fmt::{self, Display, Formatter},
+    path::{PathBuf},
     sync::{Arc, Mutex},
 };
 
@@ -10,7 +9,7 @@ use crate::core::camera::Camera;
 
 use glam::{Affine3A, Vec3};
 
-use crate::geometry::{Mesh, Tri, Vertex};
+use crate::geometry::Mesh;
 
 use super::Color;
 
@@ -37,6 +36,8 @@ impl Default for RenderMode {
     }
 }
 
+// TODO: Flesh out this class, need to add the functionality to more accurately/properly collect
+// the submodels into one singular mesh, or not, regardless look into that
 #[derive(Clone, Debug)]
 pub struct Entity {
     pub name: String,
@@ -203,5 +204,66 @@ impl Default for Scene {
             entities: Vec::new(),
             lights: Vec::new(),
         }
+    }
+}
+
+impl Entity {
+    // Adding default intity constructors for some of the files located within the assets folder,
+    // will make testing / debugging a bit easier
+    //
+    pub fn new_icosphere() -> Vec<Self> {
+        let icos = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join("models")
+            .join("icosphere.obj");
+        Self::from_obj_set(icos.to_str().unwrap())
+    }
+
+    pub fn new_suzanne() -> Vec<Self> {
+        let monkey_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join("models")
+            .join("suzy.obj");
+        Self::from_obj_set(monkey_path.to_str().unwrap())
+    }
+
+    pub fn new_penguin() -> Vec<Self> {
+        let penguin_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join("models")
+            .join("Penguin.obj");
+        Self::from_obj_set(penguin_path.to_str().unwrap())
+    }
+
+    pub fn new_teapot() -> Vec<Self> {
+        let teapot = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join("models")
+            .join("newell_teaset")
+            .join("teapot.obj");
+        Self::from_obj_set(teapot.to_str().unwrap())
+    }
+
+    pub fn new_skull() -> Vec<Self> {
+        let skull = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join("models")
+            .join("skull.obj");
+        Self::from_obj_set(skull.to_str().unwrap())
+    }
+    pub fn new_ferris() -> Vec<Self> {
+        let ferris = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join("models")
+            .join("ferris.obj");
+        Self::from_obj_set(ferris.to_str().unwrap())
+    }
+    pub fn new_sphere() -> Vec<Self> {
+        let sphere = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join("models")
+            .join("platonics")
+            .join("sphere.obj");
+        Self::from_obj_set(sphere.to_str().unwrap())
     }
 }

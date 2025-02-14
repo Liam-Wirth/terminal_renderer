@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::core::{Color, LightMode, LightingModel, RenderMode, Scene};
+use crate::core::{Color, RenderMode, Scene};
 use crate::debug_print;
 use crate::geometry::Material;
 use crate::pipeline::{to_fixed, Fragment, ProcessedGeometry, FP_ONE, FP_SHIFT};
@@ -24,7 +24,6 @@ impl Rasterizer {
         geometry: &[ProcessedGeometry],
         scene: &Scene,
         frags: &mut Vec<Fragment>,
-        light_mode: &crate::core::LightMode,
     ) {
         frags.clear();
         debug_print!("Processing {} geometries", geometry.len());
@@ -325,7 +324,8 @@ impl Rasterizer {
                         let world_pos = (pos0 * b0_c + pos1 * b1_c + pos2 * b2_c) * persp_w;
 
                         //interp normalize normal
-                        let normal = (norm0 * b0_c + norm1 * b1_c + norm2 * b2_c) * persp_w;
+                        // let normal = (norm0 * b0_c + norm1 * b1_c + norm2 * b2_c) * persp_w;
+                        let normal = norm0 * b0_c + norm1 * b1_c + norm2 * b2_c;
                         let normal = normal.normalize();
 
                         //get material properties
@@ -551,7 +551,6 @@ impl Rasterizer {
     }
 }
 
-/// Same edge function you already have, but left as is.
 #[inline(always)]
 fn edge_function_fixed(v0: (i32, i32), v1: (i32, i32), p: (i32, i32)) -> i32 {
     let dx = v1.0 - v0.0;
@@ -566,15 +565,68 @@ fn barycentric(
     v1: glam::Vec2,
     v2: glam::Vec2,
 ) -> Option<(f32, f32, f32)> {
-    let denom = (v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y);
-    if denom.abs() < 1e-10 {
-        // Degenerate triangle
+    let total_area = edge_function(&v0, &v1, &v2); // Returns 2x the signed area
+                                                   // Early exit for a degenerate tri:
+    if total_area.abs() < 1e-10 {
         return None;
     }
-    let w1 = ((v1.y - v2.y) * (p.x - v2.x) + (v2.x - v1.x) * (p.y - v2.y)) / denom;
-    let w2 = ((v2.y - v0.y) * (p.x - v2.x) + (v0.x - v2.x) * (p.y - v2.y)) / denom;
-    let w0 = 1.0 - w1 - w2;
-    Some((w0, w1, w2))
+
+    let w0 = edge_function(&v1, &v2, &p); // Returns 2x A_1
+    let w1 = edge_function(&v2, &v0, &p); // Returns 2x A_2
+    let w2 = edge_function(&v0, &v1, &p); // returns 2x A_3
+
+    let include_edge = |w: f32, start: &Vec2, end: &Vec2| -> bool {
+        if w.abs() < 1e-10 {
+            // on the edge
+            if start.y == end.y {
+                // horizontal edge
+                start.y > end.y
+            } else {
+                start.x > end.x
+            }
+        } else {
+            w >= 0.0 // Include if we're inside
+        }
+    };
+
+    if include_edge(w0, &v1, &v2) && include_edge(w1, &v2, &v0) && include_edge(w2, &v0, &v1) {
+        // convert areas to weights
+        let b0 = w0 / total_area;
+        let b1 = w1 / total_area;
+        let b2 = w2 / total_area;
+        Some((b0, b1, b2))
+    } else {
+        None
+    }
+}
+
+// https://www.scratchapixel.com/lessons/3d-basic-rendering/rasterization-practical-implementation/rasterization-stage.html
+// https://www.cs.drexel.edu/~deb39/Classes/Papers/comp175-06-pineda.pdf
+// Based on pineda's edge function to determine if a point is inside a triangle
+// NOTE: Could also use this for wireframes by just discarding everything pixel that doesnt return 0
+/// Returns Some int N
+/// 'N' > 0 if the point is to the right of the line
+/// 'N' == 0 if the point is on the line
+/// 'N' < 0 if the point is to the left of the line
+fn edge_function(a: &Vec2, b: &Vec2, c: &Vec2) -> f32 {
+    // NOTE TO SELF this can also be represented as the magnitude of the cross products between (V1 - V0) and (P- V0)
+    (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)
+}
+
+fn is_on_edge(v0: &Vec2, v1: &Vec2, v2: &Vec2, p: &Vec2) -> bool {
+    let mut on_edge = false;
+    on_edge |= edge_function(v0, v1, p).abs() < 1e-10;
+    on_edge |= edge_function(v1, v2, p).abs() < 1e-10;
+    on_edge |= edge_function(v2, v0, p).abs() < 1e-10;
+    on_edge
+}
+
+fn inside(v0: &Vec2, v1: &Vec2, v2: &Vec2, p: &Vec2) -> bool {
+    let mut inside = true;
+    inside &= edge_function(v0, v1, p) >= 0.0;
+    inside &= edge_function(v1, v2, p) >= 0.0;
+    inside &= edge_function(v2, v0, p) >= 0.0;
+    inside
 }
 
 ///  Bresenham's line algorithm

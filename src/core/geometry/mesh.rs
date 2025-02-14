@@ -1,6 +1,5 @@
-use super::{process, Material};
+use super::Material;
 use crate::core::color::Color;
-use crate::debug_print;
 use glam::{Affine3A, Vec2, Vec3};
 use std::sync::{Arc, Mutex};
 
@@ -99,6 +98,7 @@ impl Mesh {
         }
     }
 
+    // TODO: Rename to something like fast_recalculate_normals
     fn sloppy_recalculate_normals(&self, transform: &Affine3A) {
         // get the normal buffer
         let mut normals = self.normals.lock().unwrap();
@@ -152,6 +152,7 @@ impl Mesh {
      2. For each vertex in the triangle compute the corner angle, and then multiply the faces normal by the corner angle and add it to the vertex normal
         n
      */
+    // TODO: Rename to precise_recalculate_normals
     fn better_recalculate_normals(&self, transform: &Affine3A) {
         let mut normals = self.normals.lock().unwrap();
         normals.resize(self.vertices.len(), Vec3::ZERO);
@@ -245,7 +246,7 @@ impl Mesh {
                 ..Default::default()
             },
         )
-        .expect("Failed to load OBJ file");
+            .expect("Failed to load OBJ file");
 
         let mut outmesh = Mesh::new();
 
@@ -410,9 +411,12 @@ impl Mesh {
                 ..Default::default()
             },
         )
-        .expect("Failed to load OBJ file");
+            .expect("Failed to load OBJ file");
 
         let mut meshes: HashMap<String, Mesh> = HashMap::new();
+        if let Ok(ref mats) = materials_result {
+            about_mats(mats.clone(), models.clone());
+        }
 
         // Load materials
         let materials = if let Ok(mats) = materials_result {
@@ -498,8 +502,6 @@ impl Mesh {
                 mesh.weld_vertices(0.001);
                 println!("After welding, new vertex count: {}", mesh.vertices.len());
                 mesh.sloppy_recalculate_normals(&Affine3A::IDENTITY);
-
-                mesh.print_shared_edges();
             }
         }
 

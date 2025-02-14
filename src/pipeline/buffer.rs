@@ -3,7 +3,7 @@ use glam::UVec2;
 use minifb::Window;
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSliceMut;
-use std::io::{self, stdout, Stdout, Write};
+use std::io::{self, stdout, Write};
 pub const MAX_DIMS: UVec2 = UVec2::new(1920, 1080);
 
 // Note might be worth going back to refcells for interior mutability

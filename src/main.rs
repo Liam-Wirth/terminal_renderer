@@ -12,9 +12,6 @@
 // TODO: Would be cool to try and see if I can get this rust engine to compile to WASM and interact
 //with the javascript canvas to make draw calls
 //
-// TODO: Materials
-// TODO: Lighting
-// TODO: Difuse
 // TODO: pre-baking renders?
 //
 // TODO: Egui for debug console?
@@ -25,21 +22,16 @@
 // to be flipped, among other things, as well as movement values (from positive to negative)
 use crossterm::{
     cursor::{Hide, Show},
-    event::{self, EnableMouseCapture, Event, KeyCode},
+    event::{self, Event},
     execute,
     terminal::{self, disable_raw_mode, enable_raw_mode, Clear, ClearType},
 };
-use glam::Vec3;
-use log::warn;
+use glam::{Affine3A, Vec3};
 use minifb::{Key, Scale, Window, WindowOptions};
 use std::time::{Duration, Instant};
-use std::{
-    io::{self, stdout},
-    path::PathBuf,
-};
+use std::io::{self};
 use terminal_renderer::{
-    core::{Background, Camera, Entity, Environment, Light, Scene},
-    handle_crossterm_keys,
+    core::{Camera, Entity, Light, Scene},
     pipeline::{pipeline::Pipeline, FrameBuffer, TermBuffer},
     Color, DEBUG_PIPELINE, TINY_DIMENSIONS,
 };
@@ -50,76 +42,26 @@ const HEIGHT: usize = 1080;
 fn main() -> io::Result<()> {
     DEBUG_PIPELINE.store(false, std::sync::atomic::Ordering::Relaxed);
     let camera = Camera::new(
-        Vec3::new(0.0, 2.0, 6.), // Position camera back a bit
+        Vec3::new(0.1, 2.0, 8.), // Position camera back a bit
         Vec3::new(0.0, 2.0, 0.),
         WIDTH as f32 / HEIGHT as f32,
     );
 
     let mut scene = Scene::new(camera);
-    let mut point = Light::easy_point(Vec3::new(0., 03., 4.)); // FIX: All lighting calculations are backwards
+    let point = Light::easy_point(Vec3::new(0., 03., 4.)); // FIX: All lighting calculations are backwards
     let mut point2 = Light::easy_point(Vec3::new(3., -1., 0.)); // FIX: All lighting calculations are backwards
     point2.color = Color::from_hex("#6bcaf2").unwrap();
 
     scene.add_light(point);
     scene.add_light(point2);
 
-    let icosphere_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("models")
-        .join("icosphere.obj");
-    let monkey_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("models")
-        .join("suzanne.obj");
-    let penguin_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("models")
-        .join("Penguin.obj");
-    let solids_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("models")
-        .join("solids.obj");
-    let teapot = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("models")
-        .join("newell_teaset")
-        .join("teapot.obj");
-
-    let platonics = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("models")
-        .join("platonics");
-
-    let suzy = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join("models")
-        .join("suzy.obj"); // FUCK big problems here
-                           // let mut penguin = Entity::from_obj(penguin_path.to_str().unwrap());
-    let mut icosphere = Entity::from_obj_set(icosphere_path.to_str().unwrap());
-    // let mut monkey = Entity::from_obj(monkey_path.to_str().unwrap());
-    // let mut solids = Entity::from_obj(solids_path.to_str().unwrap());
-    let mut teapot = Entity::from_obj_set(teapot.to_str().unwrap());
-
-    //let mut dodec = Entity::from_obj(platonics.join("dodec.obj").to_str().unwrap());
-    //let mut ico = Entity::from_obj(platonics.join("ico.obj").to_str().unwrap());
-    // for ent in icosphere.iter() {
-    //     scene.add_entity(ent.clone());
-    // }
-    //for ent in teapot.iter() {
-    //    // TODO: need to find a way to merge entities, might also
-    //    // be better to have a hash set for storing members of the scene.
-    //    scene.add_entity(ent.clone());
-    //}
-    let mut penguin = Entity::from_obj_set(penguin_path.to_str().unwrap());
-    for ent in penguin.iter() {
-        scene.add_entity(ent.clone());
+    let mut ent = Entity::new_teapot();
+    ent[0].set_transform(Affine3A::from_rotation_x(0.4));
+    for e in ent.iter() {
+        scene.add_entity(e.clone());
     }
 
-    //scene.add_entity(hexa);
-
-    // You can choose which one to run
-    // or
-    run_term(scene)
+     run_term(scene)
     //run_win(scene)
 }
 
@@ -195,7 +137,7 @@ pub fn run_win(scene: Scene) -> io::Result<()> {
             ..WindowOptions::default()
         },
     )
-    .expect("Unable to open window");
+        .expect("Unable to open window");
     #[cfg(debug_assertions)] // In debug mode (just running like plain cargo r, it will be a lower
     // resolution)
     {
@@ -210,7 +152,7 @@ pub fn run_win(scene: Scene) -> io::Result<()> {
                 ..WindowOptions::default()
             },
         )
-        .expect("Unable to open window :(")
+            .expect("Unable to open window :(")
     }
 
     let mut pipeline = Pipeline::<FrameBuffer>::new(WIDTH, HEIGHT, scene);
