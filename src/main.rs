@@ -22,21 +22,16 @@
 // to be flipped, among other things, as well as movement values (from positive to negative)
 use crossterm::{
     cursor::{Hide, Show},
-    event::{self, EnableMouseCapture, Event, KeyCode},
+    event::{self, Event},
     execute,
     terminal::{self, disable_raw_mode, enable_raw_mode, Clear, ClearType},
 };
 use glam::{Affine3A, Vec3};
-use log::warn;
 use minifb::{Key, Scale, Window, WindowOptions};
 use std::time::{Duration, Instant};
-use std::{
-    io::{self, stdout},
-    path::PathBuf,
-};
+use std::io::{self};
 use terminal_renderer::{
-    core::{Background, Camera, Entity, Environment, Light, Scene},
-    handle_crossterm_keys,
+    core::{Camera, Entity, Light, Scene},
     pipeline::{pipeline::Pipeline, FrameBuffer, TermBuffer},
     Color, DEBUG_PIPELINE, TINY_DIMENSIONS,
 };
@@ -53,7 +48,7 @@ fn main() -> io::Result<()> {
     );
 
     let mut scene = Scene::new(camera);
-    let mut point = Light::easy_point(Vec3::new(0., 03., 4.)); // FIX: All lighting calculations are backwards
+    let point = Light::easy_point(Vec3::new(0., 03., 4.)); // FIX: All lighting calculations are backwards
     let mut point2 = Light::easy_point(Vec3::new(3., -1., 0.)); // FIX: All lighting calculations are backwards
     point2.color = Color::from_hex("#6bcaf2").unwrap();
 
@@ -66,8 +61,8 @@ fn main() -> io::Result<()> {
         scene.add_entity(e.clone());
     }
 
-     //run_term(scene)
-    run_win(scene)
+     run_term(scene)
+    //run_win(scene)
 }
 
 fn run_term(scene: Scene) -> io::Result<()> {

@@ -1,7 +1,6 @@
 use std::time::Instant;
 pub(crate) use std::{cell::RefCell, io};
 
-use crossterm::cursor;
 use crossterm::event;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
@@ -15,7 +14,7 @@ use super::{
     buffer::Buffer, rasterizer::Rasterizer, Clipper, Fragment, GBuffer, ProcessedGeometry,
 };
 use crate::core::LightType;
-use crate::core::{BlinnPhongShading, FlatShading, Light, LightMode, LightingModel};
+use crate::core::{BlinnPhongShading, FlatShading, LightMode, LightingModel};
 use crate::{
     core::{Color, RenderMode, Scene},
     debug_print,
@@ -347,7 +346,7 @@ impl<B: Buffer> Pipeline<B> {
                     // Might need a lifetime? (yes)
                 }
 
-                let mut final_color = Color::BLACK;
+                let final_color = Color::BLACK;
                 let final_color = match self.states.borrow().light_mode {
                     LightMode::None => final_color,
                     LightMode::BlinnPhong => BlinnPhongShading.shade(
@@ -385,7 +384,7 @@ impl<B: Buffer> Pipeline<B> {
             return;
         }
         let view_proj = self.scene.camera.view_matrix() * self.scene.camera.projection_matrix();
-        let mut buff = self.back_buffer.borrow_mut();
+        let buff = self.back_buffer.borrow_mut();
 
         for light in &self.scene.lights {
             match &light.light_type {
@@ -698,10 +697,10 @@ impl<B: Buffer> Pipeline<B> {
                     minifb::Key::Key0 => {
                         let current_obj = self.states.borrow().current_obj;
                         let ent = &self.scene.entities[current_obj];
-                        let mut t = *ent.transform();
+                        let t = *ent.transform();
                         for entity in &mut self.scene.entities {
                             let mut t = *entity.transform();
-                            t *= Affine3A::from_rotation_x(0.1);
+                            t *= Affine3A::from_rotation_y(0.1);
                             entity.set_transform(t);
                         }
                         //self.scene.entities[current_obj].set_transform(t);
@@ -854,7 +853,7 @@ impl<B: Buffer> Pipeline<B> {
                     KeyCode::Char('0') => {
                         for entity in &mut self.scene.entities {
                             let mut t = *entity.transform();
-                            t *= Affine3A::from_rotation_x(0.1);
+                            t *= Affine3A::from_rotation_y(0.1);
                             entity.set_transform(t);
                         }
                     }

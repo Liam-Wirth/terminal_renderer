@@ -1,7 +1,6 @@
 use crate::core::geometry::Material;
 use crate::core::Color;
 use glam::Vec3;
-use std::ops::Mul;
 
 /// The lights I'll support (can be extended in the future)
 #[derive(Clone, Debug)]

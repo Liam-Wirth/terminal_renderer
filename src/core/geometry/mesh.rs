@@ -1,6 +1,5 @@
-use super::{process, Material};
+use super::Material;
 use crate::core::color::Color;
-use crate::debug_print;
 use glam::{Affine3A, Vec2, Vec3};
 use std::sync::{Arc, Mutex};
 

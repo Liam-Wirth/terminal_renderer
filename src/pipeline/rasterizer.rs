@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::core::{Color, LightMode, LightingModel, RenderMode, Scene};
+use crate::core::{Color, RenderMode, Scene};
 use crate::debug_print;
 use crate::geometry::Material;
 use crate::pipeline::{to_fixed, Fragment, ProcessedGeometry, FP_ONE, FP_SHIFT};
@@ -325,7 +325,7 @@ impl Rasterizer {
 
                         //interp normalize normal
                         // let normal = (norm0 * b0_c + norm1 * b1_c + norm2 * b2_c) * persp_w;
-                        let normal = (norm0 * b0_c + norm1 * b1_c + norm2 * b2_c);
+                        let normal = norm0 * b0_c + norm1 * b1_c + norm2 * b2_c;
                         let normal = normal.normalize();
 
                         //get material properties
@@ -610,7 +610,7 @@ fn barycentric(
 /// 'N' < 0 if the point is to the left of the line
 fn edge_function(a: &Vec2, b: &Vec2, c: &Vec2) -> f32 {
     // NOTE TO SELF this can also be represented as the magnitude of the cross products between (V1 - V0) and (P- V0)
-    ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x))
+    (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)
 }
 
 fn is_on_edge(v0: &Vec2, v1: &Vec2, v2: &Vec2, p: &Vec2) -> bool {

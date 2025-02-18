@@ -1,9 +1,7 @@
 use crate::core::light::Light;
 use std::{
-    cell::RefCell,
-    default,
     fmt::{self, Display, Formatter},
-    path::{self, PathBuf},
+    path::{PathBuf},
     sync::{Arc, Mutex},
 };
 
@@ -11,7 +9,7 @@ use crate::core::camera::Camera;
 
 use glam::{Affine3A, Vec3};
 
-use crate::geometry::{Mesh, Tri, Vertex};
+use crate::geometry::Mesh;
 
 use super::Color;
 

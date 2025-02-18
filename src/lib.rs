@@ -266,7 +266,6 @@ macro_rules! handle_crossterm_keys {
     }};
 }
 
-use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
 
 // TODO: eventually use this to handle mouse input
 #[macro_export]
