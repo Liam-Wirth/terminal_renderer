@@ -66,17 +66,70 @@ impl Camera {
             *self.cached_proj_matrix.lock().unwrap() = proj_matrix;
 
             // Update frustum data using the new matrices
-            let vp = proj_matrix * view_matrix;
+            // shoutout this paper
+            // https://www.gamedevs.org/uploads/fast-extraction-viewing-frustum-planes-from-world-view-projection-matrix.pdf
+            let vp = proj_matrix * view_matrix; // Matches scenario 2 "Frustum Planes in World Space"
             let mut planes = self.cached_frustum_planes.lock().unwrap();
 
             // Update frustum planes
-            for (i, sign) in [(0, 1), (0, -1), (1, 1), (1, -1), (2, 1), (2, -1)].iter() {
-                let row = vp.row(3) + vp.row(*i) * (*sign as f32);
-                let plane = row;
-                let length = Vec3::new(plane.x, plane.y, plane.z).length();
-                planes[i * 2 + if *sign > 0 { 0 } else { 1 }] = plane / length;
-            }
-            drop(planes);
+            // reminder that glam is column major, so layout in memory of the Mat4 is
+            // [M11, M21, M31, M41,  M12, M22, M32, M42,  M13, M23, M33, M43,  M14, M24, M34, M44]
+            // but these values are accessed as follows:
+
+            // Extract frustum planes - OpenGL formulas (column-major)
+            // --- Left Plane ---
+            planes[0] = Vec4::new(
+                vp.col(3)[0] + vp.col(0)[0], // a = M41 + M11
+                vp.col(3)[1] + vp.col(0)[1], // b = M42 + M12
+                vp.col(3)[2] + vp.col(0)[2], // c = M43 + M13
+                vp.col(3)[3] + vp.col(0)[3], // d = M44 + M14
+            )
+            .normalize();
+
+            // --- Right Plane ---
+            planes[1] = Vec4::new(
+                vp.col(3)[0] - vp.col(0)[0], // a = M41 - M11
+                vp.col(3)[1] - vp.col(0)[1], // b = M42 - M12
+                vp.col(3)[2] - vp.col(0)[2], // c = M43 - M13
+                vp.col(3)[3] - vp.col(0)[3], // d = M44 - M14
+            )
+            .normalize();
+
+            // --- Bottom Plane ---
+            planes[2] = Vec4::new(
+                vp.col(3)[0] + vp.col(1)[0], // a = M41 + M21
+                vp.col(3)[1] + vp.col(1)[1], // b = M42 + M22
+                vp.col(3)[2] + vp.col(1)[2], // c = M43 + M23
+                vp.col(3)[3] + vp.col(1)[3], // d = M44 + M24
+            )
+            .normalize();
+
+            // --- Top Plane ---
+            planes[3] = Vec4::new(
+                vp.col(3)[0] - vp.col(1)[0], // a = M41 - M21
+                vp.col(3)[1] - vp.col(1)[1], // b = M42 - M22
+                vp.col(3)[2] - vp.col(1)[2], // c = M43 - M23
+                vp.col(3)[3] - vp.col(1)[3], // d = M44 - M24
+            )
+            .normalize();
+
+            // --- Near Plane ---
+            planes[4] = Vec4::new(
+                vp.col(3)[0] + vp.col(2)[0], // a = M41 + M31
+                vp.col(3)[1] + vp.col(2)[1], // b = M42 + M32
+                vp.col(3)[2] + vp.col(2)[2], // c = M43 + M33
+                vp.col(3)[3] + vp.col(2)[3], // d = M44 + M34
+            )
+            .normalize();
+
+            // --- Far Plane ---
+            planes[5] = Vec4::new(
+                vp.col(3)[0] - vp.col(2)[0], // a = M41 - M31
+                vp.col(3)[1] - vp.col(2)[1], // b = M42 - M32
+                vp.col(3)[2] - vp.col(2)[2], // c = M43 - M33
+                vp.col(3)[3] - vp.col(2)[3], // d = M44 - M34
+            )
+            .normalize();
 
             // Update frustum corners
             let mut corners = self.cached_frustum_corners.lock().unwrap();
