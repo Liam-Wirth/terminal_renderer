@@ -1,7 +1,7 @@
 use crate::core::light::Light;
 use std::{
     fmt::{self, Display, Formatter},
-    path::{PathBuf},
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
 
@@ -11,7 +11,7 @@ use glam::{Affine3A, Vec3};
 
 use crate::geometry::Mesh;
 
-use super::Color;
+use super::{geometry::Material, Color};
 
 #[derive(Clone, Debug, Copy)]
 pub enum RenderMode {
@@ -189,6 +189,32 @@ impl Scene {
     }
     pub fn add_light(&mut self, light: Light) {
         self.lights.push(light);
+    }
+
+    pub fn create_floor() -> Entity {
+        let mut floormesh =  Mesh::create_floor_mesh(
+            Vec3::new(-10.0, 0.0, -10.0),
+            Vec3::new(10.0, 0.0, -10.0),
+            Vec3::new(10.0, 0.0, 10.0),
+            Vec3::new(-10.0, 0.0, 10.0),
+        );
+
+        let floormat = Material {
+            name: "Floor".to_string(),
+            diffuse: Some(Color::WHITE),
+            shininess: Some(10.0),
+            specular: Some(Color::WHITE), // Black Color
+            ambient: Some(Color::from_hex("#000000").unwrap()), // Black Color
+            ..Default::default()
+        };
+
+        floormesh.set_material(floormat);
+        floormesh.mark_normals_dirty();
+
+        let transform = Affine3A::from_translation(Vec3::new(0., -3., 0.));
+        let mut out = Entity::new(floormesh, transform, "Floor".to_string());
+        out.update();
+        out
     }
 }
 

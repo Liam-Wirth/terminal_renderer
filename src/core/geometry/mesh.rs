@@ -98,6 +98,47 @@ impl Mesh {
         }
     }
 
+    pub fn create_floor_mesh(v1: Vec3, v2: Vec3, v3: Vec3, v4: Vec3) -> Mesh {
+        let mut mesh = Mesh::new();
+        mesh.vertices = vec![
+            Vertex {
+                pos: v1,
+                color: Some(Color::WHITE),
+                ..Default::default()
+            },
+            Vertex {
+                pos: v2,
+                color: Some(Color::WHITE),
+                ..Default::default()
+            },
+            Vertex {
+                pos: v3,
+                color: Some(Color::WHITE),
+                ..Default::default()
+            },
+            Vertex {
+                pos: v4,
+                color: Some(Color::WHITE),
+                ..Default::default()
+            },
+        ];
+        mesh.tris = vec![
+            Tri {
+                vertices: [0, 1, 2],
+                material: Some(0),
+            },
+            Tri {
+                vertices: [0, 2, 3],
+                material: Some(0),
+            },
+        ];
+        mesh
+    }
+
+    pub fn set_material(&mut self, material: Material) {
+        self.materials.push(material);
+    }
+
     // TODO: Rename to something like fast_recalculate_normals
     fn sloppy_recalculate_normals(&self, transform: &Affine3A) {
         // get the normal buffer
@@ -246,7 +287,7 @@ impl Mesh {
                 ..Default::default()
             },
         )
-            .expect("Failed to load OBJ file");
+        .expect("Failed to load OBJ file");
 
         let mut outmesh = Mesh::new();
 
@@ -411,7 +452,7 @@ impl Mesh {
                 ..Default::default()
             },
         )
-            .expect("Failed to load OBJ file");
+        .expect("Failed to load OBJ file");
 
         let mut meshes: HashMap<String, Mesh> = HashMap::new();
         if let Ok(ref mats) = materials_result {
@@ -647,3 +688,4 @@ fn about_mats(materials: Vec<tobj::Material>, models: Vec<tobj::Model>) {
         }
     }
 }
+
