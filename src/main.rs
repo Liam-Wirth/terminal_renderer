@@ -28,8 +28,8 @@ use crossterm::{
 };
 use glam::{Affine3A, Vec3};
 use minifb::{Key, Scale, Window, WindowOptions};
-use std::time::{Duration, Instant};
 use std::io::{self};
+use std::time::{Duration, Instant};
 use terminal_renderer::{
     core::{Camera, Entity, Light, Scene},
     pipeline::{pipeline::Pipeline, FrameBuffer, TermBuffer},
@@ -50,10 +50,10 @@ fn main() -> io::Result<()> {
     let mut scene = Scene::new(camera);
     let mut floor = Scene::create_floor();
     floor.set_transform(Affine3A::from_translation(Vec3::new(0., -2., 0.)));
-    scene.add_entity(floor);
+    // scene.add_entity(floor);
     let point = Light::easy_point(Vec3::new(0., 3., 4.)); // FIX: All lighting calculations are backwards
-    //let mut point2 = Light::easy_point(Vec3::new(3., -1., 0.)); // FIX: All lighting calculations are backwards
-    //point2.color = Color::from_hex("#6bcaf2").unwrap();
+                                                          //let mut point2 = Light::easy_point(Vec3::new(3., -1., 0.)); // FIX: All lighting calculations are backwards
+                                                          //point2.color = Color::from_hex("#6bcaf2").unwrap();
 
     scene.add_light(point);
     //scene.add_light(point2);
@@ -64,8 +64,8 @@ fn main() -> io::Result<()> {
         scene.add_entity(e.clone());
     }
 
-     //run_term(scene)
-    run_win(scene)
+    run_term(scene)
+    // run_win(scene)
 }
 
 fn run_term(scene: Scene) -> io::Result<()> {
@@ -140,7 +140,7 @@ pub fn run_win(scene: Scene) -> io::Result<()> {
             ..WindowOptions::default()
         },
     )
-        .expect("Unable to open window");
+    .expect("Unable to open window");
     #[cfg(debug_assertions)] // In debug mode (just running like plain cargo r, it will be a lower
     // resolution)
     {
@@ -155,7 +155,7 @@ pub fn run_win(scene: Scene) -> io::Result<()> {
                 ..WindowOptions::default()
             },
         )
-            .expect("Unable to open window :(")
+        .expect("Unable to open window :(")
     }
 
     let mut pipeline = Pipeline::<FrameBuffer>::new(WIDTH, HEIGHT, scene);

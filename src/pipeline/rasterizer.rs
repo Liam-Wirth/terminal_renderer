@@ -354,11 +354,9 @@ impl Rasterizer {
         &self,
         screen_verts: [glam::Vec2; 3],
         clip_verts: &[ClipVertex; 3],
-        world_pos: &[Vec3; 3],
         normals: &[Vec3; 3], // Will optionally compute face normal dependent on lighting model
         material: &Material,
         mat_id: Option<(usize, usize)>,
-        view_pos: Vec3, // Camera Position
     ) -> Vec<crate::pipeline::Fragment> {
         let mut fragments = Vec::new();
 
@@ -615,6 +613,8 @@ fn edge_function(a: &Vec2, b: &Vec2, c: &Vec2) -> f32 {
 
 fn is_on_edge(v0: &Vec2, v1: &Vec2, v2: &Vec2, p: &Vec2) -> bool {
     let mut on_edge = false;
+    // NOTE: |= is a BitOrAssign operator. So it's doing the bitwise OR operation
+    // Basically just does the or operator, and then assigns the result
     on_edge |= edge_function(v0, v1, p).abs() < 1e-10;
     on_edge |= edge_function(v1, v2, p).abs() < 1e-10;
     on_edge |= edge_function(v2, v0, p).abs() < 1e-10;
