@@ -8,18 +8,18 @@ I also tried to combine things from my todo list into this roadmap, we'll see ho
 
 
 ## 1. Core Architecture Restructuring
-- [ ] Implement proper pipeline stages
-  - [ ] Geometry processing stage
-  - [ ] Rasterization stage
-  - [ ] Fragment processing stage
+- [x] Implement proper pipeline stages
+  - [x] Geometry processing stage
+  - [x] Rasterization stage
+  - [x] Fragment processing stage
 - [ ] Separate render state management
-  - [ ] Global renderer state
-  - [ ] Frame state
-  - [ ] Statistics/metrics collection
+  - [x] Global renderer state
+  - [x] Frame state
+  - [x] Statistics/metrics collection
 - [ ] Buffer management system
-  - [ ] Implement chunked buffer system
-  - [ ] Add atomic/mutex protection for buffer access
-  - [ ] Optimize buffer updates
+  - [x] Implement chunked buffer system
+  - [x] Add atomic/mutex protection for buffer access
+  - [x] Optimize buffer updates
 
 ## 2. Geometry Processing
 - [ ] Implement complete culling system
@@ -61,15 +61,15 @@ I also tried to combine things from my todo list into this roadmap, we'll see ho
   - [ ] Entity component system
 
 ## 5. Rendering Features
-- [ ] Lighting system
-  - [ ] Basic lighting model
-  - [ ] Shadow mapping
-- [ ] Material system
-  - [ ] Basic materials
-  - [ ] Material properties
-- [ ] Post-processing
-  - [ ] Terminal-specific effects
-  - [ ] ASCII art filters
+- [x] Lighting system
+  - [x] Basic lighting model
+  - [x] Shadow mapping
+- [x] Material system
+  - [x] Basic materials
+  - [x] Material properties
+- [x] Post-processing
+  - [x] Terminal-specific effects
+  - [x] ASCII art filters
 
 ## 6. Output and Display
 - [ ] Decouple rendering from terminal output
