@@ -743,13 +743,13 @@ impl<B: Buffer> Pipeline<B> {
                     KeyCode::Char('p') => {
                         let current = self.states.borrow().draw_wireframe;
                         self.states.borrow_mut().draw_wireframe = !current;
-                        println!("Draw wireframe: {}", !current);
+                        // println!("Draw wireframe: {}", !current);
                     }
                     // Toggle move_obj
                     KeyCode::Char('j') => {
                         let cur = self.states.borrow().move_obj;
                         self.states.borrow_mut().move_obj = !cur;
-                        println!("Move obj: {}", !cur);
+                        // println!("Move obj: {}", !cur);
                     }
                     // Decrement current object index
                     KeyCode::Char('[') => {
