@@ -4,5 +4,7 @@ target
 ./target/*
 target/
 old/target/
-.idea
+.idea/
+
+
 

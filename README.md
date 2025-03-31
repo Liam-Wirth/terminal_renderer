@@ -43,7 +43,7 @@ above you can see some other videos showing the project, as well as some "histor
 *   **(Terminal Mode):** A terminal emulator supporting ANSI Truecolor (24-bit color) is recommended for best results (e.g., Windows Terminal, iTerm2, Kitty, WezTerm).
 *   **(Window Mode):** System dependencies required by `minifb` (usually handled automatically on Windows/macOS, may require installing X11 development libraries on Linux - e.g., `libxkbcommon-dev`, `libwayland-dev`, `libxrandr-dev`).
 
-* It is **HIGHLY** Recommended that if you use the terminal mode, to use a terminal emulator that supports ANSI TrueColor, and is ideally optimized for performance/speed. I've had the best success using [WezTerm](https://wezterm.io/). [Kitty](https://sw.kovidgoyal.net/kitty/) and [Windows Terminal](https://docs.microsoft.com/en-us/windows/terminal/).
+* It is **HIGHLY** Recommended that if you use the terminal mode, to use a terminal emulator that supports ANSI TrueColor, and is ideally optimized for performance/speed. I've had the best success using [WezTerm](https://wezterm.org/). [Kitty](https://sw.kovidgoyal.net/kitty/) and [Windows Terminal](https://docs.microsoft.com/en-us/windows/terminal/).
 
 
 
