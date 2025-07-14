@@ -215,14 +215,17 @@ impl<B: Buffer> Pipeline<B> {
                     ClipVertex {
                         position: mvp_matrix * Vec4::from((v0.pos, 1.0)),
                         color: v0_color,
+                        uv: v0.uv.unwrap_or(Vec2::ZERO),
                     },
                     ClipVertex {
                         position: mvp_matrix * Vec4::from((v1.pos, 1.0)),
                         color: v1_color,
+                        uv: v1.uv.unwrap_or(Vec2::ZERO),
                     },
                     ClipVertex {
                         position: mvp_matrix * Vec4::from((v2.pos, 1.0)),
                         color: v2_color,
+                        uv: v2.uv.unwrap_or(Vec2::ZERO),
                     },
                 ];
 

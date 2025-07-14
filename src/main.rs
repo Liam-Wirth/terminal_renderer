@@ -48,8 +48,6 @@ fn main() -> io::Result<()> {
     );
 
     let mut scene = Scene::new(camera);
-    let mut floor = Scene::create_floor();
-    floor.set_transform(Affine3A::from_translation(Vec3::new(0., -2., 0.)));
     // scene.add_entity(floor);
     let point = Light::easy_point(Vec3::new(0., 3., 4.)); // FIX: All lighting calculations are backwards
                                                           //let mut point2 = Light::easy_point(Vec3::new(3., -1., 0.)); // FIX: All lighting calculations are backwards
@@ -58,14 +56,17 @@ fn main() -> io::Result<()> {
     scene.add_light(point);
     //scene.add_light(point2);
 
-    let mut ent = Entity::new_teapot();
+    println!("LOADING PENGUIN MODEL...");
+    let mut ent = Entity::new_penguin();
+    println!("PENGUIN MODEL LOADED, {} entities created", ent.len());
     ent[0].set_transform(Affine3A::from_rotation_x(0.4));
     for e in ent.iter() {
         scene.add_entity(e.clone());
     }
 
-    run_term(scene)
-    // run_win(scene)
+    println!("STARTING WINDOW RENDERER...");
+    // run_term(scene)
+    run_win(scene)
 }
 
 fn run_term(scene: Scene) -> io::Result<()> {

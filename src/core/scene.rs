@@ -10,6 +10,7 @@ use crate::core::camera::Camera;
 use glam::{Affine3A, Vec3};
 
 use crate::geometry::Mesh;
+use crate::core::TextureManager;
 
 use super::{geometry::Material, Color};
 
@@ -258,7 +259,30 @@ impl Entity {
             .join("assets")
             .join("models")
             .join("Penguin.obj");
-        Self::from_obj_set(penguin_path.to_str().unwrap())
+        
+        let mut entities = Self::from_obj_set(penguin_path.to_str().unwrap());
+        
+        // Load textures for penguin materials
+        let mut texture_manager = TextureManager::new();
+        
+        // Load textures for materials that specify them
+        for entity in &mut entities {
+            for material in entity.mesh.materials.iter_mut() {
+                // Only update texture paths that are relative and make them relative to assets/models/
+                if let Some(ref texture_path) = material.diffuse_texture.clone() {
+                    // If it's just a filename, make it relative to models directory under assets/
+                    if !texture_path.contains("/") && !texture_path.contains("\\") {
+                        let relative_path = format!("models/{}", texture_path);
+                        material.diffuse_texture = Some(relative_path);
+                    }
+                }
+                
+                // Load textures for this material
+                material.load_textures(&mut texture_manager);
+            }
+        }
+        
+        entities
     }
 
     pub fn new_teapot() -> Vec<Self> {
@@ -268,6 +292,37 @@ impl Entity {
             .join("newell_teaset")
             .join("teapot.obj");
         Self::from_obj_set(teapot.to_str().unwrap())
+    }
+
+    pub fn new_textured_teapot() -> Vec<Self> {
+        let teapot_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join("models")
+            .join("teapot textured")
+            .join("teapot.obj");
+        
+        let mut entities = Self::from_obj_set(teapot_path.to_str().unwrap());
+        
+        // Load textures for teapot materials
+        let mut texture_manager = TextureManager::new();
+        
+        // The teapot texture path
+        let texture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join("models")
+            .join("teapot textured")
+            .join("default.png");
+        
+        // Update each entity's materials to load textures
+        for entity in &mut entities {
+            for material in &mut entity.mesh.materials {
+                // Set the diffuse texture path and load it
+                material.diffuse_texture = Some(texture_path.to_string_lossy().to_string());
+                material.load_textures(&mut texture_manager);
+            }
+        }
+        
+        entities
     }
 
     pub fn new_skull() -> Vec<Self> {

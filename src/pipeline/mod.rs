@@ -97,6 +97,8 @@ pub struct Fragment {
     pub shininess: f32,
     /// Dissolve
     pub dissolve: f32, // (Might be useless though because I dont think I have an alpha channel)
+    /// UV texture coordinates
+    pub uv: Vec2,
 
     pub mat_id: Option<(usize, usize)>, // first is entity id, second is mat id
 
@@ -117,6 +119,7 @@ impl Default for Fragment {
             specular: Color::WHITE,
             shininess: 0.,
             dissolve: 0.,
+            uv: Vec2::ZERO,
             mat_id: None,
         }
     }

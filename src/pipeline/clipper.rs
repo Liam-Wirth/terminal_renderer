@@ -1,13 +1,13 @@
 use crate::core::Color;
-use glam::{Vec3, Vec4};
+use glam::{Vec2, Vec3, Vec4};
 
 #[derive(Clone, Debug)]
 pub struct ClipVertex {
     pub position: Vec4,
     pub color: Color,
+    pub uv: Vec2,
     // Could add other attributes here like:
     // pub normal: Vec3,
-    // pub uv: Vec2,
 }
 
 impl ClipVertex {
@@ -15,6 +15,7 @@ impl ClipVertex {
         Self {
             position: self.position.lerp(other.position, t),
             color: self.color.lerp(&other.color, t),
+            uv: self.uv.lerp(other.uv, t),
         }
     }
 }

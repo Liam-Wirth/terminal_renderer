@@ -3,6 +3,7 @@ use std::f32::consts::PI;
 mod camera;
 mod color;
 mod scene;
+mod texture;
 pub use scene::Entity;
 pub use scene::{Background, Environment, RenderMode, Scene};
 
@@ -31,3 +32,5 @@ pub use light::Light;
 pub use light::LightMode;
 pub use light::LightingModel;
 pub use light::LightType;
+
+pub use texture::{Texture, TextureFilter, TextureManager};

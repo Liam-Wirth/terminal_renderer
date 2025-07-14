@@ -328,10 +328,49 @@ impl Rasterizer {
                         let normal = norm0 * b0_c + norm1 * b1_c + norm2 * b2_c;
                         let normal = normal.normalize();
 
-                        //get material properties
-                        let albedo = material.diffuse.unwrap_or(Color::WHITE); // TODO: Would be kinda funny to have a default purple/black checkerboard for missing textures like valve games do
-                        let specular = material.specular.unwrap_or(Color::WHITE);
+                        // Interpolate UV coordinates first
+                        let uv0 = clip_verts[0].uv;
+                        let uv1 = clip_verts[1].uv;
+                        let uv2 = clip_verts[2].uv;
+                        let uv = uv0 * b0_c + uv1 * b1_c + uv2 * b2_c;
+
+                        // Sample material properties using UV coordinates
+                        let albedo = material.sample_diffuse(uv);
+                        let specular = material.sample_specular(uv);
                         let shininess = material.shininess.unwrap_or(0.0);
+
+                        // DEBUG: Check if we're actually getting texture data
+                        if material.diffuse_texture_data.is_some() {
+                            // If texture loading failed, use bright magenta as fallback
+                            if albedo == Color::WHITE && material.diffuse.is_none() {
+                                frags.push(Fragment {
+                                    screen_pos: p,
+                                    depth,
+                                    albedo: Color::new(1.0, 0.0, 1.0), // Bright magenta
+                                    normal,
+                                    specular,
+                                    shininess,
+                                    dissolve: material.dissolve.unwrap_or(1.0),
+                                    uv,
+                                    mat_id,
+                                });
+                                continue;
+                            }
+                        } else if material.diffuse_texture.is_some() {
+                            // Texture should exist but wasn't loaded - use bright cyan
+                            frags.push(Fragment {
+                                screen_pos: p,
+                                depth,
+                                albedo: Color::new(0.0, 1.0, 1.0), // Bright cyan
+                                normal,
+                                specular,
+                                shininess,
+                                dissolve: material.dissolve.unwrap_or(1.0),
+                                uv,
+                                mat_id,
+                            });
+                            continue;
+                        }
 
                         frags.push(Fragment {
                             screen_pos: p,
@@ -341,6 +380,7 @@ impl Rasterizer {
                             specular,
                             shininess,
                             dissolve: material.dissolve.unwrap_or(1.0),
+                            uv,
                             mat_id,
                         });
                     }
@@ -407,18 +447,25 @@ impl Rasterizer {
                             normals[0] * b0_c + normals[1] * b1_c + normals[2] * b2_c; // this is important I've learned
                         let normal = interp_normal.normalize(); // Get it back into 0-1 range
 
-                        // Interpolate color
+                        // Interpolate UV coordinates first
+                        let uv0 = clip_verts[0].uv;
+                        let uv1 = clip_verts[1].uv;
+                        let uv2 = clip_verts[2].uv;
+                        let uv = uv0 * b0_c + uv1 * b1_c + uv2 * b2_c;
 
-                        let diff = material.diffuse.unwrap_or(crate::core::Color::WHITE);
+                        // Sample material properties using UV coordinates
+                        let diff = material.sample_diffuse(uv);
+                        let specular = material.sample_specular(uv);
 
                         fragments.push(crate::pipeline::Fragment {
                             screen_pos: p,
                             depth,
                             albedo: diff,
                             normal,
-                            specular: material.specular.unwrap_or(crate::core::Color::WHITE),
+                            specular,
                             shininess: material.shininess.unwrap_or(0.),
                             dissolve: material.dissolve.unwrap_or(0.),
+                            uv,
                             mat_id: mat_id,
                         });
                     }
@@ -532,6 +579,7 @@ impl Rasterizer {
                             depth,
                             albedo: Color { r, g, b },
                             normal: Vec3::ZERO,
+                            uv: Vec2::ZERO,
                             ..Default::default()
                         });
                     }
