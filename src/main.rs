@@ -49,22 +49,32 @@ fn main() -> io::Result<()> {
 
     let mut scene = Scene::new(camera);
     // scene.add_entity(floor);
-    let point = Light::easy_point(Vec3::new(0., 3., 4.)); // FIX: All lighting calculations are backwards
-                                                          //let mut point2 = Light::easy_point(Vec3::new(3., -1., 0.)); // FIX: All lighting calculations are backwards
-                                                          //point2.color = Color::from_hex("#6bcaf2").unwrap();
+    let point = Light::easy_point(Vec3::new(3., 3., 3.)); // FIX: All lighting calculations are backwards
+    let mut point2 = Light::easy_point(Vec3::new(5., -5. ,5.));
+    let mut point3 = Light::easy_point(Vec3::new(-5., -5., 5.));
+    let mut point4 = Light::easy_point(Vec3::new(-5., 5., 5.));
+    point2.change_color(Color::RED);
+    point3.change_color(Color::BLUE);
+    point4.change_color(Color::GREEN);
+
+
 
     scene.add_light(point);
-    //scene.add_light(point2);
+    scene.add_light(point2);
+    scene.add_light(point3);
+    scene.add_light(point4);
 
     println!("LOADING PENGUIN MODEL...");
-    let mut ent = Entity::new_penguin();
+    let mut ent = Entity::new_teapot();
     println!("PENGUIN MODEL LOADED, {} entities created", ent.len());
     ent[0].set_transform(Affine3A::from_rotation_x(0.4));
+    
     for e in ent.iter() {
         scene.add_entity(e.clone());
     }
 
-    println!("STARTING WINDOW RENDERER...");
+
+    // println!("STARTING WINDOW RENDERER...");
     // run_term(scene)
     run_win(scene)
 }
@@ -102,17 +112,12 @@ fn run_term(scene: Scene) -> io::Result<()> {
         // (b) Check if enough time has passed
         let now = Instant::now();
         if now - last_frame >= frame_duration {
-            // (c) Possibly do any scene updates
-            // e.g. pipeline.scene.spin(0);
-
-            // (d) Check if terminal size changed
             let (nw, nh) = crossterm::terminal::size()?;
             if nw as usize != pipeline.width || nh as usize != pipeline.height {
                 pipeline =
                     Pipeline::<TermBuffer>::new(nw as usize, nh as usize, pipeline.scene.clone());
             }
 
-            // (e) Render
             pipeline.render_frame(None)?;
 
             last_frame = now;
