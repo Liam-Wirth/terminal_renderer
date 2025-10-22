@@ -1,4 +1,0 @@
-07:30:11 [ERROR] Panic occurred: PanicInfo { payload: Any { .. }, message: Some(already borrowed: BorrowMutError), location: Location { file: "src/core/transform.rs", line: 99, col: 19 }, can_unwind: true, force_no_backtrace: false }
-07:30:31 [ERROR] Panic occurred: PanicInfo { payload: Any { .. }, message: Some(already borrowed: BorrowMutError), location: Location { file: "src/core/transform.rs", line: 99, col: 19 }, can_unwind: true, force_no_backtrace: false }
-07:30:46 [ERROR] Panic occurred: PanicInfo { payload: Any { .. }, message: Some(already borrowed: BorrowMutError), location: Location { file: "src/core/transform.rs", line: 99, col: 19 }, can_unwind: true, force_no_backtrace: false }
-07:34:23 [ERROR] Panic occurred: PanicInfo { payload: Any { .. }, message: Some(already borrowed: BorrowMutError), location: Location { file: "src/core/camera.rs", line: 143, col: 22 }, can_unwind: true, force_no_backtrace: false }
