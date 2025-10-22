@@ -1,0 +1,19 @@
+[package]
+name = "terminal_renderer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crossterm = "0.28.1"
+glam = "0.29.0"
+lazy_static = "1.5.0"
+log = "0.4.22"
+minifb = "0.27.0"
+nalgebra = "0.33.1"
+rand = "0.8.5"
+rayon = "1.10.0"
+simplelog = "0.12.2"
+tobj = "4.0.2"
+
+[lib]
+
