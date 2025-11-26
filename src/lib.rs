@@ -147,7 +147,7 @@ pub fn handle_clap_matches(matches: &clap::ArgMatches) -> (DisplayTarget, Option
 /// TODO: un-macro this
 #[macro_export]
 macro_rules! handle_crossterm_keys {
-    ($key_code:expr, $states:expr, $scene:expr, $move_amount:expr) => {{
+    ($key_code:expr_2021, $states:expr_2021, $scene:expr_2021, $move_amount:expr_2021) => {{
         let mut should_break = false;
         match $key_code {
             // Toggle wireframe
@@ -270,7 +270,7 @@ macro_rules! handle_crossterm_keys {
 // TODO: eventually use this to handle mouse input
 #[macro_export]
 macro_rules! handle_crossterm_mouse {
-    ($mouse_event:expr, $states:expr, $scene:expr) => {
+    ($mouse_event:expr_2021, $states:expr_2021, $scene:expr_2021) => {
         match $mouse_event.kind {
             // When mouse button is pressed down
             MouseEventKind::Down(btn) => {

@@ -100,7 +100,7 @@ impl Rasterizer {
                     &world_pos,
                     &normals,
                     material, // TODO: fix this as well. gonna leave all these bugs in cause I just wanna see shading damnit
-                    Some((geo.entity_id, geo.material_id.unwrap())),
+                    Some((geo.entity_id, geo.material_id.unwrap_or_default())),
                 )
             }
             RenderMode::FixedPoint => self.rasterize_fixed_point(screen_verts, colors, &vertices),

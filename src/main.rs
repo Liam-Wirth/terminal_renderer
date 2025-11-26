@@ -17,6 +17,8 @@
 // TODO: Egui for debug console?
 // TODO: Live debug log with egui?
 //
+// FIX: Pipeline freaks out if a model is loaded and has no materials, will panic in multiple places instead of applying default material values. More specifically this actually happens when a material file exists, but is empty. (Blender will auto generate one)
+//
 //
 // FIX: Need to re-implement movement for camera, as the camera crosses the origin, culling needs
 // to be flipped, among other things, as well as movement values (from positive to negative)
@@ -64,9 +66,8 @@ fn main() -> io::Result<()> {
     scene.add_light(point3);
     scene.add_light(point4);
 
-    println!("LOADING PENGUIN MODEL...");
-    let mut ent = Entity::new_teapot();
-    println!("PENGUIN MODEL LOADED, {} entities created", ent.len());
+    // let mut ent = Entity::new_teapot();
+    let mut ent = Entity::new_chain();
     ent[0].set_transform(Affine3A::from_rotation_x(0.4));
     
     for e in ent.iter() {

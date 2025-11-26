@@ -294,6 +294,11 @@ impl Entity {
         Self::from_obj_set(teapot.to_str().unwrap())
     }
 
+    pub fn new_chain() -> Vec<Self> {
+        let chain = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets").join("models").join("477-chain.obj");
+        Self::from_obj_set(chain.to_str().unwrap())
+    }
+
     pub fn new_textured_teapot() -> Vec<Self> {
         let teapot_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("assets")

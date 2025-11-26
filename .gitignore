@@ -11,3 +11,6 @@ vid_master.org
 
 
 
+.vscode
+Cargo.lock
+rust-toolchain.toml

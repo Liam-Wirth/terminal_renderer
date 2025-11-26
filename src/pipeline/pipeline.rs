@@ -346,7 +346,6 @@ impl<B: Buffer> Pipeline<B> {
                 if let Some(matid) = matid {
                     let (entid, matid) = matid;
                     mat = Some(&self.scene.entities[entid].mesh.materials[matid]);
-                    // Might need a lifetime? (yes)
                 }
 
                 let final_color = Color::BLACK;
@@ -1026,9 +1025,8 @@ impl<B: Buffer> Pipeline<B> {
                         match btn {
                             crossterm::event::MouseButton::Left => {
                                 if self.states.borrow().is_mouse_pan_enabled {
-                                    if let Some(last_pos) =
-                                        self.states.borrow_mut().last_mouse_pos.take()
-                                    {
+                                    match self.states.borrow_mut().last_mouse_pos.take()
+                                    { Some(last_pos) => {
                                         let current_pos = (mouse_event.column, mouse_event.row);
                                         let current_mouse =
                                             Vec2::new(current_pos.0 as f32, current_pos.1 as f32);
@@ -1049,19 +1047,18 @@ impl<B: Buffer> Pipeline<B> {
 
                                         self.states.borrow_mut().last_mouse_pos =
                                             Some((a.into(), b.into()));
-                                    } else {
+                                    } _ => {
                                         self.states.borrow_mut().last_mouse_pos = Some((
                                             mouse_event.column.into(),
                                             mouse_event.row.into(),
                                         ));
-                                    }
+                                    }}
                                 }
                             }
                             crossterm::event::MouseButton::Right => {
                                 if self.states.borrow().is_mouse_look_enabled {
-                                    if let Some(last_pos) =
-                                        self.states.borrow_mut().last_mouse_pos.take()
-                                    {
+                                    match self.states.borrow_mut().last_mouse_pos.take()
+                                    { Some(last_pos) => {
                                         let current_pos = (mouse_event.column, mouse_event.row);
                                         let current_mouse =
                                             Vec2::new(current_pos.0 as f32, current_pos.1 as f32);
@@ -1075,12 +1072,12 @@ impl<B: Buffer> Pipeline<B> {
                                         let (a, b) = current_pos;
                                         self.states.borrow_mut().last_mouse_pos =
                                             Some((a.into(), b.into()));
-                                    } else {
+                                    } _ => {
                                         self.states.borrow_mut().last_mouse_pos = Some((
                                             mouse_event.column.into(),
                                             mouse_event.row.into(),
                                         ));
-                                    }
+                                    }}
                                 }
                             }
                             _ => {}
