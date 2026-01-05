@@ -277,16 +277,22 @@ impl LightingModel for FlatShading {
     ) -> Color {
         let mut final_color = Color::BLACK;
 
-        // Get material properties
-        let mut ambient = Color::WHITE;
-        let mut diffuse = Color::WHITE;
-        if let Some(&ref material) = material {
-            ambient = material.ambient.unwrap_or_default();
-            diffuse = material.diffuse.unwrap_or(albedo);
-        } else {
-            ambient = Color::DARK_GRAY;
-            diffuse = albedo;
-        }
+        // Prefer the albedo coming from the GBuffer (which already contains
+        // sampled textures). Only fall back to material colors when a texture
+        // is missing.
+        let ambient = material
+            .and_then(|m| m.ambient)
+            .unwrap_or(Color::DARK_GRAY);
+        let diffuse = material
+            .map(|m| {
+                if m.diffuse_texture_data.is_some() {
+                    // Texture already baked into albedo; keep it as-is
+                    albedo
+                } else {
+                    m.diffuse.unwrap_or(albedo)
+                }
+            })
+            .unwrap_or(albedo);
 
         for light in lights {
             // Accumulate ambient component - it's constant for flat shading typically
@@ -372,14 +378,30 @@ impl LightingModel for BlinnPhongShading {
         material: Option<&Material>,
     ) -> Color {
         let mut final_color: Color = (0.0, 0.0, 0.0).into();
-        let mut ambient = Color::DARK_GRAY;
-        let mut diffuse = albedo;
-        let mut specular = specular_color;
-        if let Some(&ref material) = material {
-            ambient = material.ambient.unwrap_or(Color::DARK_GRAY); // Default ambient
-            diffuse = material.diffuse.unwrap_or(albedo); // Default to albedo from GBuffer
-            specular = material.specular.unwrap_or(specular_color); // Default to specular from GBufferaterial properties from GBuffer or Material - prefer GBuffer
-        }
+        // Keep the albedo/specular coming from the rasterizer (includes textures).
+        let ambient = material
+            .and_then(|m| m.ambient)
+            .unwrap_or(Color::DARK_GRAY);
+        let diffuse = material
+            .map(|m| {
+                if m.diffuse_texture_data.is_some() {
+                    // Texture already baked into albedo; keep it as-is
+                    albedo
+                } else {
+                    m.diffuse.unwrap_or(albedo)
+                }
+            })
+            .unwrap_or(albedo);
+        let specular = material
+            .map(|m| {
+                if m.specular_texture_data.is_some() {
+                    // Already sampled from texture; leave as-is
+                    specular_color
+                } else {
+                    m.specular.unwrap_or(specular_color)
+                }
+            })
+            .unwrap_or(specular_color);
         // Shininess is already from GBuffer input
 
         for light in lights {

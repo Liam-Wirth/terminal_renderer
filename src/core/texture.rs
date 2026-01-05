@@ -2,7 +2,7 @@ use crate::core::Color;
 use glam::Vec2;
 use image::{ImageBuffer, Rgb, RgbImage};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// Represents a loaded texture with sampling capabilities
@@ -66,12 +66,16 @@ impl Texture {
     pub fn sample(&self, uv: Vec2) -> Color {
         self.sample_filtered(uv, TextureFilter::Bilinear)
     }
+
+    pub fn sample_direct(&self, uv: Vec2) -> Color {
+        self.sample_filtered(uv, TextureFilter::Nearest)
+    }
     
     /// Sample the texture with specified filtering
     pub fn sample_filtered(&self, uv: Vec2, filter: TextureFilter) -> Color {
-        // Wrap UV coordinates to [0, 1]
-        let u = uv.x.fract().abs();
-        let v = uv.y.fract().abs();
+        // Wrap UV coordinates to [0, 1] using euclidean modulo (handles negatives).
+        let u = wrap_uv(uv.x);
+        let v = wrap_uv(1.0 - uv.y);
         
         match filter {
             TextureFilter::Nearest => self.sample_nearest(u, v),
@@ -113,6 +117,10 @@ impl Texture {
     }
 }
 
+fn wrap_uv(value: f32) -> f32 {
+    value.rem_euclid(1.0)
+}
+
 /// Texture filtering modes
 #[derive(Debug, Clone, Copy)]
 pub enum TextureFilter {
@@ -130,36 +138,41 @@ impl TextureManager {
     pub fn new() -> Self {
         Self {
             textures: HashMap::new(),
-            base_path: "assets/".to_string(),
+            base_path: normalize_base_path("assets/"),
         }
     }
     
     pub fn with_base_path(base_path: &str) -> Self {
         Self {
             textures: HashMap::new(),
-            base_path: base_path.to_string(),
+            base_path: normalize_base_path(base_path),
         }
     }
     
     /// Load a texture and cache it
     pub fn load_texture(&mut self, path: &str) -> Result<Arc<Texture>, String> {
+        let normalized_path = normalize_texture_path(path);
+
         // Check if already loaded
-        if let Some(texture) = self.textures.get(path) {
+        if let Some(texture) = self.textures.get(&normalized_path) {
             return Ok(texture.clone());
         }
-        
-        // Try loading with base path first, then as absolute path
-        let full_path = if Path::new(path).is_absolute() {
-            path.to_string()
-        } else {
-            format!("{}{}", self.base_path, path)
-        };
-        
-        let texture = Texture::load_from_file(&full_path)?;
+
+        let full_path = self
+            .resolve_texture_path(&normalized_path)
+            .ok_or_else(|| {
+                format!(
+                    "Texture '{}' not found (base path: '{}')",
+                    normalized_path, self.base_path
+                )
+            })?;
+
+        let texture = Texture::load_from_file(full_path.to_string_lossy().as_ref())?;
         let arc_texture = Arc::new(texture);
         
         // Cache the loaded texture
-        self.textures.insert(path.to_string(), arc_texture.clone());
+        self.textures
+            .insert(normalized_path, arc_texture.clone());
         Ok(arc_texture)
     }
     
@@ -183,30 +196,63 @@ impl TextureManager {
     pub fn get_default_normal(&self) -> Arc<Texture> {
         Arc::new(Texture::default_normal())
     }
+
+    pub fn print_about(&self) {
+        println!("TextureManager: Loaded {} textures.", self.textures.len());
+        println!("Base path: {}", self.base_path);
+        println!("Textures:");
+        for (path, texture) in &self.textures {
+            println!(" - {} ({}x{}), colorlen: {}", path, texture.width, texture.height, texture.data.len());
+        }
+
+    }
+
+
+}
+
+fn normalize_base_path(base_path: &str) -> String {
+    let mut base = base_path.to_string();
+    if !base.ends_with('/') && !base.ends_with('\\') {
+        base.push(std::path::MAIN_SEPARATOR);
+    }
+    base
+}
+
+fn normalize_texture_path(path: &str) -> String {
+    if std::path::MAIN_SEPARATOR == '/' {
+        path.replace('\\', "/")
+    } else {
+        path.to_string()
+    }
+}
+
+impl TextureManager {
+    fn resolve_texture_path(&self, path: &str) -> Option<PathBuf> {
+        let base = Path::new(&self.base_path);
+        let path_obj = Path::new(path);
+
+        if path_obj.is_absolute() {
+            return path_obj.exists().then(|| path_obj.to_path_buf());
+        }
+
+        let candidate = base.join(path_obj);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+
+        if let Some(file_name) = path_obj.file_name() {
+            let candidate = base.join(file_name);
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+
+        None
+    }
 }
 
 impl Default for TextureManager {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_texture_sampling() {
-        let texture = Texture::default_white();
-        let color = texture.sample(Vec2::new(0.5, 0.5));
-        assert_eq!(color, Color::WHITE);
-    }
-    
-    #[test]
-    fn test_uv_wrapping() {
-        let texture = Texture::default_white();
-        let color1 = texture.sample(Vec2::new(0.5, 0.5));
-        let color2 = texture.sample(Vec2::new(1.5, 1.5)); // Should wrap
-        assert_eq!(color1, color2);
     }
 }

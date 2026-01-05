@@ -8,9 +8,6 @@ old/target/
 /terminal_renderer
 /terminal_renderer.log
 vid_master.org
-
-
-
 .vscode
 Cargo.lock
 rust-toolchain.toml

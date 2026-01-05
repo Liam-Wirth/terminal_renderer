@@ -191,32 +191,6 @@ impl Scene {
     pub fn add_light(&mut self, light: Light) {
         self.lights.push(light);
     }
-
-    pub fn create_floor() -> Entity {
-        let mut floormesh =  Mesh::create_floor_mesh(
-            Vec3::new(-10.0, 0.0, -10.0),
-            Vec3::new(10.0, 0.0, -10.0),
-            Vec3::new(10.0, 0.0, 10.0),
-            Vec3::new(-10.0, 0.0, 10.0),
-        );
-
-        let floormat = Material {
-            name: "Floor".to_string(),
-            diffuse: Some(Color::WHITE),
-            shininess: Some(10.0),
-            specular: Some(Color::WHITE), // Black Color
-            ambient: Some(Color::from_hex("#000000").unwrap()), // Black Color
-            ..Default::default()
-        };
-
-        floormesh.set_material(floormat);
-        floormesh.mark_normals_dirty();
-
-        let transform = Affine3A::from_translation(Vec3::new(0., -3., 0.));
-        let mut out = Entity::new(floormesh, transform, "Floor".to_string());
-        out.update();
-        out
-    }
 }
 
 impl Default for Scene {
@@ -263,28 +237,17 @@ impl Entity {
         let mut entities = Self::from_obj_set(penguin_path.to_str().unwrap());
         
         // Load textures for penguin materials
-        let mut texture_manager = TextureManager::new();
-        
-        // Load textures for materials that specify them
-        for entity in &mut entities {
-            for material in entity.mesh.materials.iter_mut() {
-                // Only update texture paths that are relative and make them relative to assets/models/
-                if let Some(ref texture_path) = material.diffuse_texture.clone() {
-                    // If it's just a filename, make it relative to models directory under assets/
-                    if !texture_path.contains("/") && !texture_path.contains("\\") {
-                        let relative_path = format!("models/{}", texture_path);
-                        material.diffuse_texture = Some(relative_path);
-                    }
-                }
-                
-                // Load textures for this material
-                material.load_textures(&mut texture_manager);
-            }
-        }
-        
         entities
     }
 
+    pub fn new_thwomp() -> Vec<Self> {
+        let thwomp_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join("models")
+            .join("thwomp")
+            .join("Thwomp-Classic [Sm64].obj");
+        Self::from_obj_set(thwomp_path.to_str().unwrap())
+    }
     pub fn new_teapot() -> Vec<Self> {
         let teapot = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("assets")
@@ -294,11 +257,6 @@ impl Entity {
         Self::from_obj_set(teapot.to_str().unwrap())
     }
 
-    pub fn new_chain() -> Vec<Self> {
-        let chain = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets").join("models").join("477-chain.obj");
-        Self::from_obj_set(chain.to_str().unwrap())
-    }
-
     pub fn new_textured_teapot() -> Vec<Self> {
         let teapot_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("assets")
@@ -306,28 +264,7 @@ impl Entity {
             .join("teapot textured")
             .join("teapot.obj");
         
-        let mut entities = Self::from_obj_set(teapot_path.to_str().unwrap());
-        
-        // Load textures for teapot materials
-        let mut texture_manager = TextureManager::new();
-        
-        // The teapot texture path
-        let texture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("assets")
-            .join("models")
-            .join("teapot textured")
-            .join("default.png");
-        
-        // Update each entity's materials to load textures
-        for entity in &mut entities {
-            for material in &mut entity.mesh.materials {
-                // Set the diffuse texture path and load it
-                material.diffuse_texture = Some(texture_path.to_string_lossy().to_string());
-                material.load_textures(&mut texture_manager);
-            }
-        }
-        
-        entities
+        Self::from_obj_set(teapot_path.to_str().unwrap())
     }
 
     pub fn new_skull() -> Vec<Self> {

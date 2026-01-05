@@ -14,6 +14,30 @@ pub struct Rasterizer {
     height: usize,
 }
 
+#[derive(Clone, Copy)]
+struct LineVertex {
+    screen_pos: Vec2,
+    color: Color,
+    uv: Vec2,
+    inv_w: f32,
+    z_over_w: f32,
+    uv_over_w: Vec2,
+}
+
+impl LineVertex {
+    fn new(screen_pos: Vec2, clip: &ClipVertex) -> Self {
+        let inv_w = 1.0 / clip.position.w;
+        Self {
+            screen_pos,
+            color: clip.color,
+            uv: clip.uv,
+            inv_w,
+            z_over_w: clip.position.z * inv_w,
+            uv_over_w: clip.uv * inv_w,
+        }
+    }
+}
+
 impl Rasterizer {
     pub fn new(width: usize, height: usize) -> Self {
         Self { width, height }
@@ -100,11 +124,13 @@ impl Rasterizer {
                     &world_pos,
                     &normals,
                     material, // TODO: fix this as well. gonna leave all these bugs in cause I just wanna see shading damnit
-                    Some((geo.entity_id, geo.material_id.unwrap_or_default())),
+                    geo.material_id.map(|mat_id| (geo.entity_id, mat_id)),
                 )
             }
             RenderMode::FixedPoint => self.rasterize_fixed_point(screen_verts, colors, &vertices),
-            RenderMode::Wireframe => self.rasterize_triangle(&screen_verts, &colors),
+            RenderMode::Wireframe => {
+                self.rasterize_triangle_wireframe(screen_verts, &geo.vertices, material)
+            }
         }
     }
 
@@ -162,34 +188,50 @@ impl Rasterizer {
         colors
     }
 
-    // TODO: Implement a switch statement matching the global state to determine if triangle rasterization means:
-    // Wireframe tris
-    // or
-    // filled tris
-    fn rasterize_triangle(&self, vertices: &[Vec2; 3], colors: &[Color; 3]) -> Vec<Fragment> {
+    // Wireframe rasterization with depth + material/texture sampling
+    fn rasterize_triangle_wireframe(
+        &self,
+        vertices: [Vec2; 3],
+        clip_verts: &[ClipVertex; 3],
+        material: &Material,
+    ) -> Vec<Fragment> {
         let mut fragments = Vec::new();
+        let line_verts = [
+            LineVertex::new(vertices[0], &clip_verts[0]),
+            LineVertex::new(vertices[1], &clip_verts[1]),
+            LineVertex::new(vertices[2], &clip_verts[2]),
+        ];
 
         for i in 0..3 {
             let next = (i + 1) % 3;
             self.draw_line(
-                (vertices[i], colors[i]),
-                (vertices[next], colors[next]),
+                &line_verts[i],
+                &line_verts[next],
+                material,
                 &mut fragments,
+                2,
             );
         }
         fragments
     }
 
-    fn draw_line(&self, start: (Vec2, Color), end: (Vec2, Color), fragments: &mut Vec<Fragment>) {
+    // Bresenham's line algorithm with material-based sampling and depth interpolation
+    fn draw_line(
+        &self,
+        start: &LineVertex,
+        end: &LineVertex,
+        material: &Material,
+        fragments: &mut Vec<Fragment>,
+        width: usize,
+    ) {
         let mut steep = false;
 
-        let (start_vert, start_col) = start;
-        let (end_vert, end_col) = end;
-
-        let mut x0 = start_vert.x as i32;
-        let mut y0 = start_vert.y as i32;
-        let mut x1 = end_vert.x as i32;
-        let mut y1 = end_vert.y as i32;
+        let mut x0 = start.screen_pos.x as i32;
+        let mut y0 = start.screen_pos.y as i32;
+        let mut x1 = end.screen_pos.x as i32;
+        let mut y1 = end.screen_pos.y as i32;
+        let mut start_v = *start;
+        let mut end_v = *end;
 
         if (x0 - x1).abs() < (y0 - y1).abs() {
             std::mem::swap(&mut x0, &mut y0);
@@ -200,6 +242,7 @@ impl Rasterizer {
         if x0 > x1 {
             std::mem::swap(&mut x0, &mut x1);
             std::mem::swap(&mut y0, &mut y1);
+            std::mem::swap(&mut start_v, &mut end_v);
         }
 
         let dx = x1 - x0;
@@ -219,11 +262,26 @@ impl Rasterizer {
             let t = if dx != 0 {
                 (x - x0) as f32 / dx as f32
             } else {
-                1.0
+                0.0
             };
 
-            // Interpolate color using the lerp method
-            let color = start_col.lerp(&end_col, t);
+            let inv_w = start_v.inv_w + (end_v.inv_w - start_v.inv_w) * t;
+            let z_over_w = start_v.z_over_w + (end_v.z_over_w - start_v.z_over_w) * t;
+            let mut depth = (z_over_w + 1.0) * 0.5;
+            depth = depth.clamp(0.0, 1.0);
+
+            let uv_over_w = start_v.uv_over_w + (end_v.uv_over_w - start_v.uv_over_w) * t;
+            let uv = if inv_w.abs() > f32::EPSILON {
+                uv_over_w / inv_w
+            } else {
+                Vec2::ZERO
+            };
+
+            let color = if material.diffuse_texture_data.is_some() || material.diffuse.is_some() {
+                material.sample_diffuse(uv)
+            } else {
+                start_v.color.lerp(&end_v.color, t)
+            };
 
             // Only add fragments within screen bounds
             if pos.x >= 0.0
@@ -234,9 +292,10 @@ impl Rasterizer {
                 // NOTE: Might need to find a way to override here. Probably best move is on wireframe toggle disable any lighting
                 fragments.push(Fragment {
                     screen_pos: pos,
-                    depth: 0.0, // TODO: Implement proper depth calculation
+                    depth,
                     albedo: color,
                     normal: Vec3::ZERO,
+                    uv,
                     ..Default::default()
                 });
             }

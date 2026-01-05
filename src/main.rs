@@ -67,7 +67,9 @@ fn main() -> io::Result<()> {
     scene.add_light(point4);
 
     // let mut ent = Entity::new_teapot();
-    let mut ent = Entity::new_chain();
+    // let mut ent = Entity::new_penguin();
+    let mut ent = Entity::new_thwomp();
+
     ent[0].set_transform(Affine3A::from_rotation_x(0.4));
     
     for e in ent.iter() {
@@ -142,29 +144,12 @@ pub fn run_win(scene: Scene) -> io::Result<()> {
         WIDTH,
         HEIGHT,
         WindowOptions {
-            resize: false,
-            scale: Scale::X1,
+            resize: true,
+            // scale: Scale::X1,
             ..WindowOptions::default()
         },
     )
     .expect("Unable to open window");
-    #[cfg(debug_assertions)] // In debug mode (just running like plain cargo r, it will be a lower
-    // resolution)
-    {
-        let (w, h) = TINY_DIMENSIONS;
-        window = Window::new(
-            "TerminalRasterizer - (DEBUG VERSION)",
-            w,
-            h,
-            WindowOptions {
-                resize: false,
-                scale: Scale::X4,
-                ..WindowOptions::default()
-            },
-        )
-        .expect("Unable to open window :(")
-    }
-
     let mut pipeline = Pipeline::<FrameBuffer>::new(WIDTH, HEIGHT, scene);
     while window.is_open() {
         if window.is_key_down(Key::Escape) || window.is_key_down(Key::Q) {
@@ -173,6 +158,5 @@ pub fn run_win(scene: Scene) -> io::Result<()> {
         pipeline.render_frame(Some(&mut window))?;
         pipeline.window_handle_input(&window, Instant::now());
     }
-
     Ok(())
 }

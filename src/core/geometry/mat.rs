@@ -39,9 +39,9 @@ pub struct Material {
 
 impl Material {
     pub fn from_tobj(mat: tobj::Material) -> Self {
-        let out = Self {
+        
+        Self {
             name: mat.name,
-
             // Convert [f32; 3] arrays to our Color type
             ambient: mat.ambient.map(|a| Color::new(a[0], a[1], a[2])),
             diffuse: mat.diffuse.map(|d| Color::new(d[0], d[1], d[2])),
@@ -69,8 +69,7 @@ impl Material {
             shininess_texture_data: None,
             dissolve_texture_data: None,
             //unknown_params: mat.unknown_param.to_ha
-        };
-        out
+        }
     }
 
     pub fn get_base_color(&self) -> Color {
@@ -115,16 +114,15 @@ impl Material {
     }
 
     /// Sample the diffuse color at UV coordinates
-    pub fn sample_diffuse(&self, uv: glam::Vec2) -> Color {
+    pub fn old_sample_diffuse(&self, uv: glam::Vec2) -> Color {
         if let Some(ref texture) = self.diffuse_texture_data {
             // Blend texture with material color if available
             let tex_color = texture.sample(uv);
             if let Some(mat_color) = self.diffuse {
-                // Multiply texture color with material color
                 Color::new(
-                    tex_color.r * mat_color.r,
-                    tex_color.g * mat_color.g,
-                    tex_color.b * mat_color.b,
+                    tex_color.r,
+                    tex_color.g,
+                    tex_color.b,
                 )
             } else {
                 tex_color
@@ -133,6 +131,17 @@ impl Material {
             // No texture, return material color or white
             self.diffuse.unwrap_or(Color::WHITE)
         }
+    }
+
+    // rewriting to return texture color directly when it exists, as the texture can hold a baked
+    // color, and be put over the materials base color
+    pub fn sample_diffuse(&self, uv: glam::Vec2) -> Color {
+        if let Some(ref texture) = self.diffuse_texture_data {
+            texture.sample(uv)
+        } else {
+            self.diffuse.unwrap_or(Color::WHITE)
+        }
+
     }
 
     /// Sample the specular color at UV coordinates

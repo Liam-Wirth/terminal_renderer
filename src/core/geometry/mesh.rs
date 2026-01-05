@@ -1,6 +1,9 @@
 use super::Material;
 use crate::core::color::Color;
+use crate::core::TextureManager;
 use glam::{Affine3A, Vec2, Vec3};
+use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use std::collections::HashMap;
@@ -93,46 +96,9 @@ impl Mesh {
     pub fn update_normals(&self, transform: &Affine3A) {
         let mut dirty = self.normals_dirty.lock().unwrap();
         if *dirty {
-            self.sloppy_recalculate_normals(transform);
+            self.fast_recalculate_normals(transform);
             *dirty = false;
         }
-    }
-
-    pub fn create_floor_mesh(v1: Vec3, v2: Vec3, v3: Vec3, v4: Vec3) -> Mesh {
-        let mut mesh = Mesh::new();
-        mesh.vertices = vec![
-            Vertex {
-                pos: v1,
-                color: Some(Color::WHITE),
-                ..Default::default()
-            },
-            Vertex {
-                pos: v2,
-                color: Some(Color::WHITE),
-                ..Default::default()
-            },
-            Vertex {
-                pos: v3,
-                color: Some(Color::WHITE),
-                ..Default::default()
-            },
-            Vertex {
-                pos: v4,
-                color: Some(Color::WHITE),
-                ..Default::default()
-            },
-        ];
-        mesh.tris = vec![
-            Tri {
-                vertices: [0, 1, 2],
-                material: Some(0),
-            },
-            Tri {
-                vertices: [0, 2, 3],
-                material: Some(0),
-            },
-        ];
-        mesh
     }
 
     pub fn set_material(&mut self, material: Material) {
@@ -140,7 +106,7 @@ impl Mesh {
     }
 
     // TODO: Rename to something like fast_recalculate_normals
-    fn sloppy_recalculate_normals(&self, transform: &Affine3A) {
+    fn fast_recalculate_normals(&self, transform: &Affine3A) {
         // get the normal buffer
         let mut normals = self.normals.lock().unwrap();
         normals.resize(self.vertices.len(), Vec3::ZERO);
@@ -283,7 +249,7 @@ impl Mesh {
             path,
             &tobj::LoadOptions {
                 triangulate: true,
-                single_index: true, // This gives shared indices, important for normals accross faces
+                single_index: false, // Keep separate indices so we can pair pos/uv correctly
                 ..Default::default()
             },
         )
@@ -292,14 +258,29 @@ impl Mesh {
         let mut outmesh = Mesh::new();
 
         // Load materials
-        let materials = if let Ok(mats) = materials_result {
-            about_mats(mats.clone(), models.clone());
-            mats.into_iter()
-                .map(Material::from_tobj)
-                .collect::<Vec<_>>()
-        } else {
-            vec![Material::default()]
+        let materials = match materials_result {
+            Ok(mats) => {
+                about_mats(mats.clone(), models.clone());
+                mats.into_iter().map(Material::from_tobj).collect::<Vec<_>>()
+            }
+            Err(_) => {
+                let fallback = load_materials_fallback(path);
+                if fallback.is_empty() {
+                    vec![Material::default()]
+                } else {
+                    fallback
+                }
+            }
         };
+        let mut materials = materials;
+
+        let base_dir = find_mtl_base_dir(path)
+            .or_else(|| Path::new(path).parent().map(|p| p.to_path_buf()))
+            .unwrap_or_else(|| Path::new(".").to_path_buf());
+        let mut texture_manager = TextureManager::with_base_path(&base_dir.to_string_lossy());
+        for material in materials.iter_mut() {
+            material.load_textures(&mut texture_manager);
+        }
         outmesh.materials = materials;
 
         // Process each model
@@ -307,23 +288,71 @@ impl Mesh {
             let mesh_data = model.mesh;
             outmesh.name = model.name;
 
-            // Create vertices
-            for (i, pos) in mesh_data.positions.chunks(3).enumerate() {
-                let uv = if !mesh_data.texcoords.is_empty() {
-                    Some(Vec2::new(
-                        mesh_data.texcoords[i * 2],
-                        mesh_data.texcoords[i * 2 + 1],
-                    ))
+            println!(
+                "OBJ Debug | model '{}': positions {} | texcoords {} | normals {} | indices {} (faces {}) | texcoord_indices_present: {}",
+                outmesh.name,
+                mesh_data.positions.len() / 3,
+                mesh_data.texcoords.len() / 2,
+                mesh_data.normals.len() / 3,
+                mesh_data.indices.len(),
+                mesh_data.indices.len() / 3,
+                !mesh_data.texcoord_indices.is_empty()
+            );
+
+            // Build vertices using separate pos/uv indices (avoids UV misalignment)
+            let mut vert_map: HashMap<(usize, Option<usize>), usize> = HashMap::new();
+
+            for (face_idx, indices) in mesh_data.indices.chunks(3).enumerate() {
+                let material_id = if let Some(material_ids) = &mesh_data.material_id {
+                    Some(*material_ids)
                 } else {
                     None
                 };
-                // tobj does some silly stuff with face reading and I need to agregate stuff together in my rasterizer, so we are going to merge objects whom all have the same name into the same mesh (duh)
-                outmesh.vertices.push(Vertex {
-                    pos: Vec3::new(pos[0], pos[1], pos[2]),
-                    uv,
-                    color: None,
-                    tangent: None,
-                    bitangent: None,
+
+                let mut tri_indices = [0usize; 3];
+                for i in 0..3 {
+                    let pos_idx = indices[i] as usize;
+                    let uv_idx = if !mesh_data.texcoord_indices.is_empty() {
+                        Some(mesh_data.texcoord_indices[face_idx * 3 + i] as usize)
+                    } else {
+                        None
+                    };
+                    let key = (pos_idx, uv_idx);
+                    let v_index = *vert_map.entry(key).or_insert_with(|| {
+                        let pos = Vec3::new(
+                            mesh_data.positions[pos_idx * 3],
+                            mesh_data.positions[pos_idx * 3 + 1],
+                            mesh_data.positions[pos_idx * 3 + 2],
+                        );
+                        let uv = if let Some(uv_i) = uv_idx {
+                            Some(Vec2::new(
+                                mesh_data.texcoords[uv_i * 2],
+                                mesh_data.texcoords[uv_i * 2 + 1],
+                            ))
+                        } else if !mesh_data.texcoords.is_empty() {
+                            Some(Vec2::new(
+                                mesh_data.texcoords[pos_idx * 2],
+                                mesh_data.texcoords[pos_idx * 2 + 1],
+                            ))
+                        } else {
+                            None
+                        };
+                        let v = Vertex {
+                            pos,
+                            uv,
+                            color: None,
+                            tangent: None,
+                            bitangent: None,
+                        };
+                        outmesh.vertices.push(v);
+                        outmesh.vertices.len() - 1
+                    });
+                    tri_indices[i] = v_index;
+                }
+
+                outmesh.tris.push(Tri {
+                    vertices: tri_indices,
+                    material: material_id,
                 });
             }
 
@@ -338,32 +367,13 @@ impl Mesh {
             } else {
                 outmesh.mark_normals_dirty();
             }
-
-            // Create triangles with proper material assignment
-            for (face_idx, indices) in mesh_data.indices.chunks(3).enumerate() {
-                // Get material ID for this face
-                let material_id = if let Some(material_ids) = &mesh_data.material_id {
-                    Some(*material_ids)
-                } else {
-                    None
-                };
-
-                outmesh.tris.push(Tri {
-                    vertices: [
-                        indices[0] as usize,
-                        indices[1] as usize,
-                        indices[2] as usize,
-                    ],
-                    material: material_id,
-                });
-            }
         }
         if outmesh.needs_weld(0.001) {
             println!("Welding the Mesh!!! {:?}", outmesh.vertices.len());
             outmesh.weld_vertices(0.001);
             println!("After Welding new len is {:?}", outmesh.vertices.len());
         }
-        outmesh.sloppy_recalculate_normals(&Affine3A::IDENTITY);
+        outmesh.fast_recalculate_normals(&Affine3A::IDENTITY);
         outmesh.print_shared_edges();
 
         outmesh
@@ -402,13 +412,13 @@ impl Mesh {
         }
     }
 
+    // TODO: Move to deep-comparison (comparing all vertex attributes) to avoid welding vertices that
+    // differ in UVs or colors
     pub fn weld_vertices(&mut self, position_epsilon: f32) -> bool {
         if self.vertices.is_empty() {
             return false;
         }
-        let mut new_vertices = Vec::new();
-        new_vertices.reserve(self.vertices.len()); // this is helpful for performance I hear (or so a language model says)
-
+        let mut new_vertices: Vec<Vertex> = Vec::with_capacity(self.vertices.len());
         let mut lookup = HashMap::new();
         let mut idx_map = Vec::with_capacity(self.vertices.len());
         idx_map.resize(self.vertices.len(), 0); // fill with zeros
@@ -448,7 +458,7 @@ impl Mesh {
             path,
             &tobj::LoadOptions {
                 triangulate: true,
-                single_index: true,
+                single_index: false,
                 ..Default::default()
             },
         )
@@ -460,43 +470,49 @@ impl Mesh {
         }
 
         // Load materials
-        let materials = if let Ok(mats) = materials_result {
-            mats.into_iter()
-                .map(Material::from_tobj)
-                .collect::<Vec<_>>()
-        } else {
-            vec![Material::default()]
+        let materials = match materials_result {
+            Ok(mats) => mats.into_iter().map(Material::from_tobj).collect::<Vec<_>>(),
+            Err(_) => {
+                let fallback = load_materials_fallback(path);
+                if fallback.is_empty() {
+                    vec![Material::default()]
+                } else {
+                    fallback
+                }
+            }
         };
+        let mut materials = materials;
+
+        let base_dir = find_mtl_base_dir(path)
+            .or_else(|| Path::new(path).parent().map(|p| p.to_path_buf()))
+            .unwrap_or_else(|| Path::new(".").to_path_buf());
+        let mut texture_manager = TextureManager::with_base_path(&base_dir.to_string_lossy());
+        for material in materials.iter_mut() {
+            material.load_textures(&mut texture_manager);
+        }
 
         // Process each model
         for model in models {
             let mesh_data = model.mesh;
             let mesh_name = model.name.clone();
 
+            println!(
+                "OBJ Debug | model '{}': positions {} | texcoords {} | normals {} | indices {} (faces {}) | texcoord_indices_present: {}",
+                mesh_name,
+                mesh_data.positions.len() / 3,
+                mesh_data.texcoords.len() / 2,
+                mesh_data.normals.len() / 3,
+                mesh_data.indices.len(),
+                mesh_data.indices.len() / 3,
+                !mesh_data.texcoord_indices.is_empty()
+            );
+
             // Get or create the corresponding Mesh
             let mesh = meshes.entry(mesh_name.clone()).or_insert_with(Mesh::new);
+            mesh.name = mesh_name.clone();
 
-            let base_vertex_index = mesh.vertices.len();
-
-            // Create vertices
-            for (i, pos) in mesh_data.positions.chunks(3).enumerate() {
-                let uv = if !mesh_data.texcoords.is_empty() {
-                    Some(Vec2::new(
-                        mesh_data.texcoords[i * 2],
-                        mesh_data.texcoords[i * 2 + 1],
-                    ))
-                } else {
-                    None
-                };
-
-                mesh.vertices.push(Vertex {
-                    pos: Vec3::new(pos[0], pos[1], pos[2]),
-                    uv,
-                    color: None,
-                    tangent: None,
-                    bitangent: None,
-                });
-            }
+            // Build vertices using separate pos/uv indices (avoids UV misalignment)
+            let mut vert_map: HashMap<(usize, Option<usize>), usize> = HashMap::new();
 
             // Load or compute normals
             if !mesh_data.normals.is_empty() {
@@ -510,7 +526,6 @@ impl Mesh {
                 mesh.mark_normals_dirty();
             }
 
-            // Create triangles with proper material assignment
             for (face_idx, indices) in mesh_data.indices.chunks(3).enumerate() {
                 let material_id = if let Some(material_ids) = &mesh_data.material_id {
                     Some(*material_ids)
@@ -518,12 +533,49 @@ impl Mesh {
                     None
                 };
 
+                let mut tri_indices = [0usize; 3];
+                for i in 0..3 {
+                    let pos_idx = indices[i] as usize;
+                    let uv_idx = if !mesh_data.texcoord_indices.is_empty() {
+                        Some(mesh_data.texcoord_indices[face_idx * 3 + i] as usize)
+                    } else {
+                        None
+                    };
+                    let key = (pos_idx, uv_idx);
+                    let v_index = *vert_map.entry(key).or_insert_with(|| {
+                        let pos = Vec3::new(
+                            mesh_data.positions[pos_idx * 3],
+                            mesh_data.positions[pos_idx * 3 + 1],
+                            mesh_data.positions[pos_idx * 3 + 2],
+                        );
+                        let uv = if let Some(uv_i) = uv_idx {
+                            Some(Vec2::new(
+                                mesh_data.texcoords[uv_i * 2],
+                                mesh_data.texcoords[uv_i * 2 + 1],
+                            ))
+                        } else if !mesh_data.texcoords.is_empty() {
+                            Some(Vec2::new(
+                                mesh_data.texcoords[pos_idx * 2],
+                                mesh_data.texcoords[pos_idx * 2 + 1],
+                            ))
+                        } else {
+                            None
+                        };
+                        let v = Vertex {
+                            pos,
+                            uv,
+                            color: None,
+                            tangent: None,
+                            bitangent: None,
+                        };
+                        mesh.vertices.push(v);
+                        mesh.vertices.len() - 1
+                    });
+                    tri_indices[i] = v_index;
+                }
+
                 mesh.tris.push(Tri {
-                    vertices: [
-                        base_vertex_index + indices[0] as usize,
-                        base_vertex_index + indices[1] as usize,
-                        base_vertex_index + indices[2] as usize,
-                    ],
+                    vertices: tri_indices,
                     material: material_id,
                 });
             }
@@ -534,7 +586,7 @@ impl Mesh {
 
         // Weld vertices in each mesh
         for (name, mesh) in meshes.iter_mut() {
-            if mesh.needs_weld(0.001) {
+            if mesh.needs_weld(0.001) && !mesh.has_uvs(){
                 println!(
                     "Welding Mesh '{}' with {} vertices",
                     name,
@@ -542,7 +594,10 @@ impl Mesh {
                 );
                 mesh.weld_vertices(0.001);
                 println!("After welding, new vertex count: {}", mesh.vertices.len());
-                mesh.sloppy_recalculate_normals(&Affine3A::IDENTITY);
+                mesh.fast_recalculate_normals(&Affine3A::IDENTITY);
+            } else {
+                mesh.fast_recalculate_normals(&Affine3A::IDENTITY);
+                println!("Skipped welding because either of these two variables where false: \n Needs Weld: {} \n Has UVs: {} ", mesh.needs_weld(0.001), mesh.has_uvs());
             }
         }
 
@@ -559,6 +614,12 @@ impl Mesh {
         }
         // If fewer unique keys than vertex count, there's duplication
         lookup.len() < self.vertices.len()
+    }
+
+    pub fn has_uvs(&self) -> bool {
+        self.vertices.iter().any(|v| {
+            v.uv.is_some()
+        })
     }
 
     pub fn new_test_mesh() -> Self {
@@ -594,6 +655,47 @@ impl Mesh {
 
         mesh
     }
+}
+
+fn load_materials_fallback(obj_path: &str) -> Vec<Material> {
+    let mut materials = Vec::new();
+    for mtl_path in read_mtllib_paths(obj_path) {
+        if let Ok((mats, _)) = tobj::load_mtl(&mtl_path) {
+            materials.extend(mats.into_iter().map(Material::from_tobj));
+        }
+    }
+    materials
+}
+
+fn find_mtl_base_dir(obj_path: &str) -> Option<PathBuf> {
+    read_mtllib_paths(obj_path)
+        .into_iter()
+        .find_map(|path| path.parent().map(|p| p.to_path_buf()))
+}
+
+fn read_mtllib_paths(obj_path: &str) -> Vec<PathBuf> {
+    let obj_dir = Path::new(obj_path)
+        .parent()
+        .unwrap_or_else(|| Path::new("."));
+    let file = match std::fs::File::open(obj_path) {
+        Ok(file) => file,
+        Err(_) => return Vec::new(),
+    };
+    let reader = BufReader::new(file);
+    let mut paths = Vec::new();
+
+    for line in reader.lines().flatten() {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix("mtllib ") {
+            let mtl_name = rest.trim();
+            if mtl_name.is_empty() {
+                continue;
+            }
+            paths.push(obj_dir.join(mtl_name));
+        }
+    }
+
+    paths
 }
 
 // Debug function copied form the TOBJ Documentation, using this to try and figure out why I'm not getting colors loaded right. Stuff might be getting dumped in the "Unexpected Things" HashMap
@@ -688,4 +790,3 @@ fn about_mats(materials: Vec<tobj::Material>, models: Vec<tobj::Model>) {
         }
     }
 }
-
