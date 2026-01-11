@@ -4,6 +4,7 @@ mod camera;
 mod color;
 mod scene;
 mod texture;
+mod input;
 pub use scene::Entity;
 pub use scene::{Background, Environment, RenderMode, Scene};
 

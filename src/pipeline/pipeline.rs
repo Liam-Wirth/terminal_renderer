@@ -55,7 +55,7 @@ pub struct Pipeline<B: Buffer> {
     rasterizer: RefCell<Rasterizer>,           // Converts triangles to fragments
     clipper: RefCell<Clipper>,                 // Clips triangles against view frustum
     fragments: RefCell<Vec<Fragment>>,         // Output fragments from rasterization
-    metrics: Metrics,                          // Performance metrics
+    metrics: RefCell<Metrics>,                          // Performance metrics
     gbuffer: RefCell<GBuffer>,                 // Pre-Lighting pass buffer of fragments
 }
 
@@ -80,9 +80,6 @@ impl<B: Buffer> Pipeline<B> {
         &self.fragments
     }
 
-    pub fn metrics(&self) -> &Metrics {
-        &self.metrics
-    }
 }
 
 impl<B: Buffer> Pipeline<B> {
@@ -93,7 +90,7 @@ impl<B: Buffer> Pipeline<B> {
             front_buffer: RefCell::new(B::new(width, height)),
             back_buffer: RefCell::new(B::new(width, height)),
             scene,
-            metrics: Metrics::new(),
+            metrics: RefCell::new(Metrics::new()),
             geometry: RefCell::new(Vec::with_capacity(1024)),
             rasterizer: RefCell::new(Rasterizer::new(width, height)),
             clipper: RefCell::new(Clipper::new()), // Add this
@@ -131,7 +128,7 @@ impl<B: Buffer> Pipeline<B> {
     /// 6. Do Lighting Pass on Gbuffer, and then write to back buffer
     /// 7. Present back buffer to window or output
     /// 8. Swap front and back buffers
-    pub fn render_frame(&self, window: Option<&mut Window>) -> io::Result<()> {
+    pub fn render_frame(&self, window: Option<&mut Window>, frame_delta: std::time::Duration) -> io::Result<()> {
         self.back_buffer.borrow_mut().clear();
         self.gbuffer.borrow_mut().clear();
 
@@ -157,6 +154,7 @@ impl<B: Buffer> Pipeline<B> {
         }
 
         self.swap_buffers();
+        self.update_metrics(frame_delta);
         Ok(())
     }
 
@@ -290,8 +288,8 @@ impl<B: Buffer> Pipeline<B> {
         );
     }
 
-    pub fn update_metrics(&mut self, frame_delta: std::time::Duration) {
-        self.metrics.update(frame_delta);
+    pub fn update_metrics(&self, frame_delta: std::time::Duration) {
+        self.metrics.borrow_mut().update(frame_delta);
     }
     pub fn get_front_buffer(&self) -> &RefCell<B> {
         &self.front_buffer
@@ -394,10 +392,10 @@ impl<B: Buffer> Pipeline<B> {
 
         for light in &self.scene.lights {
             match &light.light_type {
-                &LightType::Point { position, .. } => {}
-                &LightType::Directional(direction) => {}
-                &LightType::Spot {
-                    position,
+                LightType::Point { position, .. } => {}
+                LightType::Directional(direction) => {}
+                LightType::Spot {
+                   position,
                     direction,
                     ..
                 } => {}
@@ -406,7 +404,7 @@ impl<B: Buffer> Pipeline<B> {
     }
 
     // TODO: Move this to a separate file along witht the input handling for the terminal environment
-    pub fn window_handle_input(&mut self, input: &minifb::Window, last_frame: std::time::Instant) {
+pub fn window_handle_input(&mut self, input: &minifb::Window, last_frame: std::time::Instant) {
         let delta = 0.1;
         let move_speed = 1.0;
         let rotate_speed = 1.0;
@@ -499,13 +497,6 @@ impl<B: Buffer> Pipeline<B> {
             let cur = self.states.borrow().move_obj;
             self.states.borrow_mut().move_obj = !cur;
             println!("Move obj: {}", !cur);
-        }
-        if input.is_key_pressed(minifb::Key::B, KeyRepeat::No) {
-            println!("Re baking the normals of the selected object");
-            let current_obj = self.states.borrow().current_obj;
-            self.scene.entities[current_obj]
-                .mesh
-                .bake_normals_to_colors();
         }
         if input.is_key_pressed(minifb::Key::LeftBracket, KeyRepeat::No) {
             let mut current = self.states.borrow().current_obj;
@@ -727,7 +718,7 @@ impl<B: Buffer> Pipeline<B> {
 
         // getting rid of the big ass match statement? maybe?
     }
-    pub fn handle_crossterm_input(&mut self, event: Event, _last_frame: Instant) -> bool {
+pub fn handle_crossterm_input(&mut self, event: Event, _last_frame: Instant) -> bool {
         // Constants (adjust as needed)
         let delta = 0.1;
         let move_speed = 1.0;

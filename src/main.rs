@@ -67,8 +67,8 @@ fn main() -> io::Result<()> {
     scene.add_light(point4);
 
     // let mut ent = Entity::new_teapot();
-    // let mut ent = Entity::new_penguin();
-    let mut ent = Entity::new_thwomp();
+    let mut ent = Entity::new_penguin();
+    // let mut ent = Entity::new_thwomp();
 
     ent[0].set_transform(Affine3A::from_rotation_x(0.4));
     
@@ -78,8 +78,8 @@ fn main() -> io::Result<()> {
 
 
     // println!("STARTING WINDOW RENDERER...");
-    // run_term(scene)
-    run_win(scene)
+    run_term(scene)
+    // run_win(scene)
 }
 
 fn run_term(scene: Scene) -> io::Result<()> {
@@ -97,7 +97,7 @@ fn run_term(scene: Scene) -> io::Result<()> {
     let (tw, th) = crossterm::terminal::size()?;
     let mut pipeline = Pipeline::<TermBuffer>::new(tw as usize, th as usize, scene);
 
-    // 3) For timing
+    // 3) For timing/Metrics
     let mut last_frame = Instant::now();
     let frame_duration = Duration::from_millis(16); // ~60 FPS
 
@@ -113,19 +113,22 @@ fn run_term(scene: Scene) -> io::Result<()> {
         }
 
         // (b) Check if enough time has passed
+        // NOTE: This is simply so that we can enable dynamic resizing
         let now = Instant::now();
-        if now - last_frame >= frame_duration {
+        let frame_delta = now - last_frame;
+        if frame_delta >= frame_duration {
             let (nw, nh) = crossterm::terminal::size()?;
             if nw as usize != pipeline.width || nh as usize != pipeline.height {
                 pipeline =
                     Pipeline::<TermBuffer>::new(nw as usize, nh as usize, pipeline.scene.clone());
             }
 
-            pipeline.render_frame(None)?;
+            pipeline.render_frame(None, frame_delta)?;
 
             last_frame = now;
         }
     }
+
 
     // 5) Cleanup
     cleanup_terminal()?;
@@ -138,6 +141,7 @@ fn cleanup_terminal() -> io::Result<()> {
     execute!(stdout, Show, terminal::LeaveAlternateScreen)?;
     Ok(())
 }
+
 pub fn run_win(scene: Scene) -> io::Result<()> {
     let mut window = Window::new(
         "Terminal Renderer - Window Mode",
@@ -151,12 +155,16 @@ pub fn run_win(scene: Scene) -> io::Result<()> {
     )
     .expect("Unable to open window");
     let mut pipeline = Pipeline::<FrameBuffer>::new(WIDTH, HEIGHT, scene);
+    let mut last_frame = Instant::now();
     while window.is_open() {
         if window.is_key_down(Key::Escape) || window.is_key_down(Key::Q) {
             break;
         }
-        pipeline.render_frame(Some(&mut window))?;
-        pipeline.window_handle_input(&window, Instant::now());
+        let now = Instant::now();
+        let frame_delta = now - last_frame;
+        pipeline.render_frame(Some(&mut window), frame_delta)?;
+        pipeline.window_handle_input(&window, now);
+        last_frame = now;
     }
     Ok(())
 }

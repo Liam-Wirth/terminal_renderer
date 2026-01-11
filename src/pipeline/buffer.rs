@@ -3,6 +3,7 @@ use glam::UVec2;
 use minifb::Window;
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSliceMut;
+use std::cell::RefCell;
 use std::io::{self, stdout, Write};
 pub const MAX_DIMS: UVec2 = UVec2::new(1920, 1080);
 
@@ -31,6 +32,7 @@ pub struct TermBuffer {
     pub height: usize,
     pub data: Vec<Pixel>,
     pub depth: Vec<f32>,
+    cached_lines: RefCell<Vec<String>>,
 }
 
 impl Buffer for TermBuffer {
@@ -43,6 +45,7 @@ impl Buffer for TermBuffer {
             height,
             data: vec![Pixel::default_term(); width * height], // Initialize with default pixels
             depth: vec![f32::INFINITY; width * height],        // Initialize depth buffer
+            cached_lines: RefCell::new(vec![String::new(); height]),
         }
     }
 
@@ -126,17 +129,12 @@ impl Buffer for TermBuffer {
     fn present(&self) -> std::io::Result<()> {
         let mut stdout = stdout();
         let mut output = String::new();
-
-        // Keep track of the last color to minimize color changes
-        let mut last_color = None;
-
-        // Cache previously rendered lines to minimize rendering
-
-        // Hide the cursor and clear the screen once
-        //output.push_str(&format!("\x1b]0;{}\x07", metrics));
-        output.push_str("\x1B[?25l"); // Hide cursor
-        output.push_str("\x1B[2J"); // Clear screen
-        output.push_str("\x1B[H"); // Move cursor to home position
+        let mut cached_lines = self.cached_lines.borrow_mut();
+        if cached_lines.len() != self.height {
+            cached_lines.clear();
+            cached_lines.resize_with(self.height, String::new);
+        }
+        let mut has_updates = false;
 
         // Render each line
         for y in 0..self.height {
@@ -146,6 +144,7 @@ impl Buffer for TermBuffer {
             // because that adds overhead and might not be worth it for small operations like this,
             // buuuut this does operate over millions of pixels so it might be worth it
             let mut rendered_line = String::new();
+            let mut last_color: Option<String> = None;
 
             // Move cursor to the beginning of the line once
             rendered_line.push_str(&format!("\x1B[{};{}H", y + 1, 1));
@@ -163,20 +162,30 @@ impl Buffer for TermBuffer {
                     x += 1;
                 }
                 // Change color if necessary
-                if last_color != Some(current_color.clone()) {
+                if last_color.as_ref() != Some(&current_color) {
                     rendered_line.push_str(&current_color);
-                    last_color = Some(current_color.clone());
+                    last_color = Some(current_color);
                 }
 
                 // Append the accumulated characters
                 rendered_line.push_str(&pixel_chars);
             }
 
-            // TODO:  Only update the output if the line has changed
-            output.push_str(&rendered_line);
+            if cached_lines[y] != rendered_line {
+                if !has_updates {
+                    // Hide cursor once per frame that has updates
+                    output.push_str("\x1B[?25l");
+                    has_updates = true;
+                }
+                output.push_str(&rendered_line);
+                cached_lines[y] = rendered_line;
+            }
         }
 
-        // Show the cursor again
+        if !has_updates {
+            return Ok(());
+        }
+
         stdout.write_all(output.as_bytes())?;
         stdout.flush()
     }

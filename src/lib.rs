@@ -8,7 +8,6 @@ pub const TINY_DIMENSIONS: (usize, usize) = (320, 256);
 use clap::{Arg, Command};
 
 pub mod core;
-pub mod game;
 pub mod pipeline;
 pub mod util;
 
@@ -55,7 +54,27 @@ impl Metrics {
 
     pub fn update(&mut self, frame_delta: Duration) {
         self.fps_counter += 1;
-        self.frame_times.push(frame_delta.as_secs_f32() * 1000.0);
+
+        let frame_ms = frame_delta.as_secs_f32() * 1000.0;
+        self.frame_times.push(frame_ms);
+        if self.frame_times.len() > 120 {
+            self.frame_times.remove(0);
+        }
+
+        if !self.frame_times.is_empty() {
+            let avg_ms =
+                self.frame_times.iter().sum::<f32>() / self.frame_times.len() as f32;
+            self.frame_time = Duration::from_secs_f32(avg_ms / 1000.0);
+        } else {
+            self.frame_time = Duration::from_secs(0);
+        }
+
+        let elapsed = self.fps_update_timer.elapsed().as_secs_f32();
+        if elapsed >= 1.0 {
+            self.current_fps = self.fps_counter as f32 / elapsed;
+            self.fps_counter = 0;
+            self.fps_update_timer = Instant::now();
+        }
     }
 }
 impl Display for Metrics {
